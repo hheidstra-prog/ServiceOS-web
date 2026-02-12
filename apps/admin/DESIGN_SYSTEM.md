@@ -210,6 +210,32 @@ All in `src/components/ui/`:
 
 ---
 
+## Block Preview System (Page Editor)
+
+The page editor uses a visual block preview with scoped CSS to render site blocks inside the admin app.
+
+### Architecture
+- **Direct rendering** (not iframe) — immediate state updates, native click handlers
+- **Scoped CSS** — all block styles under `.block-preview-scope` in `src/components/preview/block-preview.css`
+- **Theme injection** — OKLCH color palettes + design tokens as inline CSS custom properties
+- **Navigation-safe** — `preview-link.tsx` wraps `<a>` tags with `e.preventDefault()`
+
+### Key Files
+- `src/components/blocks/` — 13 block renderers (copied from web app, Link swapped to preview-link)
+- `src/components/preview/block-preview.css` — Scoped design tokens + utility classes
+- `src/components/preview/block-preview-renderer.tsx` — Main preview component
+- `src/components/preview/block-overlay.tsx` — Per-block hover/select overlay with actions
+- `src/components/preview/preview-theme.ts` — Builds CSS vars from site theme data
+- `src/components/preview/color-utils.ts` — OKLCH palette generation
+
+### Block Types
+`hero`, `text`, `features`, `services`, `testimonials`, `cta`, `contact`, `image`, `stats`, `faq`, `process`, `pricing`, `logos`
+
+### CSS Token System
+Blocks use CSS custom properties (`var(--color-primary-500)`, `var(--radius-card)`, etc.) and utility classes (`.section-padding`, `.card-base`, `.btn-primary`, `.hero-heading`, etc.). All scoped under `.block-preview-scope` to prevent conflict with admin styles.
+
+---
+
 ## Status
 
 ### Completed

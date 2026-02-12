@@ -117,6 +117,18 @@ Client → Project/Assignment → Work (Time Tracking) → Invoice
 
 ---
 
+### Sites & Page Builder
+- AI-powered site generation from chat conversation
+- Moodboard-driven design (upload images, pick colors/fonts, describe style)
+- Visual block preview with click-to-edit in page editor
+- 13 block types: hero, text, features, services, testimonials, cta, contact, image, stats, faq, process, pricing, logos
+- AI chat sidebar for editing blocks in natural language ("make the heading punchier", "change to dark variant")
+- Live preview with site theme (OKLCH color palettes, custom fonts, design tokens)
+- Block overlay with hover/select states, move up/down, delete, and positional insertion
+- Page settings (title, slug, SEO metadata with AI generation)
+- Save draft / publish workflow
+- Multi-tenant web app rendering published sites
+
 ### Time to Invoice
 - Select unbilled time entries by client
 - Group by project, date, or individual entries
@@ -158,11 +170,12 @@ Client → Project/Assignment → Work (Time Tracking) → Invoice
 - Payment providers (Mollie, Stripe)
 - Email notifications
 
-### Client Portal
-- Clients can view their quotes/invoices
-- Accept quotes online
-- Pay invoices online
-- Book appointments
+### Client Portal (partially implemented)
+- [x] Portal login with magic links
+- [x] Dashboard with projects, invoices, bookings
+- [ ] Accept quotes online
+- [ ] Pay invoices online
+- [ ] Book appointments
 
 ---
 
