@@ -1,0 +1,1100 @@
+// ServiceOS - Prisma Schema
+// Multi-tenant architecture with Clerk integration
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================
+// ORGANIZATION & USER MANAGEMENT
+// ===========================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  clerkOrgId  String   @unique // Clerk organization ID
+  name        String
+  slug        String   @unique
+
+  // Business details
+  email       String?
+  phone       String?
+  website     String?
+
+  // Address
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  postalCode    String?
+  country       String   @default("NL")
+
+  // Legal/tax info
+  legalName     String?
+  registrationNumber String? // KvK, Chamber of Commerce, etc.
+  vatNumber     String?
+  iban          String?
+
+  // Branding
+  logo          String?
+  primaryColor  String?
+
+  // Settings
+  defaultCurrency   String @default("EUR")
+  defaultTaxRate    Decimal @default(21) @db.Decimal(5, 2)
+  defaultPaymentTermDays Int @default(14)
+  timezone          String @default("Europe/Amsterdam")
+  locale            String @default("nl")
+
+  // AI settings
+  toneOfVoice   String? // formal, informal, etc.
+  industry      String?
+
+  // Stripe
+  stripeCustomerId  String?
+  stripeAccountId   String? // For connected accounts (receiving payments)
+
+  // Onboarding
+  onboardingCompletedAt DateTime?
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members           OrganizationMember[]
+  clients           Client[]
+  projects          Project[]
+  services          Service[]
+  bookingTypes      BookingType[]
+  bookings          Booking[]
+  quotes            Quote[]
+  contracts         Contract[]
+  invoices          Invoice[]
+  templates         Template[]
+  conversations     Conversation[]
+  availabilities    Availability[]
+  timeEntries       TimeEntry[]
+
+  @@index([clerkOrgId])
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique // Clerk user ID
+  email       String   @unique
+  firstName   String?
+  lastName    String?
+  imageUrl    String?
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  memberships       OrganizationMember[]
+  conversations     Conversation[]
+  messages          Message[]
+  notes             Note[]
+  files             File[]
+  events            Event[]
+
+  @@index([clerkUserId])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MemberRole @default(MEMBER)
+
+  // Timestamps
+  joinedAt       DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+enum MemberRole {
+  OWNER      // Full access, can delete org
+  ADMIN      // Full access except delete org
+  MEMBER     // Standard access
+  BOOKKEEPER // View financials only
+  VIEWER     // Read-only access
+}
+
+// ===========================================
+// CLIENTS
+// ===========================================
+
+model Client {
+  id             String   @id @default(cuid())
+  organizationId String
+
+  // Basic info
+  name           String   // Person or company name
+  email          String?
+  phone          String?
+
+  // Company details (if B2B)
+  companyName    String?
+  registrationNumber String? // KvK, etc.
+  vatNumber      String?
+
+  // Address
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  postalCode     String?
+  country        String?
+
+  // Pipeline
+  status         ClientStatus @default(LEAD)
+
+  // Settings
+  defaultPaymentTermDays Int?
+  currency       String?
+
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  archivedAt     DateTime?
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts       Contact[]
+  bookings       Booking[]
+  quotes         Quote[]
+  contracts      Contract[]
+  invoices       Invoice[]
+  tags           ClientTag[]
+  notes          Note[]
+  files          File[]
+  projects       Project[]
+  events         Event[]
+  timeEntries    TimeEntry[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([email])
+}
+
+enum ClientStatus {
+  LEAD
+  QUOTE_SENT
+  QUOTE_ACCEPTED
+  CONTRACT_SENT
+  CONTRACT_SIGNED
+  ACTIVE
+  COMPLETED
+  INVOICED
+  PAID
+  ARCHIVED
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  clientId  String
+
+  firstName String
+  lastName  String?
+  email     String?
+  phone     String?
+  role      String?  // e.g., "CEO", "Project Manager"
+  isPrimary Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model Tag {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  color          String?
+
+  createdAt      DateTime @default(now())
+
+  clients        ClientTag[]
+
+  @@unique([organizationId, name])
+}
+
+model ClientTag {
+  clientId  String
+  tagId     String
+
+  client    Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tag       Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, tagId])
+}
+
+// ===========================================
+// NOTES
+// ===========================================
+
+model Note {
+  id        String   @id @default(cuid())
+  clientId  String
+  createdById String?
+
+  content   String   @db.Text
+  isPinned  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([clientId, isPinned])
+}
+
+// ===========================================
+// FILES
+// ===========================================
+
+model File {
+  id        String   @id @default(cuid())
+  clientId  String
+  projectId String?
+  uploadedById String?
+
+  name      String
+  fileName  String   // Original filename
+  url       String   // Storage URL
+  mimeType  String?
+  size      Int?     // File size in bytes
+
+  createdAt DateTime @default(now())
+
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  uploadedBy User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+}
+
+// ===========================================
+// PROJECTS
+// ===========================================
+
+model Project {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+
+  name           String
+  description    String?  @db.Text
+
+  status         ProjectStatus @default(NOT_STARTED)
+
+  // Dates
+  startDate      DateTime?
+  endDate        DateTime?
+
+  // Budget (money)
+  budget         Decimal? @db.Decimal(10, 2)
+  currency       String   @default("EUR")
+
+  // Budget (hours)
+  budgetHours    Int?     // Estimated hours for the project
+  hourlyRate     Decimal? @db.Decimal(10, 2)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tasks          ProjectTask[]
+  files          File[]
+  events         Event[]
+  timeEntries    TimeEntry[]
+
+  @@index([organizationId])
+  @@index([clientId])
+}
+
+model ProjectTask {
+  id             String   @id @default(cuid())
+  projectId      String
+
+  title          String
+  description    String?  @db.Text
+  completed      Boolean  @default(false)
+  completedAt    DateTime?
+
+  // Priority and ordering
+  priority       TaskPriority @default(MEDIUM)
+  sortOrder      Int      @default(0)
+
+  // Due date (optional)
+  dueDate        DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+// ===========================================
+// TIME TRACKING
+// ===========================================
+
+model TimeEntry {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String?
+  projectId      String?
+  serviceId      String?
+
+  // Description of work done
+  description    String?
+
+  // Time
+  date           DateTime @db.Date
+  startTime      DateTime?
+  endTime        DateTime?
+  duration       Int      // Duration in minutes
+
+  // Billing
+  billable       Boolean  @default(true)
+  billed         Boolean  @default(false)
+  invoiceItemId  String?  // Link to invoice when billed
+
+  // Hourly rate (can override service/default rate)
+  hourlyRate     Decimal? @db.Decimal(10, 2)
+  currency       String   @default("EUR")
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  service        Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, date])
+  @@index([clientId])
+  @@index([projectId])
+}
+
+// ===========================================
+// EVENTS (Activity Log)
+// ===========================================
+
+model Event {
+  id        String   @id @default(cuid())
+  clientId  String
+  projectId String?
+  createdById String?
+
+  type      EventType
+  title     String
+  description String? @db.Text
+
+  // For scheduled events (appointments, calls)
+  scheduledAt DateTime?
+  completedAt DateTime?
+
+  // Metadata (e.g., email subject, call duration)
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([clientId, type])
+  @@index([scheduledAt])
+}
+
+enum EventType {
+  // Communication
+  EMAIL_SENT
+  EMAIL_RECEIVED
+  CALL
+  MEETING
+
+  // Documents
+  QUOTE_SENT
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  CONTRACT_SENT
+  CONTRACT_SIGNED
+  INVOICE_SENT
+  PAYMENT_RECEIVED
+
+  // General
+  NOTE
+  TASK
+  APPOINTMENT
+  OTHER
+}
+
+// ===========================================
+// SERVICES
+// ===========================================
+
+model Service {
+  id             String   @id @default(cuid())
+  organizationId String
+
+  name           String
+  description    String?
+
+  // Pricing
+  pricingType    PricingType @default(FIXED)
+  price          Decimal     @db.Decimal(10, 2)
+  currency       String      @default("EUR")
+
+  // For hourly/unit pricing
+  unit           String?     // "hour", "day", "session", etc.
+
+  // Tax
+  taxRate        Decimal?    @db.Decimal(5, 2) // Override org default
+  taxExempt      Boolean     @default(false)
+
+  isActive       Boolean     @default(true)
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quoteItems     QuoteItem[]
+  invoiceItems   InvoiceItem[]
+  timeEntries    TimeEntry[]
+
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+}
+
+enum PricingType {
+  FIXED      // One-time fixed price
+  HOURLY     // Per hour
+  DAILY      // Per day
+  MONTHLY    // Recurring monthly
+  CUSTOM     // Custom/variable
+}
+
+// ===========================================
+// BOOKING & SCHEDULING
+// ===========================================
+
+model BookingType {
+  id             String   @id @default(cuid())
+  organizationId String
+
+  name           String   // "Intake", "Consult", "Workshop"
+  description    String?
+  durationMinutes Int     @default(60)
+
+  // Pricing (optional - for paid bookings)
+  price          Decimal? @db.Decimal(10, 2)
+  currency       String   @default("EUR")
+
+  // Settings
+  color          String?
+  isActive       Boolean  @default(true)
+  requiresConfirmation Boolean @default(false)
+
+  // Buffer time
+  bufferBefore   Int      @default(0) // minutes
+  bufferAfter    Int      @default(0) // minutes
+
+  // Custom questions for intake form
+  intakeQuestions Json?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookings       Booking[]
+
+  @@index([organizationId])
+}
+
+model Availability {
+  id             String   @id @default(cuid())
+  organizationId String
+
+  dayOfWeek      Int      // 0 = Sunday, 1 = Monday, etc.
+  startTime      String   // "09:00"
+  endTime        String   // "17:00"
+
+  isActive       Boolean  @default(true)
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Booking {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String?
+  bookingTypeId  String?
+
+  // For non-registered clients
+  guestName      String?
+  guestEmail     String?
+  guestPhone     String?
+
+  // Scheduling
+  startsAt       DateTime
+  endsAt         DateTime
+  timezone       String   @default("Europe/Amsterdam")
+
+  // Status
+  status         BookingStatus @default(PENDING)
+
+  // Location
+  locationType   LocationType @default(ONLINE)
+  location       String?      // Address or meeting link
+
+  // Notes
+  notes          String?
+  internalNotes  String?
+
+  // External calendar
+  externalCalendarId String?
+  externalCalendarEventId String?
+
+  // Reminders
+  reminderSentAt DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  cancelledAt    DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  bookingType    BookingType? @relation(fields: [bookingTypeId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, startsAt])
+  @@index([clientId])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum LocationType {
+  ONLINE
+  AT_PROVIDER  // At the service provider's location
+  AT_CLIENT    // At the client's location
+  OTHER
+}
+
+// ===========================================
+// QUOTES
+// ===========================================
+
+model Quote {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+
+  // Numbering
+  number         String   // e.g., "Q-2024-0001"
+
+  // Content
+  title          String?
+  introduction   String?
+  terms          String?
+
+  // Validity
+  validUntil     DateTime?
+
+  // Status
+  status         QuoteStatus @default(DRAFT)
+
+  // Totals (calculated)
+  subtotal       Decimal  @db.Decimal(10, 2)
+  taxAmount      Decimal  @db.Decimal(10, 2)
+  total          Decimal  @db.Decimal(10, 2)
+  currency       String   @default("EUR")
+
+  // Tracking
+  sentAt         DateTime?
+  viewedAt       DateTime?
+  acceptedAt     DateTime?
+  rejectedAt     DateTime?
+
+  // Access
+  accessToken    String   @unique @default(cuid()) // For public viewing
+
+  // Reminders
+  lastReminderAt DateTime?
+  reminderCount  Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items          QuoteItem[]
+  contract       Contract?
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([clientId])
+  @@index([accessToken])
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model QuoteItem {
+  id          String   @id @default(cuid())
+  quoteId     String
+  serviceId   String?
+
+  // Content
+  description String
+  quantity    Decimal  @db.Decimal(10, 2) @default(1)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+
+  // Tax
+  taxRate     Decimal  @db.Decimal(5, 2) @default(21)
+
+  // Calculated
+  subtotal    Decimal  @db.Decimal(10, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+
+  // Options
+  isOptional  Boolean  @default(false)
+  isSelected  Boolean  @default(true) // For optional items
+
+  // Ordering
+  sortOrder   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
+}
+
+// ===========================================
+// CONTRACTS
+// ===========================================
+
+model Contract {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  quoteId        String?  @unique // Optional link to quote
+
+  // Numbering
+  number         String   // e.g., "C-2024-0001"
+
+  // Content
+  title          String?
+  content        String   @db.Text // The contract text
+
+  // Status
+  status         ContractStatus @default(DRAFT)
+
+  // Signing
+  signedByClientAt    DateTime?
+  signedByClientName  String?
+  signedByClientIp    String?
+  signedByProviderAt  DateTime?
+
+  // Access
+  accessToken    String   @unique @default(cuid())
+
+  // Tracking
+  sentAt         DateTime?
+  viewedAt       DateTime?
+
+  // Reminders
+  lastReminderAt DateTime?
+  reminderCount  Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quote          Quote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([accessToken])
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  VIEWED
+  SIGNED
+  CANCELLED
+}
+
+// ===========================================
+// INVOICES
+// ===========================================
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+
+  // Numbering
+  number         String   // e.g., "2024-0001"
+
+  // Dates
+  issueDate      DateTime @default(now())
+  dueDate        DateTime
+
+  // Status
+  status         InvoiceStatus @default(DRAFT)
+
+  // Content
+  notes          String?
+  paymentTerms   String?
+
+  // Totals
+  subtotal       Decimal  @db.Decimal(10, 2)
+  taxAmount      Decimal  @db.Decimal(10, 2)
+  total          Decimal  @db.Decimal(10, 2)
+  currency       String   @default("EUR")
+
+  // Payment
+  paidAmount     Decimal  @db.Decimal(10, 2) @default(0)
+  paidAt         DateTime?
+
+  // Tracking
+  sentAt         DateTime?
+  viewedAt       DateTime?
+
+  // Access
+  accessToken    String   @unique @default(cuid())
+
+  // Reminders
+  lastReminderAt DateTime?
+  reminderCount  Int      @default(0)
+
+  // For credit notes
+  isCreditNote   Boolean  @default(false)
+  relatedInvoiceId String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items          InvoiceItem[]
+  payments       Payment[]
+  relatedInvoice Invoice?     @relation("CreditNoteRelation", fields: [relatedInvoiceId], references: [id])
+  creditNotes    Invoice[]    @relation("CreditNoteRelation")
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([clientId])
+  @@index([accessToken])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  serviceId   String?
+
+  // Content
+  description String
+  quantity    Decimal  @db.Decimal(10, 2) @default(1)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+
+  // Tax
+  taxRate     Decimal  @db.Decimal(5, 2) @default(21)
+  taxType     TaxType  @default(STANDARD)
+
+  // Calculated
+  subtotal    Decimal  @db.Decimal(10, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+
+  // Ordering
+  sortOrder   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+}
+
+enum TaxType {
+  STANDARD       // Normal VAT rate
+  REDUCED        // Reduced rate (e.g., 9% in NL)
+  ZERO           // 0% rate
+  EXEMPT         // VAT exempt
+  REVERSE_CHARGE // VAT reverse charge (B2B EU)
+}
+
+// ===========================================
+// PAYMENTS
+// ===========================================
+
+model Payment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+
+  // Amount
+  amount      Decimal  @db.Decimal(10, 2)
+  currency    String   @default("EUR")
+
+  // Stripe
+  stripePaymentIntentId String? @unique
+  stripeChargeId        String?
+
+  // Method
+  method      PaymentMethod @default(OTHER)
+
+  // Status
+  status      PaymentStatus @default(PENDING)
+
+  // Details
+  description String?
+  failureReason String?
+
+  // Timestamps
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([stripePaymentIntentId])
+}
+
+enum PaymentMethod {
+  IDEAL
+  CARD
+  SEPA
+  BANCONTACT
+  BANK_TRANSFER
+  CASH
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+// ===========================================
+// AI CONVERSATIONS
+// ===========================================
+
+model Conversation {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+
+  // Metadata
+  title          String?
+
+  // Status
+  isArchived     Boolean  @default(false)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages       Message[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([organizationId, userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String?  // null for AI messages
+
+  role           MessageRole
+  content        String   @db.Text
+
+  // For tool calls / actions taken
+  metadata       Json?
+
+  createdAt      DateTime @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// ===========================================
+// TEMPLATES
+// ===========================================
+
+model Template {
+  id             String   @id @default(cuid())
+  organizationId String?  // null = system template
+
+  type           TemplateType
+  name           String
+  description    String?
+  content        String   @db.Text
+
+  // For system templates
+  isSystem       Boolean  @default(false)
+  isDefault      Boolean  @default(false)
+
+  // Metadata
+  variables      Json?    // Available template variables
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([type])
+}
+
+enum TemplateType {
+  QUOTE
+  CONTRACT
+  INVOICE
+  EMAIL_QUOTE
+  EMAIL_INVOICE
+  EMAIL_REMINDER
+  EMAIL_BOOKING_CONFIRMATION
+  EMAIL_BOOKING_REMINDER
+}
+
+// ===========================================
+// NOTIFICATIONS (for future use)
+// ===========================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+
+  type      String   // e.g., "quote_viewed", "payment_received"
+  title     String
+  message   String?
+
+  // Reference to related entity
+  entityType String?
+  entityId   String?
+
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+}
+
+// ===========================================
+// AUDIT LOG (for future use)
+// ===========================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+
+  action         String   // e.g., "invoice.created", "client.updated"
+  entityType     String
+  entityId       String
+
+  // Changes
+  oldValues      Json?
+  newValues      Json?
+
+  // Context
+  ipAddress      String?
+  userAgent      String?
+
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([organizationId, entityType, entityId])
+  @@index([createdAt])
+}

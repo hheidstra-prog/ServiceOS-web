@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(node -e:*)",
+      "Bash(del:*)",
+      "Bash(findstr:*)",
+      "Bash(dir /b \"C:\\\\code\\\\launchminds\\\\ServiceOS\\\\package.json\")",
+      "Bash(powershell -Command:*)",
+      "Bash(netstat:*)",
+      "Bash(curl:*)",
+      "Bash(npx next build:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(git -C \"C:/code/launchminds/ServiceOS\" ls-files --stage)",
+      "Bash(git -C \"C:/code/launchminds/ServiceOS\" config --list --local)",
+      "Bash(git add:*)",
+      "Bash(GIT_TRACE=1 git add:*)",
+      "Bash(git config:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd chat-based AI block editing in page editor\n\nAdd conversational block editing via a new \"AI\" tab in the page editor\nsidebar. Users can select a block, describe changes in natural language,\nand the AI updates the block content live using Claude''s tool_use pattern.\n\n- Add chatEditBlockContent\\(\\) with update_block tool in ai-site-generator\n- Add aiChatEditBlock\\(\\) server action with auth + site ownership checks\n- Create BlockChat component with message bubbles, auto-scroll, per-block\n  example prompts, loading state, and \"Block updated\" indicators\n- Add AI tab to page editor with per-block chat history persistence\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npx prisma db execute:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(wc:*)",
+      "Bash(git -C \"C:/code/launchminds/ServiceOS\" rev-parse --show-toplevel)"
+    ]
+  }
+}

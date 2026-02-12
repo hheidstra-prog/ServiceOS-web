@@ -1,0 +1,605 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Search,
+  Calendar,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  MapPin,
+  User,
+  MoreHorizontal,
+  CheckCircle,
+  XCircle,
+  Settings,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { BookingStatus, LocationType } from "@serviceos/database";
+import { cancelBooking, confirmBooking, completeBooking, markNoShow } from "./actions";
+import { NewBookingDialog } from "./new-booking-dialog";
+import { BookingTypesDialog } from "./booking-types-dialog";
+
+interface BookingType {
+  id: string;
+  name: string;
+  description: string | null;
+  durationMinutes: number;
+  price: number | null;
+  currency: string;
+  color: string | null;
+  isActive: boolean;
+  requiresConfirmation: boolean;
+  bufferBefore: number;
+  bufferAfter: number;
+}
+
+interface Booking {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  status: BookingStatus;
+  locationType: LocationType;
+  location: string | null;
+  notes: string | null;
+  guestName: string | null;
+  guestEmail: string | null;
+  client: {
+    id: string;
+    name: string;
+    companyName: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+  bookingType: {
+    id: string;
+    name: string;
+    durationMinutes: number;
+    color: string | null;
+  } | null;
+}
+
+interface BookingsListProps {
+  initialBookings: Booking[];
+  bookingTypes: BookingType[];
+}
+
+const statusConfig: Record<BookingStatus, { label: string; className: string; borderColor: string }> = {
+  PENDING: {
+    label: "Pending",
+    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    borderColor: "border-l-amber-500",
+  },
+  CONFIRMED: {
+    label: "Confirmed",
+    className: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+    borderColor: "border-l-sky-500",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    className: "bg-zinc-500/10 text-zinc-500 dark:text-zinc-500",
+    borderColor: "border-l-zinc-400",
+  },
+  COMPLETED: {
+    label: "Completed",
+    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    borderColor: "border-l-emerald-500",
+  },
+  NO_SHOW: {
+    label: "No Show",
+    className: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+    borderColor: "border-l-rose-500",
+  },
+};
+
+const locationTypeLabels: Record<LocationType, string> = {
+  ONLINE: "Online",
+  AT_PROVIDER: "At Office",
+  AT_CLIENT: "At Client",
+  OTHER: "Other",
+};
+
+function formatTime(date: Date) {
+  return new Date(date).toLocaleTimeString("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDate(date: Date) {
+  return new Date(date).toLocaleDateString("nl-NL", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatDateLong(date: Date) {
+  return new Date(date).toLocaleDateString("nl-NL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getMonthDays(year: number, month: number) {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startDayOfWeek = firstDay.getDay();
+
+  // Adjust for Monday start (0 = Monday, 6 = Sunday)
+  const adjustedStartDay = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+
+  const days: (Date | null)[] = [];
+
+  // Add empty slots for days before the first of the month
+  for (let i = 0; i < adjustedStartDay; i++) {
+    days.push(null);
+  }
+
+  // Add all days of the month
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(new Date(year, month, i));
+  }
+
+  return days;
+}
+
+export function BookingsList({ initialBookings, bookingTypes }: BookingsListProps) {
+  const router = useRouter();
+  const [bookings] = useState(initialBookings);
+  const [view, setView] = useState<"calendar" | "list">("list");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BookingStatus | "ALL">("ALL");
+  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+  const [isTypesDialogOpen, setIsTypesDialogOpen] = useState(false);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const monthDays = getMonthDays(year, month);
+
+  const filteredBookings = bookings.filter((booking) => {
+    const searchLower = search.toLowerCase();
+    const clientName = booking.client?.name || booking.guestName || "";
+    const companyName = booking.client?.companyName || "";
+    const typeName = booking.bookingType?.name || "";
+
+    const matchesSearch =
+      clientName.toLowerCase().includes(searchLower) ||
+      companyName.toLowerCase().includes(searchLower) ||
+      typeName.toLowerCase().includes(searchLower);
+
+    const matchesStatus = statusFilter === "ALL" || booking.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  // Group bookings by date for list view
+  const bookingsByDate = filteredBookings.reduce(
+    (acc, booking) => {
+      const dateKey = new Date(booking.startsAt).toDateString();
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(booking);
+      return acc;
+    },
+    {} as Record<string, Booking[]>
+  );
+
+  const sortedDates = Object.keys(bookingsByDate).sort(
+    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+  );
+
+  const handleConfirm = async (id: string) => {
+    try {
+      await confirmBooking(id);
+      toast.success("Booking confirmed");
+      router.refresh();
+    } catch {
+      toast.error("Failed to confirm booking");
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    try {
+      await cancelBooking(id);
+      toast.success("Booking cancelled");
+      router.refresh();
+    } catch {
+      toast.error("Failed to cancel booking");
+    }
+  };
+
+  const handleComplete = async (id: string) => {
+    try {
+      await completeBooking(id);
+      toast.success("Booking marked as completed");
+      router.refresh();
+    } catch {
+      toast.error("Failed to complete booking");
+    }
+  };
+
+  const handleNoShow = async (id: string) => {
+    try {
+      await markNoShow(id);
+      toast.success("Booking marked as no-show");
+      router.refresh();
+    } catch {
+      toast.error("Failed to mark no-show");
+    }
+  };
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Get bookings for a specific day (for calendar view)
+  const getBookingsForDay = (day: Date | null) => {
+    if (!day) return [];
+    return filteredBookings.filter((booking) => {
+      const bookingDate = new Date(booking.startsAt);
+      return (
+        bookingDate.getDate() === day.getDate() &&
+        bookingDate.getMonth() === day.getMonth() &&
+        bookingDate.getFullYear() === day.getFullYear()
+      );
+    });
+  };
+
+  const isToday = (day: Date | null) => {
+    if (!day) return false;
+    const today = new Date();
+    return (
+      day.getDate() === today.getDate() &&
+      day.getMonth() === today.getMonth() &&
+      day.getFullYear() === today.getFullYear()
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+            Bookings
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Manage appointments and schedule.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsTypesDialogOpen(true)} variant="outline" size="sm">
+            <Settings className="mr-1.5 h-4 w-4" />
+            Booking Types
+          </Button>
+          <Button onClick={() => setIsNewDialogOpen(true)} size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            New booking
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters & View Toggle */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="search"
+              placeholder="Search bookings..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-full rounded-md border border-zinc-950/10 bg-white pl-8 pr-3 text-sm text-zinc-950 placeholder:text-zinc-400 transition-colors focus:border-zinc-950/20 focus:bg-sky-50/50 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-sky-950/20"
+            />
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(["ALL", "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  statusFilter === status
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {status === "ALL" ? "All" : statusConfig[status].label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border border-zinc-950/10 dark:border-white/10">
+            <button
+              onClick={() => setView("list")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${
+                view === "list"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              } rounded-l-md`}
+            >
+              <List className="h-3.5 w-3.5" />
+              List
+            </button>
+            <button
+              onClick={() => setView("calendar")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${
+                view === "calendar"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              } rounded-r-md`}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Calendar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendar Navigation (only in calendar view) */}
+      {view === "calendar" && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon-sm" onClick={prevMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon-sm" onClick={nextMonth}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={goToToday}>
+              Today
+            </Button>
+          </div>
+          <h2 className="text-lg font-semibold text-zinc-950 dark:text-white">
+            {currentDate.toLocaleDateString("nl-NL", { month: "long", year: "numeric" })}
+          </h2>
+        </div>
+      )}
+
+      {/* Content */}
+      {view === "calendar" ? (
+        // Calendar View
+        <Card>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-7 border-b border-zinc-950/10 dark:border-white/10">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                <div
+                  key={day}
+                  className="py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {monthDays.map((day, index) => {
+                const dayBookings = getBookingsForDay(day);
+                return (
+                  <div
+                    key={index}
+                    className={`min-h-[100px] border-b border-r border-zinc-950/10 p-1 dark:border-white/10 ${
+                      index % 7 === 6 ? "border-r-0" : ""
+                    } ${!day ? "bg-zinc-50 dark:bg-zinc-900" : ""}`}
+                  >
+                    {day && (
+                      <>
+                        <div
+                          className={`mb-1 text-xs font-medium ${
+                            isToday(day)
+                              ? "flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 text-white"
+                              : "text-zinc-500 dark:text-zinc-400"
+                          }`}
+                        >
+                          {day.getDate()}
+                        </div>
+                        <div className="space-y-0.5">
+                          {dayBookings.slice(0, 3).map((booking) => (
+                            <Link
+                              key={booking.id}
+                              href={`/bookings/${booking.id}`}
+                              className={`block truncate rounded px-1 py-0.5 text-xs border-l-2 ${
+                                statusConfig[booking.status].borderColor
+                              } bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700`}
+                              style={{
+                                borderLeftColor: booking.bookingType?.color || undefined,
+                              }}
+                            >
+                              <span className="font-medium">{formatTime(booking.startsAt)}</span>{" "}
+                              {booking.client?.name || booking.guestName}
+                            </Link>
+                          ))}
+                          {dayBookings.length > 3 && (
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              +{dayBookings.length - 3} more
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        // List View
+        <>
+          {filteredBookings.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="rounded-full bg-zinc-100 p-2.5 dark:bg-zinc-800">
+                  <Calendar className="h-5 w-5 text-zinc-400" />
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-zinc-950 dark:text-white">
+                  {bookings.length === 0 ? "No bookings yet" : "No bookings found"}
+                </h3>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                  {bookings.length === 0
+                    ? "Create your first booking to get started."
+                    : "Try adjusting your search or filters."}
+                </p>
+                {bookings.length === 0 && (
+                  <Button onClick={() => setIsNewDialogOpen(true)} size="sm" className="mt-4">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    New booking
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {sortedDates.map((dateKey) => (
+                <div key={dateKey}>
+                  <h3 className="mb-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    {formatDateLong(new Date(dateKey))}
+                  </h3>
+                  <div className="space-y-2">
+                    {bookingsByDate[dateKey]
+                      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+                      .map((booking) => {
+                        const config = statusConfig[booking.status];
+                        return (
+                          <Card key={booking.id} className={`border-l-4 ${config.borderColor}`}>
+                            <CardContent className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-4">
+                                <div className="text-center">
+                                  <p className="text-lg font-semibold text-zinc-950 dark:text-white">
+                                    {formatTime(booking.startsAt)}
+                                  </p>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {formatTime(booking.endsAt)}
+                                  </p>
+                                </div>
+                                <div className="border-l border-zinc-200 pl-4 dark:border-zinc-700">
+                                  <div className="flex items-center gap-2">
+                                    <Link
+                                      href={`/bookings/${booking.id}`}
+                                      className="font-medium text-zinc-950 hover:underline dark:text-white"
+                                    >
+                                      {booking.client?.name ||
+                                        booking.guestName ||
+                                        "No client assigned"}
+                                    </Link>
+                                    <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
+                                      {config.label}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+                                    {booking.bookingType && (
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {booking.bookingType.name} ({booking.bookingType.durationMinutes}min)
+                                      </span>
+                                    )}
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {locationTypeLabels[booking.locationType]}
+                                    </span>
+                                    {booking.client && (
+                                      <Link
+                                        href={`/clients/${booking.client.id}`}
+                                        className="flex items-center gap-1 hover:underline"
+                                      >
+                                        <User className="h-3 w-3" />
+                                        View client
+                                      </Link>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon-xs">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/bookings/${booking.id}`}>View details</Link>
+                                  </DropdownMenuItem>
+                                  {booking.status === "PENDING" && (
+                                    <DropdownMenuItem onClick={() => handleConfirm(booking.id)}>
+                                      <CheckCircle className="mr-2 h-4 w-4" />
+                                      Confirm
+                                    </DropdownMenuItem>
+                                  )}
+                                  {booking.status === "CONFIRMED" && (
+                                    <>
+                                      <DropdownMenuItem onClick={() => handleComplete(booking.id)}>
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        Mark completed
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleNoShow(booking.id)}>
+                                        No show
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {["PENDING", "CONFIRMED"].includes(booking.status) && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => handleCancel(booking.id)}
+                                        variant="destructive"
+                                      >
+                                        <XCircle className="mr-2 h-4 w-4" />
+                                        Cancel
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Dialogs */}
+      <NewBookingDialog
+        open={isNewDialogOpen}
+        onOpenChange={setIsNewDialogOpen}
+        bookingTypes={bookingTypes}
+      />
+      <BookingTypesDialog
+        open={isTypesDialogOpen}
+        onOpenChange={setIsTypesDialogOpen}
+        bookingTypes={bookingTypes}
+      />
+    </div>
+  );
+}

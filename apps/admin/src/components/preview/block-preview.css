@@ -1,0 +1,347 @@
+/*
+ * Block Preview — Scoped Styles
+ * All block utility classes from the web app's globals.css,
+ * scoped under .block-preview-scope to prevent conflict with admin CSS.
+ */
+
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS — CSS Custom Properties (defaults)
+   ═══════════════════════════════════════════════════════ */
+
+.block-preview-scope {
+  /* ─── Semantic Surface Tokens (light mode defaults) ─── */
+  --color-surface:              #ffffff;
+  --color-surface-alt:          #f4f4f5;
+  --color-surface-inset:        #fafafa;
+  --color-card:                 #ffffff;
+  --color-card-hover:           #fafafa;
+  --color-on-surface:           #18181b;
+  --color-on-surface-secondary: #52525b;
+  --color-on-surface-muted:     #a1a1aa;
+  --color-border:               #e4e4e7;
+  --color-border-subtle:        #f4f4f5;
+  --color-input-border:         #d4d4d8;
+
+  /* ─── Color palette defaults ─── */
+  --color-primary-50: oklch(0.97 0.02 250);
+  --color-primary-100: oklch(0.93 0.04 250);
+  --color-primary-200: oklch(0.86 0.08 250);
+  --color-primary-300: oklch(0.76 0.12 250);
+  --color-primary-400: oklch(0.64 0.16 250);
+  --color-primary-500: oklch(0.53 0.19 250);
+  --color-primary-600: oklch(0.45 0.18 250);
+  --color-primary-700: oklch(0.39 0.15 250);
+  --color-primary-800: oklch(0.33 0.12 250);
+  --color-primary-900: oklch(0.28 0.09 250);
+  --color-primary-950: oklch(0.20 0.06 250);
+
+  --color-secondary-50: oklch(0.97 0.02 160);
+  --color-secondary-100: oklch(0.93 0.04 160);
+  --color-secondary-200: oklch(0.86 0.08 160);
+  --color-secondary-300: oklch(0.76 0.12 160);
+  --color-secondary-400: oklch(0.64 0.16 160);
+  --color-secondary-500: oklch(0.53 0.19 160);
+  --color-secondary-600: oklch(0.45 0.18 160);
+  --color-secondary-700: oklch(0.39 0.15 160);
+  --color-secondary-800: oklch(0.33 0.12 160);
+  --color-secondary-900: oklch(0.28 0.09 160);
+  --color-secondary-950: oklch(0.20 0.06 160);
+
+  /* ─── Font Families ─── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+
+  /* ─── Typography ─── */
+  --heading-weight: 700;
+  --heading-tracking: -0.025em;
+  --heading-line-height: 1.15;
+  --heading-transform: none;
+  --body-line-height: 1.7;
+  --hero-heading-size: clamp(2.5rem, 6vw, 4rem);
+  --section-heading-size: clamp(1.75rem, 3vw, 2.25rem);
+  --subheading-size: 1.125rem;
+
+  /* ─── Spacing ─── */
+  --section-padding-y: 4rem;
+  --section-padding-y-lg: 6rem;
+  --section-gap: 3rem;
+  --card-padding: 2rem;
+  --content-max-width: 80rem;
+
+  /* ─── Shape ─── */
+  --radius-card: 1rem;
+  --radius-button: 0.5rem;
+  --radius-input: 0.5rem;
+  --radius-badge: 9999px;
+  --card-border-width: 1px;
+  --card-border-color: var(--color-border);
+
+  /* ─── Shadows & Glows ─── */
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-card-hover: 0 10px 25px -5px rgb(0 0 0 / 0.08), 0 4px 10px -6px rgb(0 0 0 / 0.04);
+  --glow-card-hover: none;
+  --glow-button: none;
+
+  /* ─── Gradients & Decorative ─── */
+  --hero-gradient: linear-gradient(to bottom, var(--color-primary-50), var(--color-surface));
+  --gradient-primary: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-700));
+  --gradient-accent: linear-gradient(135deg, var(--color-primary-600), var(--color-secondary-600));
+  --bg-pattern: none;
+
+  /* ─── Animations & Transitions ─── */
+  --transition-duration: 200ms;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+  --hover-translate-y: -2px;
+  --hover-scale: 1.00;
+
+  /* ─── Buttons ─── */
+  --button-padding-x: 1.5rem;
+  --button-padding-y: 0.75rem;
+  --button-font-weight: 500;
+  --button-text-transform: none;
+  --button-tracking: normal;
+
+  /* ─── Icon Containers ─── */
+  --icon-container-size: 2.5rem;
+  --icon-container-radius: 0.75rem;
+  --icon-container-bg: var(--color-primary-100);
+  --icon-container-color: var(--color-primary-600);
+
+  /* Base font family */
+  font-family: var(--font-sans);
+  color: var(--color-on-surface);
+}
+
+/* ─── Dark Mode Token Overrides ─── */
+.block-preview-scope[data-color-mode="dark"] {
+  --color-surface:              #0a0a0b;
+  --color-surface-alt:          #18181b;
+  --color-surface-inset:        #111113;
+  --color-card:                 #18181b;
+  --color-card-hover:           #27272a;
+  --color-on-surface:           #f4f4f5;
+  --color-on-surface-secondary: #a1a1aa;
+  --color-on-surface-muted:     #71717a;
+  --color-border:               #27272a;
+  --color-border-subtle:        #1c1c1f;
+  --color-input-border:         #3f3f46;
+
+  --card-border-color: var(--color-border);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.15);
+  --shadow-card-hover: 0 10px 25px -5px rgb(0 0 0 / 0.3), 0 4px 10px -6px rgb(0 0 0 / 0.2);
+  --hero-gradient: linear-gradient(to bottom, var(--color-primary-950), var(--color-surface));
+  --icon-container-bg: var(--color-primary-950);
+  --icon-container-color: var(--color-primary-400);
+}
+
+/* ═══════════════════════════════════════════════════════
+   UTILITY CLASSES — Token-driven, used by block components
+   ═══════════════════════════════════════════════════════ */
+
+/* Section spacing */
+.block-preview-scope .section-padding {
+  padding-top: var(--section-padding-y);
+  padding-bottom: var(--section-padding-y);
+}
+@media (min-width: 640px) {
+  .block-preview-scope .section-padding {
+    padding-top: var(--section-padding-y-lg);
+    padding-bottom: var(--section-padding-y-lg);
+  }
+}
+
+/* Card base */
+.block-preview-scope .card-base {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  border: var(--card-border-width) solid var(--card-border-color);
+  box-shadow: var(--shadow-card);
+  padding: var(--card-padding);
+}
+
+/* Interactive card */
+.block-preview-scope .card-interactive {
+  transition: transform var(--transition-duration) var(--transition-timing),
+              box-shadow var(--transition-duration) var(--transition-timing),
+              border-color var(--transition-duration) var(--transition-timing);
+}
+.block-preview-scope .card-interactive:hover {
+  transform: translateY(var(--hover-translate-y)) scale(var(--hover-scale));
+  box-shadow: var(--shadow-card-hover), var(--glow-card-hover, 0 0 0 transparent);
+  border-color: var(--color-primary-400);
+}
+
+/* Primary button */
+.block-preview-scope .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--button-padding-y) var(--button-padding-x);
+  background: var(--gradient-primary);
+  color: white;
+  font-weight: var(--button-font-weight);
+  text-transform: var(--button-text-transform);
+  letter-spacing: var(--button-tracking);
+  border-radius: var(--radius-button);
+  box-shadow: var(--glow-button, none);
+  transition: opacity var(--transition-duration) var(--transition-timing),
+              transform var(--transition-duration) var(--transition-timing),
+              box-shadow var(--transition-duration) var(--transition-timing);
+}
+.block-preview-scope .btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Secondary button */
+.block-preview-scope .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--button-padding-y) var(--button-padding-x);
+  background: transparent;
+  color: var(--color-on-surface-secondary);
+  font-weight: var(--button-font-weight);
+  text-transform: var(--button-text-transform);
+  letter-spacing: var(--button-tracking);
+  border-radius: var(--radius-button);
+  border: 1px solid var(--color-input-border);
+  transition: background var(--transition-duration) var(--transition-timing),
+              color var(--transition-duration) var(--transition-timing),
+              border-color var(--transition-duration) var(--transition-timing);
+}
+.block-preview-scope .btn-secondary:hover {
+  background: var(--color-card-hover);
+  color: var(--color-on-surface);
+  border-color: var(--color-on-surface-muted);
+}
+
+/* Icon container */
+.block-preview-scope .icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-container-size);
+  height: var(--icon-container-size);
+  border-radius: var(--icon-container-radius);
+  background: var(--icon-container-bg);
+  color: var(--icon-container-color);
+  flex-shrink: 0;
+}
+
+/* Section heading */
+.block-preview-scope .section-heading {
+  font-family: var(--font-heading);
+  font-size: var(--section-heading-size);
+  font-weight: var(--heading-weight);
+  letter-spacing: var(--heading-tracking);
+  line-height: var(--heading-line-height);
+  text-transform: var(--heading-transform);
+  color: var(--color-on-surface);
+}
+
+/* Hero heading */
+.block-preview-scope .hero-heading {
+  font-family: var(--font-heading);
+  font-size: var(--hero-heading-size);
+  font-weight: var(--heading-weight);
+  letter-spacing: var(--heading-tracking);
+  line-height: var(--heading-line-height);
+  text-transform: var(--heading-transform);
+  color: var(--color-on-surface);
+}
+
+/* Gradient text effect */
+.block-preview-scope .gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Hero gradient background */
+.block-preview-scope .bg-hero-gradient {
+  background: var(--hero-gradient);
+}
+
+/* Basic prose styles (avoids @tailwindcss/typography dependency) */
+.block-preview-scope .prose {
+  color: var(--color-on-surface-secondary);
+  line-height: var(--body-line-height);
+}
+.block-preview-scope .prose h1,
+.block-preview-scope .prose h2,
+.block-preview-scope .prose h3,
+.block-preview-scope .prose h4 {
+  color: var(--color-on-surface);
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+.block-preview-scope .prose h1 { font-size: 2em; }
+.block-preview-scope .prose h2 { font-size: 1.5em; }
+.block-preview-scope .prose h3 { font-size: 1.25em; }
+.block-preview-scope .prose p {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+.block-preview-scope .prose a {
+  color: var(--color-primary-600);
+  text-decoration: underline;
+}
+.block-preview-scope .prose strong {
+  color: var(--color-on-surface);
+  font-weight: 600;
+}
+.block-preview-scope .prose ul,
+.block-preview-scope .prose ol {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  padding-left: 1.5em;
+}
+.block-preview-scope .prose li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+.block-preview-scope .prose blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: var(--color-on-surface);
+  font-style: italic;
+}
+.block-preview-scope .prose hr {
+  border-color: var(--color-border);
+  margin: 2em 0;
+}
+.block-preview-scope .prose code {
+  color: var(--color-on-surface);
+  background: var(--color-surface-alt);
+  padding: 0.15em 0.4em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
+}
+.block-preview-scope .prose pre {
+  background: var(--color-surface-alt);
+  padding: 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+/* Dark prose overrides */
+.block-preview-scope[data-color-mode="dark"] .prose {
+  --tw-prose-body: var(--color-on-surface-secondary);
+  --tw-prose-headings: var(--color-on-surface);
+  --tw-prose-links: var(--color-primary-400);
+  --tw-prose-bold: var(--color-on-surface);
+  --tw-prose-hr: var(--color-border);
+  --tw-prose-quotes: var(--color-on-surface);
+  --tw-prose-quote-borders: var(--color-border);
+  --tw-prose-code: var(--color-on-surface);
+  --tw-prose-pre-bg: var(--color-surface-alt);
+}
+.block-preview-scope[data-color-mode="dark"] .prose a {
+  color: var(--color-primary-400);
+}

@@ -1,0 +1,217 @@
+﻿Categorie,Feature,Beschrijving,Fase,MoSCoW,Impact
+Onboarding,AI onboarding gesprek,"Interactief gesprek dat account opzet: diensten, prijzen, bedrijfsgegevens",Fase 1 - MVP,Must,Hoog
+Onboarding,Diensten configuratie,"Diensten aanmaken met naam, beschrijving, prijs (uur/vast/maand)",Fase 1 - MVP,Must,Hoog
+Onboarding,Bedrijfsprofiel,"KvK, BTW-nummer, IBAN, NAW, logo upload",Fase 1 - MVP,Must,Hoog
+Onboarding,Tone of voice instelling,"AI leert communicatiestijl: formeel/informeel, branche-specifiek",Fase 1 - MVP,Should,Middel
+Onboarding,Import vanuit bestaande tools,Klantdata importeren uit CSV/Excel,Fase 2 - Website & Polish,Could,Laag
+Onboarding,Guided tour / tooltips,Interactieve rondleiding door de app na onboarding,Fase 2 - Website & Polish,Should,Middel
+AI Chat Interface,Chat interface,Primaire interface voor interactie met het systeem,Fase 1 - MVP,Must,Hoog
+AI Chat Interface,Acties via chat,"Offerte sturen, factuur maken, klant aanmaken via natuurlijke taal",Fase 1 - MVP,Must,Hoog
+AI Chat Interface,Context-awareness,"AI kent klanten, diensten, prijzen, historie van de gebruiker",Fase 1 - MVP,Must,Hoog
+AI Chat Interface,Informatie opvragen,"""Hoeveel omzet deze maand?"", ""Welke facturen staan open?""",Fase 1 - MVP,Must,Hoog
+AI Chat Interface,Suggesties & proactief,"""Je hebt Klant X al 3 maanden niet gesproken""",Fase 2 - Website & Polish,Should,Middel
+AI Chat Interface,Dagelijkse briefing,"""Goedemorgen, dit staat vandaag op je planning...""",Fase 2 - Website & Polish,Should,Middel
+AI Chat Interface,Bulk acties via chat,"""Stuur alle klanten met openstaande facturen een herinnering""",Fase 3 - Groei,Could,Middel
+AI Chat Interface,Voice input,Spraak-naar-tekst voor chat commando's,Fase 4 - Schaal,Could,Laag
+AI Chat Interface,Chat geschiedenis,Doorzoekbare historie van alle gesprekken/acties,Fase 2 - Website & Polish,Should,Middel
+Klantenbeheer,Klant aanmaken/bewerken,"Naam, bedrijf, email, telefoon, adres, notities",Fase 1 - MVP,Must,Hoog
+Klantenbeheer,Klantoverzicht,Lijst van alle klanten met zoek/filter,Fase 1 - MVP,Must,Hoog
+Klantenbeheer,Klant detail pagina,"Alle info, historie, offertes, facturen, notities bij elkaar",Fase 1 - MVP,Must,Hoog
+Klantenbeheer,Pipeline/status tracking,Lead → Offerte → Contract → Actief → Afgerond → Gefactureerd,Fase 1 - MVP,Must,Hoog
+Klantenbeheer,Notities bij klant,Vrije notities toevoegen aan klantprofiel,Fase 1 - MVP,Should,Middel
+Klantenbeheer,Tags/labels,"Klanten categoriseren (branche, type, etc)",Fase 2 - Website & Polish,Could,Laag
+Klantenbeheer,Klant archiveren,Inactieve klanten archiveren zonder te verwijderen,Fase 2 - Website & Polish,Should,Laag
+Klantenbeheer,Contactpersonen per bedrijf,Meerdere contacten per organisatie,Fase 3 - Groei,Could,Middel
+Klantenbeheer,Klant self-service profiel,Klant kan eigen gegevens bijwerken,Fase 3 - Groei,Could,Laag
+Klantenbeheer,KvK lookup,Bedrijfsgegevens auto-fill via KvK API,Fase 3 - Groei,Could,Middel
+Booking,Publieke booking link,Deelbare link waarop klanten afspraken kunnen inplannen,Fase 1 - MVP,Must,Hoog
+Booking,Beschikbaarheid instellen,"Werkdagen, tijden, pauzes configureren",Fase 1 - MVP,Must,Hoog
+Booking,Afspraaktypes,"Verschillende types: intake, consult, workshop, etc met eigen duur/prijs",Fase 1 - MVP,Must,Hoog
+Booking,Google Calendar sync,Twee-weg sync met Google Calendar,Fase 1 - MVP,Must,Hoog
+Booking,Automatische bevestiging,Email bevestiging na boeking,Fase 1 - MVP,Must,Hoog
+Booking,Automatische herinnering,Herinnering X uur voor afspraak,Fase 1 - MVP,Should,Middel
+Booking,Intake formulier bij booking,"Vragen stellen bij het boeken (wat is je vraag, budget, etc)",Fase 2 - Website & Polish,Should,Middel
+Booking,Buffer tijd tussen afspraken,Automatische pauze tussen meetings,Fase 2 - Website & Polish,Should,Laag
+Booking,Outlook Calendar sync,Sync met Microsoft/Outlook kalender,Fase 3 - Groei,Could,Middel
+Booking,Groepsbookings,Meerdere deelnemers per sessie (workshops),Fase 3 - Groei,Could,Middel
+Booking,Betaalde bookings,Direct betalen bij het boeken via Mollie,Fase 2 - Website & Polish,Should,Middel
+Booking,Herhalende afspraken,Wekelijks/maandelijks terugkerende bookings,Fase 3 - Groei,Could,Middel
+Booking,Wachtlijst,Wachtlijst als tijdslot vol is,Fase 4 - Schaal,Could,Laag
+Booking,Meerdere locaties,"Online, op locatie, bij klant - per afspraaktype",Fase 2 - Website & Polish,Could,Laag
+Booking,No-show beleid,Automatische afhandeling bij niet opdagen,Fase 3 - Groei,Could,Laag
+Offertes,Offerte templates,Herbruikbare templates als startpunt,Fase 1 - MVP,Must,Hoog
+Offertes,AI offerte generatie,Offerte schrijven op basis van korte input/gesprek,Fase 1 - MVP,Must,Hoog
+Offertes,Offerte versturen,Per email met unieke link,Fase 1 - MVP,Must,Hoog
+Offertes,Online offerte bekijken,Klant bekijkt offerte via browser,Fase 1 - MVP,Must,Hoog
+Offertes,Offerte accepteren,Klant kan digitaal akkoord geven,Fase 1 - MVP,Must,Hoog
+Offertes,Status tracking,"Verstuurd, bekeken, geaccepteerd, afgewezen, verlopen",Fase 1 - MVP,Must,Hoog
+Offertes,Automatische herinnering,Herinnering als offerte X dagen onbeantwoord,Fase 1 - MVP,Should,Middel
+Offertes,Offerte dupliceren,Bestaande offerte kopiëren als basis voor nieuwe,Fase 2 - Website & Polish,Should,Laag
+Offertes,Meerdere diensten per offerte,Offerte met meerdere regels/opties,Fase 1 - MVP,Must,Middel
+Offertes,Optionele regels,Klant kan optionele items aan/uit zetten,Fase 2 - Website & Polish,Could,Middel
+Offertes,Geldigheid instellen,Offerte geldig tot datum X,Fase 1 - MVP,Should,Laag
+Offertes,PDF export,Offerte downloaden als PDF,Fase 2 - Website & Polish,Should,Middel
+Offertes,Offerte versies,Bijhouden van wijzigingen/versies,Fase 3 - Groei,Could,Laag
+Offertes,Bekijk-notificatie,Notificatie wanneer klant offerte opent,Fase 2 - Website & Polish,Should,Middel
+Contracten,Contract templates,Juridisch correcte NL templates,Fase 1 - MVP,Must,Hoog
+Contracten,Auto-fill vanuit offerte,Contract data automatisch overnemen uit geaccepteerde offerte,Fase 1 - MVP,Must,Hoog
+Contracten,E-signing,"Digitale handtekening, rechtsgeldig",Fase 1 - MVP,Must,Hoog
+Contracten,Contract versturen,Per email met unieke link,Fase 1 - MVP,Must,Hoog
+Contracten,Status tracking,"Verstuurd, bekeken, getekend",Fase 1 - MVP,Must,Hoog
+Contracten,Automatische herinnering,Herinnering als contract niet getekend,Fase 1 - MVP,Should,Middel
+Contracten,AI contract generatie,Contract tekst genereren op basis van context,Fase 2 - Website & Polish,Should,Middel
+Contracten,Algemene voorwaarden bijvoegen,AV als bijlage meesturen,Fase 2 - Website & Polish,Should,Middel
+Contracten,PDF export,Getekend contract downloaden als PDF,Fase 2 - Website & Polish,Should,Middel
+Contracten,Contract archief,Alle contracten doorzoekbaar bewaard,Fase 2 - Website & Polish,Should,Laag
+Contracten,Meerdere ondertekenaars,Contract door meerdere partijen laten tekenen,Fase 3 - Groei,Could,Middel
+Contracten,Contractverlenging,Automatisch verlengen of herinnering bij afloop,Fase 3 - Groei,Could,Middel
+Facturatie,Factuur templates,NL-conforme factuur templates,Fase 1 - MVP,Must,Hoog
+Facturatie,Factuur genereren,Handmatig of automatisch vanuit project/contract,Fase 1 - MVP,Must,Hoog
+Facturatie,AI factuur generatie,"Factuur maken via chat: ""factureer project X""",Fase 1 - MVP,Must,Hoog
+Facturatie,Factuurnummering,"Automatisch opvolgend, configureerbaar format",Fase 1 - MVP,Must,Hoog
+Facturatie,BTW berekening,"21%, 9%, 0%, verlegd - automatisch",Fase 1 - MVP,Must,Hoog
+Facturatie,Factuur versturen,Per email met betaallink,Fase 1 - MVP,Must,Hoog
+Facturatie,Mollie integratie,"iDEAL, creditcard, Bancontact",Fase 1 - MVP,Must,Hoog
+Facturatie,Betalingsherinnering,Automatisch na verlopen betalingstermijn,Fase 1 - MVP,Must,Hoog
+Facturatie,Status tracking,"Concept, verstuurd, bekeken, betaald, te laat",Fase 1 - MVP,Must,Hoog
+Facturatie,Betalingstermijn,Instelbaar per klant of standaard (14/30/60 dagen),Fase 1 - MVP,Should,Middel
+Facturatie,PDF export,Factuur als PDF downloaden,Fase 1 - MVP,Should,Middel
+Facturatie,Creditnota,Credit factuur aanmaken,Fase 2 - Website & Polish,Should,Middel
+Facturatie,Deelfacturatie,Factuur in termijnen splitsen,Fase 2 - Website & Polish,Should,Middel
+Facturatie,Terugkerende facturen,Maandelijks automatisch factureren,Fase 2 - Website & Polish,Should,Hoog
+Facturatie,Aanbetaling,Eerste deel vooraf factureren,Fase 2 - Website & Polish,Should,Middel
+Facturatie,Bekijk-notificatie,Notificatie wanneer klant factuur opent,Fase 2 - Website & Polish,Could,Laag
+Facturatie,Urenregistratie → factuur,Gelogde uren omzetten naar factuurregels,Fase 3 - Groei,Could,Middel
+Facturatie,Multi-valuta,"Factureren in EUR, GBP, USD, etc",Fase 4 - Schaal,Could,Middel
+Facturatie,SEPA incasso,Automatische incasso voor terugkerende betalingen,Fase 4 - Schaal,Could,Laag
+Facturatie,Stripe integratie,Alternatieve payment provider,Fase 3 - Groei,Could,Middel
+Website,AI website generatie,Complete site genereren op basis van onboarding data,Fase 2 - Website & Polish,Must,Hoog
+Website,Headless architectuur,"Site als front-end op API, alle features geïntegreerd",Fase 2 - Website & Polish,Must,Hoog
+Website,Homepage,Gegenereerde homepage met propositie,Fase 2 - Website & Polish,Must,Hoog
+Website,Diensten pagina,Overzicht van diensten met prijzen,Fase 2 - Website & Polish,Must,Hoog
+Website,Booking integratie,Booking widget direct op de site,Fase 2 - Website & Polish,Must,Hoog
+Website,Contact/offerte formulier,Aanvraagformulier dat lead aanmaakt,Fase 2 - Website & Polish,Must,Hoog
+Website,Over mij/ons pagina,Gegenereerde about pagina,Fase 2 - Website & Polish,Should,Middel
+Website,Aanpassen via chat,"""Maak de header tekst korter"", ""Voeg testimonials toe""",Fase 2 - Website & Polish,Must,Hoog
+Website,Custom domein,Eigen domeinnaam koppelen,Fase 2 - Website & Polish,Should,Hoog
+Website,SSL certificaat,Automatisch HTTPS,Fase 2 - Website & Polish,Must,Hoog
+Website,SEO basics,"Meta tags, sitemap, robots.txt",Fase 2 - Website & Polish,Should,Middel
+Website,Blog/content pagina,Simpele blog functionaliteit,Fase 3 - Groei,Could,Middel
+Website,Testimonials,Klantreviews tonen,Fase 3 - Groei,Could,Laag
+Website,Portfolio/cases,Werk tonen,Fase 3 - Groei,Could,Middel
+Website,Analytics,"Bezoekers, conversie, etc",Fase 3 - Groei,Should,Middel
+Website,Meertalig,Site in meerdere talen,Fase 4 - Schaal,Could,Middel
+Client Portal,Klant login,Klant kan inloggen om eigen zaken te zien,Fase 2 - Website & Polish,Should,Hoog
+Client Portal,Offertes bekijken,Overzicht van alle offertes,Fase 2 - Website & Polish,Should,Middel
+Client Portal,Facturen bekijken/betalen,Overzicht facturen met betaalknop,Fase 2 - Website & Polish,Should,Hoog
+Client Portal,Contracten bekijken,Getekende contracten inzien,Fase 2 - Website & Polish,Should,Middel
+Client Portal,Documenten delen,Bestanden uitwisselen met dienstverlener,Fase 3 - Groei,Could,Middel
+Client Portal,Berichten,Communicatie via portal,Fase 3 - Groei,Could,Middel
+Client Portal,Project voortgang,Klant kan voortgang volgen,Fase 3 - Groei,Could,Middel
+Templates,Offerte templates,Meerdere templates voor verschillende diensten,Fase 1 - MVP,Must,Hoog
+Templates,Factuur templates,"NL-conform, aanpasbaar design",Fase 1 - MVP,Must,Hoog
+Templates,Contract templates,Juridisch correcte NL templates,Fase 1 - MVP,Must,Hoog
+Templates,Email templates,"Standaard emails: bevestiging, herinnering, follow-up",Fase 1 - MVP,Should,Middel
+Templates,Template editor,Templates aanpassen door gebruiker,Fase 2 - Website & Polish,Should,Middel
+Templates,Branding op templates,"Logo, kleuren, fonts doorvoeren",Fase 2 - Website & Polish,Should,Hoog
+Templates,Template marketplace,Community/premium templates,Fase 4 - Schaal,Could,Laag
+Templates,Branche-specifieke templates,"Templates per branche: consultant, fotograaf, coach, etc",Fase 3 - Groei,Should,Middel
+Communicatie,Email versturen vanuit platform,"Offertes, facturen, herinneringen via platform email",Fase 1 - MVP,Must,Hoog
+Communicatie,Email notificaties,"Notificaties bij nieuwe booking, betaling, etc",Fase 1 - MVP,Must,Hoog
+Communicatie,In-app notificaties,Meldingen binnen de applicatie,Fase 2 - Website & Polish,Should,Middel
+Communicatie,Email inbox integratie,Klant emails lezen/beantwoorden vanuit platform,Fase 3 - Groei,Could,Hoog
+Communicatie,WhatsApp integratie,Berichten via WhatsApp Business,Fase 4 - Schaal,Could,Middel
+Communicatie,SMS notificaties,Afspraakherinneringen via SMS,Fase 4 - Schaal,Could,Laag
+Communicatie,Bulk email,Nieuwsbrief of update naar meerdere klanten,Fase 4 - Schaal,Could,Middel
+Rapportages,Omzet overzicht,Maandelijks/jaarlijks omzet dashboard,Fase 2 - Website & Polish,Should,Hoog
+Rapportages,Openstaande bedragen,Overzicht onbetaalde facturen,Fase 1 - MVP,Must,Hoog
+Rapportages,Pipeline waarde,Totale waarde van openstaande offertes,Fase 2 - Website & Polish,Should,Middel
+Rapportages,Conversie ratio,Percentage offertes dat leidt tot opdracht,Fase 3 - Groei,Could,Middel
+Rapportages,Klant lifetime value,Totale omzet per klant over tijd,Fase 3 - Groei,Could,Middel
+Rapportages,BTW aangifte export,BTW overzicht per kwartaal voor aangifte,Fase 3 - Groei,Should,Hoog
+Rapportages,Cashflow overzicht,Verwachte inkomsten op basis van openstaande facturen,Fase 3 - Groei,Could,Middel
+Rapportages,AI insights,"""Je omzet is 20% gestegen tov vorig kwartaal""",Fase 3 - Groei,Could,Middel
+Rapportages,Export naar CSV/Excel,Data exporteren voor boekhouder,Fase 2 - Website & Polish,Should,Middel
+Integraties,Mollie,"iDEAL, creditcard, Bancontact",Fase 1 - MVP,Must,Hoog
+Integraties,Google Calendar,Twee-weg kalender sync,Fase 1 - MVP,Must,Hoog
+Integraties,Moneybird,Facturen/boekingen sync naar Moneybird,Fase 3 - Groei,Should,Hoog
+Integraties,e-Boekhouden,Facturen/boekingen sync,Fase 3 - Groei,Could,Middel
+Integraties,Exact Online,Boekhouding sync,Fase 3 - Groei,Could,Middel
+Integraties,Outlook Calendar,Microsoft kalender sync,Fase 3 - Groei,Could,Middel
+Integraties,Zapier,Connector naar 5000+ apps,Fase 3 - Groei,Should,Hoog
+Integraties,Make (Integromat),Alternatieve automation connector,Fase 4 - Schaal,Could,Middel
+Integraties,Google Meet/Zoom,Automatisch meeting link bij booking,Fase 2 - Website & Polish,Should,Middel
+Integraties,Stripe,Alternatieve payment provider,Fase 3 - Groei,Could,Middel
+Integraties,KvK API,Bedrijfsgegevens ophalen,Fase 3 - Groei,Could,Middel
+Integraties,VIES/BTW check,EU BTW-nummer validatie,Fase 3 - Groei,Should,Middel
+Integraties,Webhook API,Custom webhooks voor events,Fase 3 - Groei,Should,Middel
+Integraties,LinkedIn,"Profiel data, sharing",Fase 4 - Schaal,Could,Laag
+Gebruikersbeheer,Registratie & login,Email/wachtwoord account aanmaken,Fase 1 - MVP,Must,Hoog
+Gebruikersbeheer,Magic link login,Passwordless login via email link,Fase 1 - MVP,Should,Middel
+Gebruikersbeheer,Profiel beheer,Eigen gegevens aanpassen,Fase 1 - MVP,Must,Hoog
+Gebruikersbeheer,Wachtwoord reset,Wachtwoord vergeten flow,Fase 1 - MVP,Must,Hoog
+Gebruikersbeheer,Twee-factor authenticatie,2FA via app of SMS,Fase 2 - Website & Polish,Should,Middel
+Gebruikersbeheer,Team accounts,Meerdere gebruikers per organisatie,Fase 4 - Schaal,Could,Hoog
+Gebruikersbeheer,Rollen & rechten,"Admin, medewerker, boekhouder rollen",Fase 4 - Schaal,Could,Hoog
+Gebruikersbeheer,Multi-brand,Meerdere bedrijven per account,Fase 4 - Schaal,Could,Middel
+Gebruikersbeheer,SSO,"Single Sign-On (Google, Microsoft)",Fase 3 - Groei,Could,Middel
+Gebruikersbeheer,Account verwijderen,GDPR compliant account deletion,Fase 2 - Website & Polish,Must,Middel
+Urenregistratie,Uren loggen,Tijd registreren per klant/project,Fase 3 - Groei,Should,Middel
+Urenregistratie,Timer,Start/stop timer voor actief werk,Fase 3 - Groei,Could,Middel
+Urenregistratie,Uren → factuur,Gelogde uren omzetten naar factuurregels,Fase 3 - Groei,Should,Middel
+Urenregistratie,Uren overzicht,Rapportage over bestede tijd per klant/project,Fase 3 - Groei,Could,Middel
+Urenregistratie,Uurtarief per klant,Verschillende tarieven per klant,Fase 3 - Groei,Should,Middel
+Projectbeheer,Project aanmaken,Project koppelen aan klant met beschrijving en budget,Fase 2 - Website & Polish,Should,Middel
+Projectbeheer,Project status,Basis statustracking per project,Fase 2 - Website & Polish,Should,Middel
+Projectbeheer,Taken,Simpele takenlijst per project,Fase 3 - Groei,Could,Middel
+Projectbeheer,Deadline tracking,Herinneringen bij naderende deadlines,Fase 3 - Groei,Could,Middel
+Projectbeheer,Bestanden bij project,Documenten uploaden en delen per project,Fase 3 - Groei,Could,Middel
+Automatisering,Offerte herinnering,Auto herinnering bij onbeantwoorde offerte,Fase 1 - MVP,Must,Hoog
+Automatisering,Factuur herinnering,Auto herinnering bij onbetaalde factuur,Fase 1 - MVP,Must,Hoog
+Automatisering,Contract na offerte,Contract klaarzetten als offerte geaccepteerd,Fase 1 - MVP,Should,Middel
+Automatisering,Welkomstmail nieuwe klant,Automatische email bij nieuwe klant/booking,Fase 2 - Website & Polish,Should,Middel
+Automatisering,Follow-up na project,Automatische check-in na afronding project,Fase 3 - Groei,Could,Middel
+Automatisering,Inactiviteit alert,"""Je hebt Klant X al 90 dagen niet gesproken""",Fase 3 - Groei,Could,Middel
+Automatisering,Verjaardag/seizoensgroet,Automatische felicitatie/groet,Fase 4 - Schaal,Could,Laag
+Automatisering,Custom automations via AI,"""Als een offerte geaccepteerd wordt, plan automatisch een kickoff""",Fase 3 - Groei,Could,Hoog
+Mobile,Responsive web app,Goed werkend op mobiel via browser,Fase 1 - MVP,Must,Hoog
+Mobile,PWA,Installeerbaar als app via browser,Fase 2 - Website & Polish,Should,Middel
+Mobile,Push notificaties,Meldingen op telefoon,Fase 3 - Groei,Should,Middel
+Mobile,Native iOS app,Dedicated iPhone app,Fase 4 - Schaal,Could,Hoog
+Mobile,Native Android app,Dedicated Android app,Fase 4 - Schaal,Could,Hoog
+Platform,Multi-tenant architectuur,Meerdere gebruikers op één platform,Fase 1 - MVP,Must,Hoog
+Platform,API-first design,Alle functionaliteit beschikbaar via API,Fase 1 - MVP,Must,Hoog
+Platform,GDPR compliance,"Privacy beleid, data verwerking, cookie consent",Fase 1 - MVP,Must,Hoog
+Platform,Data backup,Automatische dagelijkse backups,Fase 1 - MVP,Must,Hoog
+Platform,EU hosting,Servers in EU voor data soevereiniteit,Fase 1 - MVP,Must,Hoog
+Platform,Rate limiting,API bescherming tegen misbruik,Fase 2 - Website & Polish,Should,Middel
+Platform,Audit logging,Bijhouden wie wat wanneer heeft gedaan,Fase 3 - Groei,Should,Middel
+Platform,Public API,API voor externe developers,Fase 4 - Schaal,Could,Middel
+Platform,API documentatie,Developer docs voor public API,Fase 4 - Schaal,Could,Middel
+Platform,Sandbox omgeving,Test environment voor developers,Fase 4 - Schaal,Could,Laag
+Marketing Site,Landing page,Publieke website voor het product zelf,Fase 1 - MVP,Must,Hoog
+Marketing Site,Pricing pagina,Duidelijke pricing overzicht,Fase 1 - MVP,Must,Hoog
+Marketing Site,Feature paginas,Uitleg per feature voor SEO en conversie,Fase 2 - Website & Polish,Should,Middel
+Marketing Site,Blog,Content marketing voor SEO,Fase 2 - Website & Polish,Should,Middel
+Marketing Site,Testimonials/cases,Klant succesverhalen,Fase 2 - Website & Polish,Should,Hoog
+Marketing Site,Helpdesk/docs,Kennisbank en FAQ,Fase 2 - Website & Polish,Should,Middel
+Marketing Site,Demo/video,Product demonstratie video,Fase 2 - Website & Polish,Should,Middel
+Marketing Site,Branche paginas,"Specifieke paginas per doelgroep (consultant, fotograaf, etc)",Fase 3 - Groei,Should,Middel
+Marketing Site,Vergelijkingspaginas,"ServiceOS vs HoneyBook, vs Dubsado, etc",Fase 3 - Groei,Could,Middel
+Marketing Site,Affiliate programma,Partners die het product aanbevelen,Fase 4 - Schaal,Could,Middel
+Marketing Site,Referral systeem,Klant-werft-klant programma,Fase 4 - Schaal,Could,Middel
+Billing,Subscription management,Gebruikers abonnement beheren,Fase 1 - MVP,Must,Hoog
+Billing,Free trial,X dagen gratis proberen,Fase 1 - MVP,Must,Hoog
+Billing,Plan tiers,"Verschillende abonnementen (starter, pro, etc)",Fase 1 - MVP,Must,Hoog
+Billing,Upgrade/downgrade,Zelf plan wijzigen,Fase 2 - Website & Polish,Should,Middel
+Billing,Facturen eigen platform,Facturen voor het ServiceOS abonnement,Fase 1 - MVP,Must,Middel
+Billing,Opzeggen,Self-service opzegflow,Fase 2 - Website & Polish,Must,Middel
+Lokalisatie,Nederlandse interface,Volledige NL vertaling,Fase 1 - MVP,Must,Hoog
+Lokalisatie,Nederlandse AI output,Alle gegenereerde teksten in het Nederlands,Fase 1 - MVP,Must,Hoog
+Lokalisatie,Engelse interface,Volledige EN vertaling,Fase 3 - Groei,Should,Hoog
+Lokalisatie,Duitse interface,Volledige DE vertaling,Fase 4 - Schaal,Could,Middel
+Lokalisatie,Franse interface,Volledige FR vertaling,Fase 4 - Schaal,Could,Middel
+Lokalisatie,Belgische BTW,Belgische BTW tarieven en regels,Fase 4 - Schaal,Could,Middel
+Lokalisatie,Duitse BTW,USt regels en tarieven,Fase 4 - Schaal,Could,Middel
+Lokalisatie,Datumnotatie per land,dd-mm-yyyy vs mm/dd/yyyy etc,Fase 3 - Groei,Should,Laag
+Lokalisatie,Valuta per land,"EUR, GBP, CHF, etc",Fase 4 - Schaal,Could,Middel
