@@ -608,6 +608,7 @@ Return ONLY valid JSON:
 export interface ChatEditResult {
   content: string;
   updatedData?: Record<string, unknown>;
+  updatedHtml?: string;
 }
 
 /**
@@ -766,4 +767,114 @@ Return ONLY the improved content, no explanations or markers.`;
   }
 
   return textContent.text.trim();
+}
+
+// ===========================================
+// CHAT-BASED BLOG CONTENT EDITING
+// ===========================================
+
+/**
+ * Conversational blog content editing using Claude tool_use.
+ * Sends conversation history + current HTML, returns AI text + optional HTML update.
+ */
+export async function chatEditBlogContent(context: {
+  currentHtml: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+}): Promise<ChatEditResult> {
+  const UPDATE_CONTENT_TOOL: Anthropic.Tool = {
+    name: "update_content",
+    description:
+      "Update the blog post HTML content. Provide the complete updated HTML.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        html: {
+          type: "string",
+          description: "The complete updated HTML content for the blog post",
+        },
+      },
+      required: ["html"],
+    },
+  };
+
+  const systemPrompt = `You are an AI assistant helping a user edit their blog post content. You can both respond conversationally AND update the content using the update_content tool.
+
+Current blog post HTML:
+${context.currentHtml || "<p></p>"}
+
+Instructions:
+- When the user asks you to change content, respond with a brief confirmation AND call the update_content tool with the complete updated HTML.
+- When the user asks a question (e.g. "how long is this post?"), just respond with text — no tool call needed.
+- Always provide the COMPLETE updated HTML in your update_content call, not just the changed parts.
+- Use semantic HTML tags: <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <blockquote>, <a>.
+- Keep your text responses concise and friendly.
+- Write professional, engaging content.`;
+
+  const apiMessages: Anthropic.MessageParam[] = context.messages.map((m) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+  }));
+
+  let textContent = "";
+  let updatedHtml: string | undefined;
+  let currentMessages = apiMessages;
+  let iterations = 0;
+
+  while (iterations < 3) {
+    iterations++;
+
+    const response = await anthropic.messages.create({
+      model: DEFAULT_MODEL,
+      max_tokens: 4096,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: currentMessages,
+      tools: [UPDATE_CONTENT_TOOL],
+    });
+
+    // Extract text content
+    for (const block of response.content) {
+      if (block.type === "text") {
+        textContent += (textContent ? "\n" : "") + block.text;
+      }
+    }
+
+    // Check for tool use
+    const toolUseBlock = response.content.find(
+      (block): block is Anthropic.ContentBlock & { type: "tool_use" } =>
+        block.type === "tool_use"
+    );
+
+    if (toolUseBlock && toolUseBlock.name === "update_content") {
+      const input = toolUseBlock.input as { html: string };
+      updatedHtml = input.html;
+
+      // If the model wants to continue after tool use, send tool result back
+      if (response.stop_reason === "tool_use") {
+        currentMessages = [
+          ...currentMessages,
+          { role: "assistant", content: response.content },
+          {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: toolUseBlock.id,
+                content: "Content updated successfully.",
+              },
+            ],
+          },
+        ];
+        continue;
+      }
+    }
+
+    break;
+  }
+
+  if (!textContent) {
+    textContent = "I've updated the content.";
+  }
+
+  return { content: textContent, updatedHtml };
 }

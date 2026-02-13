@@ -20,6 +20,7 @@ import { SiteActions } from "./site-actions";
 
 interface SiteDetailPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -37,8 +38,9 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   },
 };
 
-export default async function SiteDetailPage({ params }: SiteDetailPageProps) {
+export default async function SiteDetailPage({ params, searchParams }: SiteDetailPageProps) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const site = await getSite(id);
 
   if (!site) {
@@ -91,7 +93,7 @@ export default async function SiteDetailPage({ params }: SiteDetailPageProps) {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue={tab || "overview"} className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="pages">Pages</TabsTrigger>

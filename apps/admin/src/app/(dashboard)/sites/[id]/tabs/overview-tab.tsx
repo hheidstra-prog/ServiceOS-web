@@ -33,7 +33,6 @@ interface Site {
   pages: Array<{ id: string; title: string; slug: string; isHomepage: boolean }>;
   _count: {
     pages: number;
-    posts: number;
   };
 }
 
@@ -50,12 +49,6 @@ export function OverviewTab({ site }: OverviewTabProps) {
       value: site._count.pages,
       icon: FileText,
       href: `/sites/${site.id}?tab=pages`,
-    },
-    {
-      label: "Blog Posts",
-      value: site._count.posts,
-      icon: Newspaper,
-      href: `/sites/${site.id}/blog`,
     },
   ];
 

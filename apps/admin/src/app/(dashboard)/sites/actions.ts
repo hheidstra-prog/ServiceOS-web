@@ -14,7 +14,6 @@ export async function getSites() {
       _count: {
         select: {
           pages: true,
-          posts: true,
         },
       },
     },
@@ -42,7 +41,6 @@ export async function getSite(id: string) {
       _count: {
         select: {
           pages: true,
-          posts: true,
         },
       },
     },
@@ -742,18 +740,18 @@ export async function aiGenerateBlogPost(
   // Verify site ownership
   const site = await db.site.findFirst({
     where: { id: siteId, organizationId: organization.id },
-    include: {
-      posts: {
-        select: { title: true },
-        take: 10,
-        orderBy: { createdAt: "desc" },
-      },
-    },
   });
 
   if (!site) {
     throw new Error("Site not found");
   }
+
+  const existingPosts = await db.blogPost.findMany({
+    where: { organizationId: organization.id },
+    select: { title: true },
+    take: 10,
+    orderBy: { createdAt: "desc" },
+  });
 
   const ctx = await getOrgContext(organization.id);
 
@@ -762,7 +760,7 @@ export async function aiGenerateBlogPost(
     topic: data.topic,
     keywords: data.keywords,
     targetLength: data.targetLength,
-    existingPosts: site.posts.map((p) => p.title),
+    existingPosts: existingPosts.map((p) => p.title),
   });
 
   return result;

@@ -4,6 +4,7 @@ import { put, del } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
+import { getMediaType } from "@/lib/cloudinary";
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     // Save file record to database
     const fileRecord = await db.file.create({
       data: {
+        organizationId: organization.id,
         clientId: project.clientId,
         projectId,
         uploadedById: user.id,
@@ -54,6 +56,8 @@ export async function POST(request: NextRequest) {
         url: blob.url,
         mimeType: file.type || null,
         size: file.size,
+        storageProvider: "VERCEL_BLOB",
+        mediaType: getMediaType(file.type || null),
       },
     });
 
@@ -90,17 +94,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "File ID required" }, { status: 400 });
     }
 
-    // Get file and verify ownership through project
+    // Get file and verify ownership through organization
     const file = await db.file.findFirst({
-      where: { id: fileId },
-      include: {
-        project: {
-          select: { organizationId: true },
-        },
+      where: {
+        id: fileId,
+        organizationId: organization.id,
       },
     });
 
-    if (!file || file.project?.organizationId !== organization.id) {
+    if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 

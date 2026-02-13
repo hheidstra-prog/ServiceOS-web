@@ -9,6 +9,7 @@ import {
   Calendar,
   FileText,
   FolderKanban,
+  FolderOpen,
   Clock,
   Receipt,
   Settings,
@@ -18,6 +19,7 @@ import {
   Sparkles,
   ChevronsUpDown,
   Globe,
+  Newspaper,
 } from "lucide-react";
 
 const navigation = [
@@ -31,6 +33,8 @@ const navigation = [
   { name: "Invoices", href: "/invoices", icon: Receipt },
   { name: "Services", href: "/services", icon: Briefcase },
   { name: "Sites", href: "/sites", icon: Globe },
+  { name: "Blog", href: "/blog", icon: Newspaper },
+  { name: "Files", href: "/files", icon: FolderOpen },
 ];
 
 const bottomNavigation = [

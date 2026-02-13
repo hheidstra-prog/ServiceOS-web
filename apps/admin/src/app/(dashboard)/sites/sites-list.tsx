@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Trash2,
   FileText,
-  Newspaper,
   Search,
   Sparkles,
   ChevronDown,
@@ -39,7 +38,6 @@ interface Site {
   createdAt: Date;
   _count: {
     pages: number;
-    posts: number;
   };
 }
 
@@ -250,12 +248,6 @@ export function SitesList({ sites }: SitesListProps) {
                     <FileText className="h-4 w-4" />
                     {site._count.pages} pages
                   </span>
-                  {site.blogEnabled && (
-                    <span className="flex items-center gap-1">
-                      <Newspaper className="h-4 w-4" />
-                      {site._count.posts} posts
-                    </span>
-                  )}
                 </div>
 
                 {/* Features */}

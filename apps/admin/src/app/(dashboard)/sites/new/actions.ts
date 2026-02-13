@@ -343,6 +343,7 @@ export async function aiCreateSiteFromDesigner(
 
   // Fire-and-forget: generate starter blog posts in the background
   generateStarterBlogPosts(
+    organization.id,
     site.id,
     businessContext,
     designDirection.blogPreferences
@@ -358,6 +359,7 @@ export async function aiCreateSiteFromDesigner(
 // ===========================================
 
 async function generateStarterBlogPosts(
+  organizationId: string,
   siteId: string,
   businessContext: BusinessContext,
   blogPreferences?: { topics?: string[]; style?: string }
@@ -392,10 +394,10 @@ async function generateStarterBlogPosts(
     const post = result.value;
 
     try {
-      // Create the blog post
+      // Create the blog post under the organization
       const blogPost = await db.blogPost.create({
         data: {
-          siteId,
+          organizationId,
           title: post.title,
           slug: post.slug,
           excerpt: post.excerpt,
@@ -404,6 +406,15 @@ async function generateStarterBlogPosts(
           metaDescription: post.metaDescription,
           status: "PUBLISHED",
           publishedAt: new Date(),
+        },
+      });
+
+      // Create publication entry for the site
+      await db.blogPostPublication.create({
+        data: {
+          postId: blogPost.id,
+          siteId,
+          slug: post.slug,
         },
       });
 
@@ -416,8 +427,8 @@ async function generateStarterBlogPosts(
             .replace(/^-|-$/g, "");
 
           const tag = await db.blogTag.upsert({
-            where: { siteId_slug: { siteId, slug } },
-            create: { siteId, name: tagName, slug },
+            where: { organizationId_slug: { organizationId, slug } },
+            create: { organizationId, name: tagName, slug },
             update: {},
           });
 

@@ -1,32 +1,23 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   Upload,
-  Search,
-  Grid3X3,
-  List,
-  Sparkles,
-  Image as ImageIcon,
   Loader2,
   Trash2,
-  FolderOpen,
   Download,
   ExternalLink,
-  MessageSquare,
-  X,
+  Sparkles,
+  Clock,
+  ImageIcon,
+  FileText,
+  FolderOpen,
+  RotateCcw,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -36,16 +27,18 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { MediaType } from "@serviceos/database";
-import { getFileIcon, formatFileSize, getMediaTypeLabel, getMediaTypeColor } from "@/lib/file-utils";
-import { getFiles, deleteFile, updateFile, getAnalyzingFileIds } from "./actions";
-import { FreepikBrowser } from "@/components/freepik-browser";
+import { getFileIcon, formatFileSize } from "@/lib/file-utils";
+import { deleteFile, updateFile } from "./actions";
 import { FileChat } from "./file-chat";
-import type { FileResultItem } from "./file-chat-actions";
+import type { ChatResultPayload } from "./file-chat";
+import type { FileResultItem, StockImageResult, FolderResultItem } from "./file-chat-actions";
+import type { MediaType } from "@serviceos/database";
 
 interface FileRecord {
   id: string;
@@ -69,32 +62,23 @@ interface FileRecord {
 }
 
 interface FileManagerProps {
-  initialFiles: FileRecord[];
-  initialTotal: number;
-  initialFolders: string[];
-  initialTags: string[];
+  initialFileCount: number;
 }
 
-export function FileManager({
-  initialFiles,
-  initialTotal,
-  initialFolders,
-  initialTags,
-}: FileManagerProps) {
-  const [files, setFiles] = useState<FileRecord[]>(initialFiles);
-  const [total, setTotal] = useState(initialTotal);
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const [search, setSearch] = useState("");
-  const [mediaTypeFilter, setMediaTypeFilter] = useState<string>("all");
-  const [folderFilter, setFolderFilter] = useState<string>("all");
+export function FileManager({ initialFileCount }: FileManagerProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<FileRecord | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [showStockBrowser, setShowStockBrowser] = useState(false);
-  const [scanContent, setScanContent] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<FileRecord | null>(null);
+  const [externalMessage, setExternalMessage] = useState<string | null>(null);
+  const [importingStockId, setImportingStockId] = useState<number | null>(null);
+  const [chatKey, setChatKey] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Results state — populated by chat, rendered in right panel
+  const [currentFileResults, setCurrentFileResults] = useState<FileResultItem[]>([]);
+  const [currentStockResults, setCurrentStockResults] = useState<StockImageResult[]>([]);
+  const [currentFolderResults, setCurrentFolderResults] = useState<FolderResultItem[]>([]);
 
   // Edit state for detail panel
   const [editName, setEditName] = useState("");
@@ -103,64 +87,30 @@ export function FileManager({
   const [isSavingFile, setIsSavingFile] = useState(false);
   const [isDeletingFile, setIsDeletingFile] = useState(false);
 
-  const refreshFiles = useCallback(async () => {
-    try {
-      const result = await getFiles({
-        search: search || undefined,
-        mediaType: mediaTypeFilter !== "all" ? (mediaTypeFilter as MediaType) : undefined,
-        folder: folderFilter !== "all" ? folderFilter : undefined,
-      });
-      setFiles(result.files as FileRecord[]);
-      setTotal(result.total);
-    } catch {
-      toast.error("Failed to refresh files");
-    }
-  }, [search, mediaTypeFilter, folderFilter]);
+  const handleResults = (results: ChatResultPayload) => {
+    setCurrentFileResults(results.fileResults);
+    setCurrentStockResults(results.stockResults);
+    setCurrentFolderResults(results.folderResults);
+  };
 
-  const handleSearch = useCallback(async () => {
-    await refreshFiles();
-  }, [refreshFiles]);
-
-  // Poll for files that are still being analyzed
-  useEffect(() => {
-    const hasAnalyzing = files.some((f) => f.aiStatus === "ANALYZING");
-
-    if (hasAnalyzing && !pollingRef.current) {
-      pollingRef.current = setInterval(async () => {
-        const analyzingIds = await getAnalyzingFileIds();
-        if (analyzingIds.length === 0) {
-          // All done — refresh and stop polling
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-          }
-          refreshFiles();
-        }
-      }, 3000);
-    } else if (!hasAnalyzing && pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    };
-  }, [files, refreshFiles]);
+  const handleClearChat = () => {
+    setChatKey((k) => k + 1);
+    setCurrentFileResults([]);
+    setCurrentStockResults([]);
+    setCurrentFolderResults([]);
+    setExternalMessage(null);
+  };
 
   const handleUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     setIsUploading(true);
 
+    const uploadedNames: string[] = [];
+
     try {
       for (const file of Array.from(fileList)) {
         const formData = new FormData();
         formData.append("file", file);
-        if (scanContent) {
-          formData.append("scanContent", "true");
-        }
 
         const res = await fetch("/api/media/upload", {
           method: "POST",
@@ -171,14 +121,17 @@ export function FileManager({
           const data = await res.json();
           throw new Error(data.error || "Upload failed");
         }
+
+        uploadedNames.push(file.name);
       }
 
       toast.success(
-        fileList.length === 1
+        uploadedNames.length === 1
           ? "File uploaded"
-          : `${fileList.length} files uploaded`
+          : `${uploadedNames.length} files uploaded`
       );
-      await refreshFiles();
+
+      setExternalMessage(`I uploaded: ${uploadedNames.join(", ")}`);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Upload failed"
@@ -203,7 +156,6 @@ export function FileManager({
   };
 
   const handleChatFileSelect = (file: FileResultItem) => {
-    // Bridge FileResultItem to FileRecord for the detail sheet
     handleSelectFile({
       id: file.id,
       name: file.name,
@@ -211,13 +163,13 @@ export function FileManager({
       url: file.url,
       mimeType: file.mimeType,
       size: null,
-      mediaType: file.mimeType?.startsWith("image/") ? "IMAGE" : "OTHER" as MediaType,
-      folder: null,
+      mediaType: (file.mimeType?.startsWith("image/") ? "IMAGE" : "OTHER") as MediaType,
+      folder: file.folder,
       tags: file.tags,
       aiDescription: file.aiDescription,
       cloudinaryPublicId: null,
       cloudinaryUrl: file.cloudinaryUrl,
-      storageProvider: "UNKNOWN",
+      storageProvider: file.cloudinaryUrl ? "CLOUDINARY" : "VERCEL_BLOB",
       aiStatus: null,
       createdAt: new Date(),
       client: null,
@@ -240,7 +192,6 @@ export function FileManager({
         folder: editFolder || undefined,
       });
       toast.success("File updated");
-      await refreshFiles();
       setSelectedFile(null);
     } catch (error) {
       toast.error(
@@ -253,13 +204,13 @@ export function FileManager({
 
   const handleDeleteFile = async () => {
     if (!selectedFile) return;
-    if (!confirm(`Delete "${selectedFile.name}"?`)) return;
     setIsDeletingFile(true);
     try {
       await deleteFile(selectedFile.id);
       toast.success("File deleted");
+      setCurrentFileResults((prev) => prev.filter((f) => f.id !== selectedFile.id));
+      setShowDeleteConfirm(false);
       setSelectedFile(null);
-      await refreshFiles();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete file"
@@ -269,348 +220,312 @@ export function FileManager({
     }
   };
 
+  const handleImportStock = async (resourceId: number, title?: string) => {
+    if (importingStockId) return;
+    setImportingStockId(resourceId);
+    try {
+      const res = await fetch("/api/media/freepik", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resourceId, title }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const fileName = data?.file?.name || "a stock image";
+        toast.success("Stock image imported");
+        setExternalMessage(`I just imported ${fileName} from stock. Show me the imported file.`);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Import failed");
+      }
+    } catch {
+      toast.error("Failed to import stock image");
+    } finally {
+      setImportingStockId(null);
+    }
+  };
+
+  const handleDownloadFile = async () => {
+    if (!selectedFile) return;
+    try {
+      const url = selectedFile.cloudinaryUrl || selectedFile.url;
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = selectedFile.fileName || selectedFile.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error("Failed to download file");
+    }
+  };
+
   const isImage = (mimeType: string | null) =>
     mimeType?.startsWith("image/") ?? false;
 
+  const hasResults = currentFileResults.length > 0 || currentStockResults.length > 0 || currentFolderResults.length > 0;
+
+  const quickActions = [
+    { label: "Show recent uploads", icon: Clock },
+    { label: "Find all images", icon: ImageIcon },
+    { label: "Browse stock photos", icon: Search },
+    { label: "Show documents", icon: FileText },
+  ];
+
   return (
-    <div className="flex gap-4">
-      <div className="flex-1 space-y-4">
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-          >
-            {isUploading ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-1.5 h-4 w-4" />
-            )}
-            Upload
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => handleUpload(e.target.files)}
-          />
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      className="relative flex w-full min-h-0 flex-1 gap-4 overflow-hidden"
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => handleUpload(e.target.files)}
+      />
 
-          <div className="flex items-center gap-1.5">
-            <Checkbox
-              id="scanContent"
-              checked={scanContent}
-              onCheckedChange={(checked) => setScanContent(checked === true)}
-            />
-            <Label htmlFor="scanContent" className="text-xs text-zinc-500 cursor-pointer">
-              Scan docs with AI
-            </Label>
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={() => setShowStockBrowser(true)}
-          >
-            <ImageIcon className="mr-1.5 h-4 w-4" />
-            Stock Images
-          </Button>
-
-          <Button
-            variant={showChat ? "secondary" : "outline"}
-            onClick={() => setShowChat(!showChat)}
-          >
-            <MessageSquare className="mr-1.5 h-4 w-4" />
-            AI Assistant
-          </Button>
-
-          <div className="flex-1" />
-
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-              <Input
-                placeholder="Search files..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearch();
-                }}
-                className="h-9 w-48 pl-9 text-sm"
-              />
-            </div>
-
-            <Select value={mediaTypeFilter} onValueChange={(v) => { setMediaTypeFilter(v); }}>
-              <SelectTrigger className="h-9 w-32">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                <SelectItem value="IMAGE">Images</SelectItem>
-                <SelectItem value="DOCUMENT">Documents</SelectItem>
-                <SelectItem value="VIDEO">Video</SelectItem>
-                <SelectItem value="AUDIO">Audio</SelectItem>
-                <SelectItem value="OTHER">Other</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {initialFolders.length > 0 && (
-              <Select value={folderFilter} onValueChange={(v) => { setFolderFilter(v); }}>
-                <SelectTrigger className="h-9 w-32">
-                  <SelectValue placeholder="Folder" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All folders</SelectItem>
-                  {initialFolders.map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={refreshFiles}
-              className="h-9 w-9"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-
-            <div className="flex rounded-md border border-zinc-200 dark:border-zinc-800">
-              <Button
-                variant={view === "grid" ? "secondary" : "ghost"}
-                size="icon-sm"
-                onClick={() => setView("grid")}
-                className="h-9 w-9 rounded-r-none"
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={view === "list" ? "secondary" : "ghost"}
-                size="icon-sm"
-                onClick={() => setView("list")}
-                className="h-9 w-9 rounded-l-none"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Drop zone + File Grid/List */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          className={`min-h-[400px] rounded-lg border-2 transition-colors ${
-            isDragging
-              ? "border-dashed border-violet-400 bg-violet-50/50 dark:bg-violet-950/10"
-              : "border-transparent"
-          }`}
-        >
-          {files.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="rounded-full bg-zinc-100 p-3 dark:bg-zinc-900">
-                <FolderOpen className="h-6 w-6 text-zinc-400" />
-              </div>
-              <h3 className="mt-4 text-sm font-semibold text-zinc-950 dark:text-white">
-                No files yet
-              </h3>
-              <p className="mt-1 text-sm text-zinc-500">
-                Upload files or drag and drop them here.
-              </p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="mr-1.5 h-4 w-4" />
-                Upload Files
-              </Button>
-            </div>
-          ) : view === "grid" ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {files.map((file) => {
-                const Icon = getFileIcon(file.mimeType);
-                return (
-                  <button
-                    key={file.id}
-                    onClick={() => handleSelectFile(file)}
-                    className="group relative flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white text-left transition-all hover:border-zinc-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
-                  >
-                    {/* Thumbnail */}
-                    <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
-                      {isImage(file.mimeType) ? (
-                        <img
-                          src={file.cloudinaryUrl || file.url}
-                          alt={file.name}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <Icon className="h-10 w-10 text-zinc-400" />
-                        </div>
-                      )}
-                      {file.aiStatus === "ANALYZING" && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 dark:bg-zinc-900/90">
-                            <Loader2 className="h-3 w-3 animate-spin text-violet-600" />
-                            <span className="text-[10px] font-medium text-violet-600">Analyzing</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Info */}
-                    <div className="p-2">
-                      <p className="truncate text-xs font-medium text-zinc-950 dark:text-white">
-                        {file.name}
-                      </p>
-                      <p className="text-[10px] text-zinc-500">
-                        {formatFileSize(file.size)}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-                    <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Name
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Type
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Size
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Tags
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {files.map((file) => {
-                    const Icon = getFileIcon(file.mimeType);
-                    return (
-                      <tr
-                        key={file.id}
-                        onClick={() => handleSelectFile(file)}
-                        className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
-                      >
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <Icon className="h-4 w-4 flex-shrink-0 text-zinc-500" />
-                            <span className="truncate text-sm font-medium text-zinc-950 dark:text-white">
-                              {file.name}
-                            </span>
-                            {file.aiStatus === "ANALYZING" && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 dark:bg-violet-950">
-                                <Loader2 className="h-3 w-3 animate-spin text-violet-600 dark:text-violet-400" />
-                                <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400">Analyzing</span>
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${getMediaTypeColor(
-                              file.mediaType as MediaType
-                            )}`}
-                          >
-                            {getMediaTypeLabel(file.mediaType as MediaType)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-sm text-zinc-500">
-                          {formatFileSize(file.size)}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex flex-wrap gap-1">
-                            {file.tags.slice(0, 3).map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                            {file.tags.length > 3 && (
-                              <span className="text-[10px] text-zinc-400">
-                                +{file.tags.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 text-sm text-zinc-500">
-                          {new Date(file.createdAt).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {total > files.length && (
-          <p className="text-center text-sm text-zinc-500">
-            Showing {files.length} of {total} files
-          </p>
-        )}
-      </div>
-
-      {/* AI Assistant Side Panel */}
-      {showChat && (
-        <div className="sticky top-0 w-96 shrink-0 self-start">
-          <div className="flex h-[calc(100vh-12rem)] flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-violet-500" />
-                <span className="text-sm font-medium text-zinc-950 dark:text-white">AI Assistant</span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setShowChat(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <FileChat
-              onFilesChanged={refreshFiles}
-              onFileSelect={handleChatFileSelect}
-            />
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-violet-500/10 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-violet-400 bg-white/90 px-8 py-6 dark:bg-zinc-900/90">
+            <Upload className="h-8 w-8 text-violet-500" />
+            <p className="text-sm font-medium text-violet-600">Drop files to upload</p>
           </div>
         </div>
       )}
 
-      {/* Stock Images Dialog */}
-      <Dialog open={showStockBrowser} onOpenChange={setShowStockBrowser}>
-        <DialogContent className="sm:max-w-7xl w-[95vw] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Stock Images</DialogTitle>
-          </DialogHeader>
-          <FreepikBrowser
-            onSelect={() => {
-              setShowStockBrowser(false);
-              refreshFiles();
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Left panel: Chat */}
+      <div className="flex w-[380px] min-h-0 shrink-0 flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
+          <Sparkles className="h-4 w-4 text-violet-500" />
+          <span className="text-sm font-medium text-zinc-950 dark:text-white">AI Assistant</span>
+          <button
+            onClick={handleClearChat}
+            title="New conversation"
+            className="ml-auto rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <FileChat
+          key={chatKey}
+          onFilesChanged={() => {}}
+          onFileSelect={handleChatFileSelect}
+          onImportStock={handleImportStock}
+          onUploadClick={() => fileInputRef.current?.click()}
+          isUploading={isUploading}
+          externalMessage={externalMessage}
+          onExternalMessageConsumed={() => setExternalMessage(null)}
+          onResults={handleResults}
+        />
+      </div>
+
+      {/* Right panel: Results */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        {hasResults ? (
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* Folder results */}
+            {currentFolderResults.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-zinc-500">
+                  {currentFolderResults.length} folder{currentFolderResults.length > 1 ? "s" : ""}
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {currentFolderResults.map((folder) => (
+                    <button
+                      key={folder.name}
+                      onClick={() => setExternalMessage(`Show files in folder "${folder.name}"`)}
+                      className="group flex flex-col items-center gap-2 overflow-hidden rounded-lg border border-zinc-200 bg-white p-4 text-center transition-all hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-violet-700"
+                    >
+                      <FolderOpen className="h-10 w-10 text-violet-400 transition-colors group-hover:text-violet-500" />
+                      <div>
+                        <p className="truncate text-xs font-medium text-zinc-950 dark:text-white">
+                          {folder.name}
+                        </p>
+                        <p className="text-[10px] text-zinc-400">
+                          {folder.fileCount} file{folder.fileCount !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* File results */}
+            {currentFileResults.length > 0 && (
+              <div className={`space-y-3 ${currentFolderResults.length > 0 ? "mt-6" : ""}`}>
+                <p className="text-xs font-medium text-zinc-500">
+                  {currentFileResults.length} file{currentFileResults.length > 1 ? "s" : ""} found
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {currentFileResults.map((file) => {
+                    const Icon = getFileIcon(file.mimeType);
+                    return (
+                      <button
+                        key={file.id}
+                        onClick={() => handleChatFileSelect(file)}
+                        className="group flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white text-left transition-all hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-violet-700"
+                      >
+                        <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+                          {isImage(file.mimeType) ? (
+                            <img
+                              src={file.cloudinaryUrl || file.url}
+                              alt={file.name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <Icon className="h-8 w-8 text-zinc-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 space-y-0.5">
+                          <p className="truncate text-xs font-medium text-zinc-950 dark:text-white">
+                            {file.name}
+                          </p>
+                          {file.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-0.5">
+                              {file.tags.slice(0, 3).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-600 dark:bg-violet-950 dark:text-violet-400"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                              {file.tags.length > 3 && (
+                                <span className="text-[9px] text-zinc-400">
+                                  +{file.tags.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Stock results */}
+            {currentStockResults.length > 0 && (
+              <div className={`space-y-3 ${currentFileResults.length > 0 ? "mt-6" : ""}`}>
+                <p className="text-xs font-medium text-zinc-500">
+                  {currentStockResults.length} stock image{currentStockResults.length > 1 ? "s" : ""}
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {currentStockResults.map((img) => (
+                    <div
+                      key={img.id}
+                      className="group relative flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+                    >
+                      <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+                        <img
+                          src={img.thumbnail.url}
+                          alt={img.title}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                        <span
+                          className={`absolute left-1 top-1 rounded px-1 py-0.5 text-[9px] font-medium ${
+                            img.isPremium
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                          }`}
+                        >
+                          {img.isPremium ? "Premium" : "Free"}
+                        </span>
+                      </div>
+                      <div className="p-2 space-y-1">
+                        <p className="truncate text-xs font-medium text-zinc-950 dark:text-white">
+                          {img.title}
+                        </p>
+                        <p className="truncate text-[10px] text-zinc-400">
+                          by {img.author.name}
+                        </p>
+                        <button
+                          onClick={() => handleImportStock(img.id, img.title)}
+                          disabled={importingStockId !== null}
+                          className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-md bg-violet-600 px-2 py-1.5 text-[11px] font-medium text-white transition-all hover:bg-violet-500 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {importingStockId === img.id ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Importing...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-3 w-3" />
+                              Import
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Landing state — shown before any results */
+          <div className="flex flex-1 items-center justify-center p-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-zinc-950 dark:text-white">
+                AI Archive Assistant
+              </h3>
+              <p className="mt-1 max-w-sm text-sm text-zinc-500">
+                Find, organize, and manage your files using natural language.
+                {initialFileCount > 0 && (
+                  <span className="text-zinc-400"> {initialFileCount} files in library.</span>
+                )}
+              </p>
+
+              {/* Quick-action chips */}
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                {quickActions.map(({ label, icon: Icon }) => (
+                  <button
+                    key={label}
+                    onClick={() => setExternalMessage(label)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-violet-700 dark:hover:bg-violet-950 dark:hover:text-violet-300"
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-violet-700 dark:hover:bg-violet-950 dark:hover:text-violet-300 disabled:opacity-50"
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  Upload files
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* File Detail Sheet */}
       <Sheet open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
@@ -647,24 +562,17 @@ export function FileManager({
                     Open
                   </a>
                 </Button>
-                <Button variant="outline" size="sm" asChild className="flex-1">
-                  <a href={selectedFile.url} download={selectedFile.fileName}>
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Download
-                  </a>
+                <Button variant="outline" size="sm" className="flex-1" onClick={handleDownloadFile}>
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  Download
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDeleteFile}
-                  disabled={isDeletingFile}
+                  onClick={() => setShowDeleteConfirm(true)}
                   className="text-red-600 hover:text-red-700 dark:text-red-400"
                 >
-                  {isDeletingFile ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" />
-                  )}
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
 
@@ -779,6 +687,39 @@ export function FileManager({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent showCloseButton={false} className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete file</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{selectedFile?.name}&rdquo;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeletingFile}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteFile}
+              disabled={isDeletingFile}
+            >
+              {isDeletingFile ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1.5 h-4 w-4" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

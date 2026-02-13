@@ -25,10 +25,19 @@ async function getPost(domain: string, slug: string) {
 
   if (!site) return null;
 
+  // Find post through publication
+  const publication = await db.blogPostPublication.findUnique({
+    where: {
+      siteId_slug: { siteId: site.id, slug },
+    },
+    select: { postId: true },
+  });
+
+  if (!publication) return null;
+
   const post = await db.blogPost.findFirst({
     where: {
-      siteId: site.id,
-      slug,
+      id: publication.postId,
       status: "PUBLISHED",
       publishedAt: { lte: new Date() },
     },
@@ -51,10 +60,10 @@ async function getPost(domain: string, slug: string) {
 
   if (!post) return null;
 
-  // Get related posts
+  // Get related posts (also published to this site)
   const relatedPosts = await db.blogPost.findMany({
     where: {
-      siteId: site.id,
+      publications: { some: { siteId: site.id } },
       status: "PUBLISHED",
       publishedAt: { lte: new Date() },
       id: { not: post.id },
@@ -74,13 +83,11 @@ async function getPost(domain: string, slug: string) {
     },
     orderBy: { publishedAt: "desc" },
     take: 3,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      excerpt: true,
-      featuredImage: true,
-      publishedAt: true,
+    include: {
+      publications: {
+        where: { siteId: site.id },
+        select: { slug: true },
+      },
     },
   });
 
@@ -251,7 +258,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                 {relatedPosts.map((related) => (
                   <Link
                     key={related.id}
-                    href={`/blog/${related.slug}`}
+                    href={`/blog/${related.publications[0]?.slug || related.slug}`}
                     className="group"
                   >
                     <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-surface-alt">

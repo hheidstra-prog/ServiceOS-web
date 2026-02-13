@@ -22,7 +22,7 @@ async function getSiteAndPosts(
       status: "PUBLISHED",
       blogEnabled: true,
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, organizationId: true },
   });
 
   if (!site) return null;
@@ -30,9 +30,9 @@ async function getSiteAndPosts(
   const perPage = 12;
   const skip = (page - 1) * perPage;
 
-  // Build where clause
+  // Build where clause — query through publications
   const where: Record<string, unknown> = {
-    siteId: site.id,
+    publications: { some: { siteId: site.id } },
     status: "PUBLISHED",
     publishedAt: { lte: new Date() },
   };
@@ -58,11 +58,15 @@ async function getSiteAndPosts(
         categories: {
           include: { category: true },
         },
+        publications: {
+          where: { siteId: site.id },
+          select: { slug: true },
+        },
       },
     }),
     db.blogPost.count({ where }),
     db.blogCategory.findMany({
-      where: { siteId: site.id },
+      where: { organizationId: site.organizationId },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -236,16 +240,20 @@ interface BlogPost {
       slug: string;
     };
   }>;
+  publications: Array<{
+    slug: string;
+  }>;
 }
 
 function BlogCard({ post }: { post: BlogPost }) {
   const authorName = post.author
     ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
     : null;
+  const displaySlug = post.publications[0]?.slug || post.slug;
 
   return (
     <article className="group">
-      <Link href={`/blog/${post.slug}`}>
+      <Link href={`/blog/${displaySlug}`}>
         {/* Image */}
         <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-surface-alt">
           {post.featuredImage ? (
