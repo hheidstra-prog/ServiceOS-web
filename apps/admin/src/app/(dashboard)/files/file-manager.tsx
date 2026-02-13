@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -43,7 +42,7 @@ import {
 import { toast } from "sonner";
 import { MediaType } from "@serviceos/database";
 import { getFileIcon, formatFileSize, getMediaTypeLabel, getMediaTypeColor } from "@/lib/file-utils";
-import { getFiles, deleteFile, updateFile, getAnalyzingFileIds, smartSearch } from "./actions";
+import { getFiles, deleteFile, updateFile, getAnalyzingFileIds } from "./actions";
 import { FreepikBrowser } from "@/components/freepik-browser";
 import { FileChat } from "./file-chat";
 import type { FileResultItem } from "./file-chat-actions";
@@ -93,11 +92,6 @@ export function FileManager({
   const [isDragging, setIsDragging] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showStockBrowser, setShowStockBrowser] = useState(false);
-  const [showSmartSearch, setShowSmartSearch] = useState(false);
-  const [smartSearchQuery, setSmartSearchQuery] = useState("");
-  const [smartSearchResults, setSmartSearchResults] = useState<FileRecord[]>([]);
-  const [smartSearchKeywords, setSmartSearchKeywords] = useState<string[]>([]);
-  const [isSmartSearching, setIsSmartSearching] = useState(false);
   const [scanContent, setScanContent] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -319,14 +313,6 @@ export function FileManager({
           >
             <ImageIcon className="mr-1.5 h-4 w-4" />
             Stock Images
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => setShowSmartSearch(true)}
-          >
-            <Sparkles className="mr-1.5 h-4 w-4" />
-            Smart Search
           </Button>
 
           <Button
@@ -610,148 +596,6 @@ export function FileManager({
           </div>
         </div>
       )}
-
-      {/* Smart Search Dialog */}
-      <Dialog open={showSmartSearch} onOpenChange={(open) => {
-        setShowSmartSearch(open);
-        if (!open) {
-          setSmartSearchQuery("");
-          setSmartSearchResults([]);
-          setSmartSearchKeywords([]);
-        }
-      }}>
-        <DialogContent className="sm:max-w-4xl w-[90vw] max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-violet-500" />
-              Smart Search
-            </DialogTitle>
-          </DialogHeader>
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />
-            <Textarea
-              placeholder={"Search by description, tags, or filename...\ne.g. \"business woman with tablet\""}
-              value={smartSearchQuery}
-              onChange={(e) => setSmartSearchQuery(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === "Enter" && !e.shiftKey && smartSearchQuery.trim()) {
-                  e.preventDefault();
-                  setIsSmartSearching(true);
-                  setSmartSearchKeywords([]);
-                  try {
-                    const result = await smartSearch(smartSearchQuery.trim());
-                    setSmartSearchResults(result.files as FileRecord[]);
-                    setSmartSearchKeywords(result.keywords || []);
-                  } catch {
-                    toast.error("Search failed");
-                  } finally {
-                    setIsSmartSearching(false);
-                  }
-                }
-              }}
-              className="min-h-[60px] resize-none pl-10"
-              rows={2}
-              autoFocus
-            />
-          </div>
-          {smartSearchKeywords.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-zinc-500">Searched for:</span>
-              {smartSearchKeywords.map((kw) => (
-                <span
-                  key={kw}
-                  className="inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[11px] text-violet-600 dark:bg-violet-950 dark:text-violet-400"
-                >
-                  {kw}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {isSmartSearching ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-                  <p className="text-xs text-zinc-500">AI is expanding your search...</p>
-                </div>
-              </div>
-            ) : smartSearchResults.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 py-2">
-                {smartSearchResults.map((file) => {
-                  const Icon = getFileIcon(file.mimeType);
-                  return (
-                    <button
-                      key={file.id}
-                      onClick={() => {
-                        handleSelectFile(file);
-                        setShowSmartSearch(false);
-                        setSmartSearchQuery("");
-                        setSmartSearchResults([]);
-                        setSmartSearchKeywords([]);
-                      }}
-                      className="group relative flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white text-left transition-all hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-violet-700"
-                    >
-                      <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
-                        {isImage(file.mimeType) ? (
-                          <img
-                            src={file.cloudinaryUrl || file.url}
-                            alt={file.name}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <Icon className="h-10 w-10 text-zinc-400" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-2 space-y-1">
-                        <p className="truncate text-xs font-medium text-zinc-950 dark:text-white">
-                          {file.name}
-                        </p>
-                        {file.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {file.tags.slice(0, 3).map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-950 dark:text-violet-400"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                            {file.tags.length > 3 && (
-                              <span className="text-[10px] text-zinc-400">
-                                +{file.tags.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : smartSearchQuery ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Search className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
-                <p className="mt-3 text-sm text-zinc-500">
-                  No files found. Try different keywords.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Sparkles className="h-8 w-8 text-violet-300 dark:text-violet-600" />
-                <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Search your files using natural language
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Searches file names, AI descriptions, and tags
-                </p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Stock Images Dialog */}
       <Dialog open={showStockBrowser} onOpenChange={setShowStockBrowser}>
