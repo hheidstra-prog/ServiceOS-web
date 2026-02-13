@@ -145,18 +145,23 @@ Client → Project/Assignment → Work (Time Tracking) → Invoice
 - Page settings (title, slug, SEO metadata with AI generation)
 - Save draft / publish workflow
 - Multi-tenant web app rendering published sites
+- Starter blog posts auto-generated on AI site creation (via BlogPostPublication)
 
-### Blog Management
-- Blog tab on site detail page with post list
-- Create, edit, publish, and delete blog posts
-- Blog post editor with content preview and sidebar
+### Blog Management (Organization-level)
+- Top-level blog at `/blog` — decoupled from individual sites
+- Blog posts, categories, and tags scoped to Organization (not Site)
+- **Multi-site publishing** via `BlogPostPublication` join table
+- Publish/unpublish actions manage publication entries automatically
+- Rich text editor (Novel/TipTap) with StarterKit, Image, Link extensions
+- Slash commands (headings, lists, quotes, dividers, images) and bubble toolbar
 - AI-powered post generation (full post from topic + keywords)
 - AI chat sidebar for conversational content editing (tool_use pattern)
-- Content stored as HTML in Prisma Json field
+- Legacy HTML content support (auto-loaded into editor on open)
 - Category and tag taxonomy (create, delete, associate with posts)
 - SEO settings (title, slug, excerpt, featured image)
-- Status workflow (draft → published)
-- Web app rendering with HTML fallback in `BlogContent` component
+- Status workflow (Draft → Published → Archived)
+- Starter blog posts auto-generated when creating a site via AI
+- Public blog queries through BlogPostPublication for per-site rendering
 
 ### Time to Invoice
 - Select unbilled time entries by client

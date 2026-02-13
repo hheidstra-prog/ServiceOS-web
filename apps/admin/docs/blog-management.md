@@ -2,56 +2,72 @@
 
 ## Overview
 
-Complete blog management integrated into the admin site builder. Allows creating, editing, publishing, and AI-generating blog posts with category/tag taxonomy, all from the admin dashboard.
+Organization-level blog management at `/blog`. Blog posts, categories, and tags are scoped to the Organization (not a specific Site). A `BlogPostPublication` join table enables publishing the same post to multiple sites.
 
 ## Architecture
 
 ```
-Site Detail Page (/sites/[id])
-├── Overview tab
-├── Pages tab
-├── Blog tab        ← post list, categories/tags management
-├── Design tab
-└── Settings tab
+Blog List (/blog)
+├── Post list table (status, date, categories, publications)
+├── Categories management (create, delete)
+└── Tags management (create, delete)
 
-Blog Post Editor (/sites/[id]/blog/[postId])
-├── Content Preview (col-span-2, rendered HTML)
+Blog Post Editor (/blog/[postId])
+├── Novel Editor (col-span-2, TipTap rich text)
+│   ├── StarterKit (headings, lists, quotes, code, etc.)
+│   ├── Image support (upload via /api/media/upload)
+│   ├── Link support
+│   ├── Slash commands (/ menu)
+│   └── Bubble toolbar (bold, italic, strike, code)
 └── Sidebar (col-span-1, sticky)
-    ├── AI tab      ← conversational content editing
-    └── Settings tab ← title, slug, status, excerpt, image, categories, tags, SEO
+    ├── AI tab — conversational content editing
+    └── Settings tab — title, slug, status, excerpt, image, categories, tags, SEO
+
+Blog Creation (/blog/new)
+└── AI chat to generate a full blog post from a topic
 ```
 
 ## Content Format
 
-Blog post content is stored as `{ html: "<content>" }` in the Prisma `Json` field. The web app's `BlogContent` component has an HTML fallback renderer that supports this format (see `apps/web/src/components/blog/blog-content.tsx`). AI generates HTML natively — no TipTap dependency needed for the admin editor.
+Blog post content is stored as TipTap JSON (`{ type: "doc", content: [...] }`) in the Prisma `Json` field. Legacy posts may have `{ html: "<content>" }` format — the editor detects this and loads the HTML into TipTap on open. The web app's `BlogContent` component has an HTML fallback renderer (see `apps/web/src/components/blog/blog-content.tsx`).
+
+## Multi-Site Publishing
+
+- **BlogPostPublication** join table: `(postId, siteId, slug)` — composite PK on `(postId, siteId)`, unique on `(siteId, slug)`
+- **Publish**: sets status to PUBLISHED, creates/updates a BlogPostPublication for the org's site
+- **Unpublish**: sets status to DRAFT, deletes all publication entries
+- **Public blog**: queries posts via `publications: { some: { siteId } }` — only shows posts published to that site
+- Future: UI for selecting which sites to publish to (currently auto-publishes to org's first site)
 
 ## Files
 
 ### Server Actions
 
-**`apps/admin/src/app/(dashboard)/sites/blog-actions.ts`**
+**`apps/admin/src/app/(dashboard)/blog/actions.ts`**
 
-All blog CRUD operations, following patterns from `sites/actions.ts`:
+All blog CRUD operations, using `organizationId` from `requireAuthWithOrg()`:
 
 | Action | Description |
 |---|---|
-| `getBlogPosts(siteId)` | List posts with author and categories |
-| `getBlogPost(siteId, postId)` | Single post with all relations |
-| `createBlogPost(siteId, { title, slug })` | Create draft with `{ html: "" }` |
-| `updateBlogPost(siteId, postId, data)` | Update all fields, handle category/tag associations via delete+recreate |
-| `deleteBlogPost(siteId, postId)` | Delete post |
-| `aiCreateBlogPostWithContent(siteId, { topic, keywords?, targetLength? })` | Generate full post with AI, auto-create tags |
-| `aiChatEditBlogContent(siteId, { currentHtml, messages })` | Conversational HTML editing via tool_use |
-| `getBlogCategories(siteId)` | List categories |
-| `createBlogCategory(siteId, { name, slug })` | Create category |
-| `deleteBlogCategory(siteId, categoryId)` | Delete category |
-| `getBlogTags(siteId)` | List tags |
-| `createBlogTag(siteId, { name, slug })` | Create tag |
-| `deleteBlogTag(siteId, tagId)` | Delete tag |
+| `getBlogPosts()` | List posts with author, categories, and publications (site names) |
+| `getBlogPost(postId)` | Single post with all relations |
+| `createBlogPost({ title, slug })` | Create draft with empty content |
+| `updateBlogPost(postId, data)` | Update all fields, handle category/tag associations |
+| `deleteBlogPost(postId)` | Delete post (cascades to publications) |
+| `publishBlogPost(postId)` | Set PUBLISHED + upsert BlogPostPublication for org's site |
+| `unpublishBlogPost(postId)` | Set DRAFT + delete all publications |
+| `aiCreateBlogPostWithContent({ topic, keywords?, targetLength? })` | Generate full post with AI, auto-create tags |
+| `aiChatEditBlogContent({ currentHtml, messages })` | Conversational HTML editing via tool_use |
+| `getBlogCategories()` | List categories for org |
+| `createBlogCategory({ name, slug })` | Create category |
+| `deleteBlogCategory(categoryId)` | Delete category |
+| `getBlogTags()` | List tags for org |
+| `createBlogTag({ name, slug })` | Create tag |
+| `deleteBlogTag(tagId)` | Delete tag |
 
 ### AI Layer
 
-**`apps/admin/src/lib/ai-site-generator.ts`** — Added `chatEditBlogContent()`:
+**`apps/admin/src/lib/ai-site-generator.ts`** — `chatEditBlogContent()`:
 
 - Uses `update_content` tool with `{ html: string }` input schema
 - System prompt includes current HTML, instructs to use semantic HTML tags
@@ -62,29 +78,47 @@ All blog CRUD operations, following patterns from `sites/actions.ts`:
 
 | File | Type | Description |
 |---|---|---|
-| `sites/[id]/tabs/blog-tab.tsx` | Client | Post list table, create/AI dialogs, category/tag management |
-| `sites/[id]/blog/[postId]/page.tsx` | Server | Fetches site + post + categories + tags, renders editor |
-| `sites/[id]/blog/[postId]/blog-post-editor.tsx` | Client | Full editor: HTML preview, toolbar, sidebar with AI + settings tabs |
-| `sites/[id]/blog/[postId]/blog-content-chat.tsx` | Client | AI chat for blog content, mirrors `block-chat.tsx` |
+| `blog/page.tsx` | Server | Fetches posts/categories/tags, renders BlogManager |
+| `blog/blog-manager.tsx` | Client | Post list table, category/tag management |
+| `blog/new/page.tsx` | Server | AI blog creation page |
+| `blog/new/blog-creation-chat.tsx` | Client | AI chat for generating new blog posts |
+| `blog/new/actions.ts` | Server | `chatCreateBlogPost()` action for AI generation |
+| `blog/[postId]/page.tsx` | Server | Fetches post + categories + tags, handles content format detection |
+| `blog/[postId]/blog-post-editor.tsx` | Client | Novel editor, toolbar, sidebar with AI + settings tabs |
+| `blog/[postId]/blog-content-chat.tsx` | Client | AI chat for blog content editing |
 
-### Modified Files
+### Shared Components
 
-| File | Change |
+| File | Description |
 |---|---|
-| `sites/actions.ts` | `getSite()` now includes `posts`, `categories`, `tags` |
-| `sites/[id]/page.tsx` | Added Blog tab, tabs are URL-driven via `?tab=` |
-| `sites/[id]/tabs/overview-tab.tsx` | Blog Posts stat links to `?tab=blog` |
+| `components/novel-editor.tsx` | TipTap editor wrapper with extensions, slash commands, bubble menu |
+| `components/media-picker.tsx` | Image picker dialog for featured images |
 
 ## Data Flow: AI Content Editing
 
 ```
 User types message in AI chat
   → BlogContentChat.handleSend()
-  → aiChatEditBlogContent(siteId, { currentHtml, messages })
+  → aiChatEditBlogContent({ currentHtml, messages })
   → chatEditBlogContent({ currentHtml, messages })       (ai-site-generator.ts)
     → Anthropic API with update_content tool
     → Returns { content: "I've rewritten...", updatedHtml: "<p>New intro...</p>" }
-  → onContentUpdate(updatedHtml) → setHtmlContent() → preview re-renders
+  → onContentUpdate(updatedHtml)
+    → editor.commands.setContent(html)
+    → setTiptapContent(editor.getJSON())
+```
+
+## Data Flow: Legacy HTML Content
+
+```
+page.tsx loads post from DB
+  → rawContent = post.content (Json field)
+  → if rawContent.type === "doc" → tiptapContent = rawContent (TipTap JSON)
+  → if rawContent.html exists → htmlContent = rawContent.html (legacy)
+  → BlogPostEditor receives { content: tiptapContent, htmlContent }
+    → NovelEditor initializes with empty doc (fallback)
+    → onEditorReady: if htmlContent exists, editor.commands.setContent(htmlContent)
+    → On save: content is stored as TipTap JSON going forward
 ```
 
 ## Post Statuses
@@ -98,25 +132,44 @@ User types message in AI chat
 
 ## Database Models
 
-All models are defined in `packages/database/prisma/schema.prisma`:
+All models in `packages/database/prisma/schema.prisma`:
 
-- **BlogPost** — title, slug, excerpt, content (Json), featuredImage, status (PostStatus enum), publishedAt, featured, SEO fields
-- **BlogCategory** — name, slug, description. Unique on `[siteId, slug]`
-- **BlogTag** — name, slug. Unique on `[siteId, slug]`
+- **BlogPost** — `organizationId`, title, slug, excerpt, content (Json), featuredImage, status (PostStatus enum), publishedAt, featured, SEO fields. Unique on `[organizationId, slug]`
+- **BlogCategory** — `organizationId`, name, slug, description. Unique on `[organizationId, slug]`
+- **BlogTag** — `organizationId`, name, slug. Unique on `[organizationId, slug]`
 - **BlogPostCategory** — join table (postId, categoryId)
 - **BlogPostTag** — join table (postId, tagId)
+- **BlogPostPublication** — join table (postId, siteId, slug). PK on `[postId, siteId]`, unique on `[siteId, slug]`
 
 ## URL Routing
 
 | Route | Purpose |
 |---|---|
-| `/sites/[id]?tab=blog` | Blog post list within site detail |
-| `/sites/[id]/blog/[postId]` | Blog post editor |
+| `/blog` | Blog post list, categories, tags management |
+| `/blog/new` | AI-powered blog post creation |
+| `/blog/[postId]` | Blog post editor (Novel + AI sidebar) |
+
+## Public Blog (Web App)
+
+| Route | How it queries |
+|---|---|
+| `/blog` (list) | `BlogPost` where `publications: { some: { siteId } }` and `status: PUBLISHED` |
+| `/blog/[slug]` (detail) | `BlogPostPublication.findUnique({ siteId_slug })` → load post by ID |
+
+Categories on public blog are queried by `organizationId: site.organizationId`.
 
 ## Patterns & Conventions
 
-- Server actions follow auth pattern: `requireAuthWithOrg()` → verify site ownership → perform operation → `revalidatePath()`
-- Blog tab mirrors `pages-tab.tsx` structure (table, dialogs, empty state)
-- Blog editor mirrors `page-editor.tsx` layout (`grid lg:grid-cols-3`, sticky sidebar, AI + Settings tabs)
+- Server actions use `requireAuthWithOrg()` → verify org ownership → perform operation → `revalidatePath()`
+- Blog manager mirrors sites-list pattern (table, empty state, action dropdowns)
+- Blog editor uses `grid lg:grid-cols-3` layout (editor 2/3, sidebar 1/3)
 - Blog chat mirrors `block-chat.tsx` (messages, example prompts, "Content updated" pill)
 - Category/tag associations use delete+recreate pattern in `updateBlogPost`
+- Publish/unpublish are separate actions (not just a status change) because they manage publications
+
+## Migration Notes
+
+- **Migration script**: `scripts/migrate-blog-to-org.ts` — migrates existing posts/categories/tags from siteId to organizationId, creates BlogPostPublication entries
+- **Schema change**: BlogPost/BlogCategory/BlogTag changed from `siteId` to `organizationId`
+- **Old routes removed**: `/sites/[id]/blog/` no longer exists, Blog tab removed from site detail page
+- **Starter posts**: `sites/new/actions.ts` `generateStarterBlogPosts()` now creates posts with `organizationId` + `BlogPostPublication` entries
