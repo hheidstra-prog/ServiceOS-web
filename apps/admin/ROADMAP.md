@@ -115,6 +115,23 @@ Client → Project/Assignment → Work (Time Tracking) → Invoice
 - Delete files
 - File metadata (size, upload date, uploader)
 
+### File Manager / Media Library
+- Standalone media library at `/files` with grid and list views
+- Drag-and-drop and multi-file upload (Vercel Blob + Cloudinary)
+- AI content scanning on upload (vision analysis for images, metadata for documents)
+- Auto-tagging and AI-generated descriptions per file
+- Filter by media type (Image, Document, Video, Audio) and folder
+- File detail Sheet with preview, editable name/tags/folder, metadata
+- **Smart Search** — AI-powered keyword expansion, searches names, descriptions, and tags
+- **AI Archive Assistant** — Chat side panel for conversational file management:
+  - Search files with visual image grid results (clickable thumbnails)
+  - Tag, bulk-tag, move, and describe files via natural language
+  - Action badges showing operations performed
+  - Multi-step refinement ("no, the one with the blue background")
+  - Click results in chat to open file detail Sheet
+- **Stock Images** — Freepik integration for browsing/importing stock photos
+- Tools: `search_files`, `tag_file`, `move_file`, `describe_file`, `bulk_tag`
+
 ---
 
 ### Sites & Page Builder
@@ -128,6 +145,18 @@ Client → Project/Assignment → Work (Time Tracking) → Invoice
 - Page settings (title, slug, SEO metadata with AI generation)
 - Save draft / publish workflow
 - Multi-tenant web app rendering published sites
+
+### Blog Management
+- Blog tab on site detail page with post list
+- Create, edit, publish, and delete blog posts
+- Blog post editor with content preview and sidebar
+- AI-powered post generation (full post from topic + keywords)
+- AI chat sidebar for conversational content editing (tool_use pattern)
+- Content stored as HTML in Prisma Json field
+- Category and tag taxonomy (create, delete, associate with posts)
+- SEO settings (title, slug, excerpt, featured image)
+- Status workflow (draft → published)
+- Web app rendering with HTML fallback in `BlogContent` component
 
 ### Time to Invoice
 - Select unbilled time entries by client
