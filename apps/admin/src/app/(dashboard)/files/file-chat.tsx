@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { getFileIcon } from "@/lib/file-utils";
+import { getFileIcon, cloudinaryThumb } from "@/lib/file-utils";
 import {
   chatFileAssistant,
   type FileResultItem,
@@ -50,6 +50,34 @@ interface FileChatProps {
   externalMessage?: string | null;
   onExternalMessageConsumed?: () => void;
   onResults?: (results: ChatResultPayload) => void;
+  initialFileResults?: FileResultItem[];
+  locale?: string;
+}
+
+const seedMessages: Record<string, (n: number) => string> = {
+  nl: (n) => `Hier zijn je ${n} meest recente bestand${n > 1 ? "en" : ""}. Vraag me om ze te zoeken, te ordenen of te beheren.`,
+  en: (n) => `Here are your ${n} most recent file${n > 1 ? "s" : ""}. Ask me to find, organize, or manage them.`,
+  de: (n) => `Hier sind deine ${n} neuesten Dateien. Frag mich, um sie zu suchen, zu ordnen oder zu verwalten.`,
+  fr: (n) => `Voici vos ${n} fichiers les plus récents. Demandez-moi de les rechercher, organiser ou gérer.`,
+};
+
+const STORAGE_KEY = "file-chat-messages";
+
+function loadMessages(): ChatMessage[] {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(msgs: ChatMessage[]) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
+  } catch {
+    // storage full or unavailable — ignore
+  }
 }
 
 function StockSearchWidget({
@@ -107,6 +135,8 @@ export function FileChat({
   externalMessage,
   onExternalMessageConsumed,
   onResults,
+  initialFileResults,
+  locale = "en",
 }: FileChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -114,9 +144,61 @@ export function FileChat({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [usedOffers, setUsedOffers] = useState<Set<string>>(new Set());
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const hasRestoredRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Persist messages to sessionStorage
+  useEffect(() => {
+    if (!hasRestoredRef.current) return;
+    saveMessages(messages);
+  }, [messages]);
+
+  // On mount, restore from sessionStorage or inject synthetic message from initialFileResults
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    const restored = loadMessages();
+    if (restored.length > 0) {
+      setMessages(restored);
+      if (onResults) {
+        // Replay the most recent results to the right panel
+        for (let i = restored.length - 1; i >= 0; i--) {
+          const m = restored[i];
+          if (
+            (m.fileResults && m.fileResults.length > 0) ||
+            (m.stockResults && m.stockResults.length > 0) ||
+            (m.folderResults && m.folderResults.length > 0)
+          ) {
+            onResults({
+              fileResults: m.fileResults || [],
+              stockResults: m.stockResults || [],
+              folderResults: m.folderResults || [],
+            });
+            break;
+          }
+        }
+      }
+    } else if (initialFileResults && initialFileResults.length > 0) {
+      const n = initialFileResults.length;
+      const getMessage = seedMessages[locale] || seedMessages.en;
+      const synthetic: ChatMessage = {
+        id: `msg-seed`,
+        role: "assistant",
+        content: getMessage(n),
+        timestamp: Date.now(),
+        fileResults: initialFileResults,
+      };
+      setMessages([synthetic]);
+      onResults?.({
+        fileResults: initialFileResults,
+        stockResults: [],
+        folderResults: [],
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -318,7 +400,7 @@ export function FileChat({
                             <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
                               {isImage(file.mimeType) ? (
                                 <img
-                                  src={file.cloudinaryUrl || file.url}
+                                  src={cloudinaryThumb(file.cloudinaryUrl || file.url, 200, 200)}
                                   alt={file.name}
                                   className="h-full w-full object-cover"
                                   loading="lazy"

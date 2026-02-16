@@ -377,3 +377,38 @@ export async function getFileCount(): Promise<number> {
     where: { organizationId: organization.id },
   });
 }
+
+/**
+ * Returns the most recent uploads as lightweight FileResultItem objects.
+ * Used to pre-populate the files page on first load.
+ */
+export async function getRecentFiles(limit = 20): Promise<{
+  id: string;
+  name: string;
+  url: string;
+  cloudinaryUrl: string | null;
+  mimeType: string | null;
+  tags: string[];
+  folder: string | null;
+  aiDescription: string | null;
+}[]> {
+  const { organization } = await requireAuthWithOrg();
+
+  const files = await db.file.findMany({
+    where: { organizationId: organization.id },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      name: true,
+      url: true,
+      cloudinaryUrl: true,
+      mimeType: true,
+      tags: true,
+      folder: true,
+      aiDescription: true,
+    },
+  });
+
+  return files;
+}

@@ -14,6 +14,7 @@ import { FaqBlock } from "@/components/blocks/faq";
 import { ProcessBlock } from "@/components/blocks/process";
 import { PricingBlock } from "@/components/blocks/pricing";
 import { LogosBlock } from "@/components/blocks/logos";
+import { ColumnsBlock } from "@/components/blocks/columns";
 import { BlockOverlay } from "./block-overlay";
 import { buildThemeVars, getGoogleFontsUrl, type SiteTheme } from "./preview-theme";
 import "./block-preview.css";
@@ -49,6 +50,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<{ data: Record<string
   process: ProcessBlock,
   pricing: PricingBlock,
   logos: LogosBlock,
+  columns: ColumnsBlock,
 };
 
 const BLOCK_LABELS: Record<string, string> = {
@@ -65,6 +67,7 @@ const BLOCK_LABELS: Record<string, string> = {
   process: "Process",
   pricing: "Pricing",
   logos: "Logos",
+  columns: "Columns",
 };
 
 export function BlockPreviewRenderer({

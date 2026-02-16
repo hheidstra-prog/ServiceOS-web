@@ -1,7 +1,9 @@
+import { requireAuthWithOrg } from "@/lib/auth";
 import { getFileCount } from "./actions";
 import { FileManager } from "./file-manager";
 
 export default async function FilesPage() {
+  const { organization } = await requireAuthWithOrg();
   const fileCount = await getFileCount();
 
   return (
@@ -14,7 +16,7 @@ export default async function FilesPage() {
           Find, organize, and manage your media library.
         </p>
       </div>
-      <FileManager initialFileCount={fileCount} />
+      <FileManager initialFileCount={fileCount} locale={organization.locale || "en"} />
     </div>
   );
 }

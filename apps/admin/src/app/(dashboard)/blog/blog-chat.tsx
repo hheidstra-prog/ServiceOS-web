@@ -35,7 +35,16 @@ interface BlogChatProps {
   onExternalMessageConsumed?: () => void;
   onResults?: (results: BlogChatResultPayload) => void;
   onPostCreated?: (postId: string) => void;
+  initialPostResults?: BlogPostResult[];
+  locale?: string;
 }
+
+const seedMessages: Record<string, (n: number) => string> = {
+  nl: (n) => `Hier zijn je ${n} meest recente blogpost${n > 1 ? "s" : ""}. Vraag me om ze te filteren, te maken of te beheren.`,
+  en: (n) => `Here are your ${n} most recent blog post${n > 1 ? "s" : ""}. Ask me to filter, create, or manage them.`,
+  de: (n) => `Hier sind deine ${n} neuesten Blogbeiträge. Frag mich, um sie zu filtern, zu erstellen oder zu verwalten.`,
+  fr: (n) => `Voici vos ${n} articles de blog les plus récents. Demandez-moi de les filtrer, créer ou gérer.`,
+};
 
 const STORAGE_KEY = "blog-chat-messages";
 
@@ -61,6 +70,8 @@ export function BlogChat({
   onExternalMessageConsumed,
   onResults,
   onPostCreated,
+  initialPostResults,
+  locale = "en",
 }: BlogChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -76,7 +87,8 @@ export function BlogChat({
     saveMessages(messages);
   }, [messages]);
 
-  // On mount, restore messages from sessionStorage and replay post results
+  // On mount, restore messages from sessionStorage and replay post results.
+  // If no stored messages but initialPostResults are provided, inject a synthetic message.
   useEffect(() => {
     if (hasRestoredRef.current) return;
     hasRestoredRef.current = true;
@@ -91,6 +103,18 @@ export function BlogChat({
           }
         }
       }
+    } else if (initialPostResults && initialPostResults.length > 0) {
+      const n = initialPostResults.length;
+      const getMessage = seedMessages[locale] || seedMessages.en;
+      const synthetic: ChatMessage = {
+        id: `msg-seed`,
+        role: "assistant",
+        content: getMessage(n),
+        timestamp: Date.now(),
+        postResults: initialPostResults,
+      };
+      setMessages([synthetic]);
+      onResults?.({ postResults: initialPostResults });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

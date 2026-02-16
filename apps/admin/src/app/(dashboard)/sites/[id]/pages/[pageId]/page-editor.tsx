@@ -22,6 +22,7 @@ import {
   ListOrdered,
   DollarSign,
   Building2,
+  Columns3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +49,7 @@ import { BlockChat, type ChatMessage } from "./block-chat";
 import { BlockPreviewRenderer } from "@/components/preview/block-preview-renderer";
 import type { SiteTheme } from "@/components/preview/preview-theme";
 
-type BlockType = "hero" | "text" | "features" | "services" | "testimonials" | "cta" | "contact" | "image" | "stats" | "faq" | "process" | "pricing" | "logos";
+type BlockType = "hero" | "text" | "features" | "services" | "testimonials" | "cta" | "contact" | "image" | "stats" | "faq" | "process" | "pricing" | "logos" | "columns";
 
 interface Block {
   id: string;
@@ -90,6 +91,7 @@ const blockTypes: Array<{ type: BlockType; label: string; icon: typeof Layout; d
   { type: "process", label: "Process", icon: ListOrdered, description: "Step-by-step process" },
   { type: "pricing", label: "Pricing", icon: DollarSign, description: "Pricing plans grid" },
   { type: "logos", label: "Logos", icon: Building2, description: "Logo carousel or grid" },
+  { type: "columns", label: "Columns", icon: Columns3, description: "Flexible multi-column layout" },
 ];
 
 function generateBlockId() {
@@ -203,6 +205,15 @@ function getDefaultBlockData(type: string): Record<string, unknown> {
           { name: "Company B" },
           { name: "Company C" },
           { name: "Company D" },
+        ],
+      };
+    case "columns":
+      return {
+        columns: 2,
+        layout: "equal",
+        items: [
+          { heading: "Left Column", text: "Add your content here." },
+          { heading: "Right Column", text: "Add your content here." },
         ],
       };
     default:

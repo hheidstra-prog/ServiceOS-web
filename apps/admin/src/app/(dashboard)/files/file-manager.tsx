@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Upload,
   Loader2,
@@ -33,8 +33,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { getFileIcon, formatFileSize } from "@/lib/file-utils";
-import { deleteFile, updateFile } from "./actions";
+import { getFileIcon, formatFileSize, cloudinaryThumb } from "@/lib/file-utils";
+import { deleteFile, updateFile, getRecentFiles } from "./actions";
 import { FileChat } from "./file-chat";
 import type { ChatResultPayload } from "./file-chat";
 import type { FileResultItem, StockImageResult, FolderResultItem } from "./file-chat-actions";
@@ -63,9 +63,10 @@ interface FileRecord {
 
 interface FileManagerProps {
   initialFileCount: number;
+  locale: string;
 }
 
-export function FileManager({ initialFileCount }: FileManagerProps) {
+export function FileManager({ initialFileCount, locale }: FileManagerProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileRecord | null>(null);
@@ -73,7 +74,16 @@ export function FileManager({ initialFileCount }: FileManagerProps) {
   const [importingStockId, setImportingStockId] = useState<number | null>(null);
   const [chatKey, setChatKey] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [initialFiles, setInitialFiles] = useState<FileResultItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    if (initialFileCount > 0) {
+      getRecentFiles(20).then((files) => setInitialFiles(files)).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Results state — populated by chat, rendered in right panel
   const [currentFileResults, setCurrentFileResults] = useState<FileResultItem[]>([]);
@@ -99,6 +109,11 @@ export function FileManager({ initialFileCount }: FileManagerProps) {
     setCurrentStockResults([]);
     setCurrentFolderResults([]);
     setExternalMessage(null);
+    try {
+      sessionStorage.removeItem("file-chat-messages");
+    } catch {
+      // ignore
+    }
   };
 
   const handleUpload = async (fileList: FileList | null) => {
@@ -327,6 +342,8 @@ export function FileManager({ initialFileCount }: FileManagerProps) {
           externalMessage={externalMessage}
           onExternalMessageConsumed={() => setExternalMessage(null)}
           onResults={handleResults}
+          initialFileResults={initialFiles.length > 0 ? initialFiles : undefined}
+          locale={locale}
         />
       </div>
 
@@ -380,7 +397,7 @@ export function FileManager({ initialFileCount }: FileManagerProps) {
                         <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
                           {isImage(file.mimeType) ? (
                             <img
-                              src={file.cloudinaryUrl || file.url}
+                              src={cloudinaryThumb(file.cloudinaryUrl || file.url)}
                               alt={file.name}
                               className="h-full w-full object-cover"
                               loading="lazy"
@@ -527,15 +544,15 @@ export function FileManager({ initialFileCount }: FileManagerProps) {
         )}
       </div>
 
-      {/* File Detail Sheet */}
-      <Sheet open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
+      {/* Sheet + Dialog — render after mount to avoid Radix hydration mismatch */}
+      {mounted && (<><Sheet open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
         <SheetContent className="w-[400px] sm:w-[500px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>File Details</SheetTitle>
           </SheetHeader>
 
           {selectedFile && (
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6 px-4">
               {/* Preview */}
               <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
                 {isImage(selectedFile.mimeType) ? (
@@ -719,7 +736,7 @@ export function FileManager({ initialFileCount }: FileManagerProps) {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog></>)}
     </div>
   );
 }

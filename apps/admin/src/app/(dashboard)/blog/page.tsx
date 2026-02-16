@@ -35,6 +35,7 @@ export default async function BlogPage() {
         totalPosts={totalPosts}
         publishedCount={publishedCount}
         draftCount={draftCount}
+        locale={organization.locale || "en"}
       />
     </div>
   );

@@ -54,6 +54,24 @@ export function getMediaTypeLabel(mediaType: MediaType): string {
   return labels[mediaType] || "Other";
 }
 
+/**
+ * Insert Cloudinary transformations into a URL for thumbnail loading.
+ * Works purely on the URL string — no server SDK needed.
+ * Non-Cloudinary URLs are returned unchanged.
+ */
+export function cloudinaryThumb(
+  url: string | null | undefined,
+  width = 400,
+  height = 400
+): string {
+  if (!url) return "";
+  if (!url.includes("/upload/")) return url;
+  return url.replace(
+    "/upload/",
+    `/upload/w_${width},h_${height},c_fill,f_auto,q_auto/`
+  );
+}
+
 export function getMediaTypeColor(mediaType: MediaType): string {
   const colors: Record<MediaType, string> = {
     IMAGE: "bg-blue-500/10 text-blue-700 dark:text-blue-400",

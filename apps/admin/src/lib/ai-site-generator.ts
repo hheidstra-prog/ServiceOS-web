@@ -33,7 +33,7 @@ export interface GeneratedPage {
 }
 
 export interface GeneratedBlock {
-  type: "hero" | "text" | "features" | "services" | "testimonials" | "cta" | "contact" | "image" | "stats" | "faq" | "process" | "pricing" | "logos";
+  type: "hero" | "text" | "features" | "services" | "testimonials" | "cta" | "contact" | "image" | "stats" | "faq" | "process" | "pricing" | "logos" | "columns";
   data: Record<string, unknown>;
 }
 
@@ -45,6 +45,29 @@ export interface GeneratedBlogPost {
   metaTitle: string;
   metaDescription: string;
   tags: string[];
+}
+
+export interface AvailableImage {
+  name: string;
+  url: string;
+  description?: string | null;
+  tags?: string[];
+}
+
+/**
+ * Format available images as a compact prompt snippet for AI context.
+ * Returns empty string if no images are provided.
+ */
+function formatImageContext(images?: AvailableImage[]): string {
+  if (!images || images.length === 0) return "";
+
+  const lines = images.map((img) => {
+    const desc = img.description || "No description";
+    const tagStr = img.tags?.length ? ` [${img.tags.join(", ")}]` : "";
+    return `- "${img.name}": ${desc}${tagStr} | URL: ${img.url}`;
+  });
+
+  return `\nAvailable images from the media library (use the URL to set image/backgroundImage fields, pick images that match the section context):\n${lines.join("\n")}\n`;
 }
 
 // ===========================================
@@ -143,6 +166,11 @@ Example: { "type": "hero", "data": { "heading": "Welcome", "subheading": "Hello 
   - IMPORTANT: "icon" must be a Lucide icon name (same list as features), NOT an emoji. If omitted, a step number is shown instead.
 - pricing: { heading?, subheading?, plans: [{ name, description?, price, period?, features: [string], ctaText?, ctaLink?, highlighted?: boolean }] }
 - logos: { heading?, logos: [{ name, src? }] }
+- columns: { heading?, subheading?, columns?: 2|3|4, layout?: "equal"|"wide-left"|"wide-right", gap?: "sm"|"md"|"lg", items: [{ heading?, text?, image?, icon?, list?: [string], cta?: {label, href} }] }
+  - Use for flexible multi-column layouts that don't fit a semantic block type
+  - Each item is one column — fill in whichever fields are needed (all are optional)
+  - "wide-left" gives 2/3 to the first column, "wide-right" gives 2/3 to the second column (only for 2 columns)
+  - IMPORTANT: "icon" must be a Lucide icon name (same list as features), NOT an emoji.
 
 Tips:
 - Use "badge" on hero to add a small label above the heading (e.g. "AI-Powered Platform")
@@ -153,6 +181,8 @@ Tips:
 - Use "stats" block with "variant: gradient" for an eye-catching metrics band
 - Use "process" block for "How it works" sections with numbered steps
 - Use "logos" block for "Trusted by" sections (use text names if no image URLs available)
+- Use "columns" block for custom layouts: image + text side-by-side, multi-column cards, or any layout that doesn't fit a semantic block
+- Use "columns" with layout "wide-left" for image-left + text-right sections, or "wide-right" for text-left + image-right
 `;
 
 // ===========================================
@@ -183,6 +213,8 @@ export async function generateSiteFromDescription(context: {
   presetDesignTokens?: Record<string, string>;
   /** Inject into system prompt so content copy matches the design mood */
   moodSummary?: string;
+  /** Available images from the organization's media library */
+  availableImages?: AvailableImage[];
 }): Promise<GeneratedSite> {
   const bc = context.businessContext;
   const businessName = bc?.name || context.organizationContext.name;
@@ -225,7 +257,8 @@ ${hasExplicitColors ? "Use the exact colors provided by the user." : `Choose col
 
 ${DESIGN_TOKEN_DOCS}
 
-${BLOCK_TYPE_DOCS}`;
+${BLOCK_TYPE_DOCS}
+${formatImageContext(context.availableImages)}`;
 
   const userPrompt = `Create a premium website for:
 
@@ -332,12 +365,14 @@ export async function generatePageContent(context: {
   pageTitle?: string;
   pageDescription?: string;
   existingContent?: string;
+  availableImages?: AvailableImage[];
 }): Promise<GeneratedPage> {
   const systemPrompt = `You are a premium web copywriter. Generate compelling page content that converts visitors into customers.
 
 Write in the appropriate language based on the locale. Be specific and benefit-focused.
 
-${BLOCK_TYPE_DOCS}`;
+${BLOCK_TYPE_DOCS}
+${formatImageContext(context.availableImages)}`;
 
   const pageTypePrompts: Record<string, string> = {
     home: "Create a homepage with hero (use badge + highlightWord), feature highlights, stats, testimonials, and a strong CTA.",
@@ -403,12 +438,14 @@ export async function generateBlockContent(context: {
   blockType: GeneratedBlock["type"];
   instructions?: string;
   currentContent?: Record<string, unknown>;
+  availableImages?: AvailableImage[];
 }): Promise<GeneratedBlock> {
   const systemPrompt = `You are a premium web copywriter. Generate compelling content for website blocks.
 
 Be concise, benefit-focused, and persuasive. Write in the appropriate language based on locale.
 
-${BLOCK_TYPE_DOCS}`;
+${BLOCK_TYPE_DOCS}
+${formatImageContext(context.availableImages)}`;
 
   const blockTypeInstructions: Record<string, string> = {
     hero: "Generate a compelling hero section with a strong headline, badge text, highlightWord for gradient effect, and optional stats row.",
@@ -424,6 +461,7 @@ ${BLOCK_TYPE_DOCS}`;
     process: "Generate 3-5 steps for a 'How it works' section. Use Lucide icon names (NOT emoji) for optional icon fields.",
     pricing: "Generate 2-3 pricing plans with features.",
     logos: "Generate 4-6 client/partner company names for a 'Trusted by' section.",
+    columns: "Generate a flexible multi-column layout. Each column item can have any combination of heading, text, image, icon, list, and cta. Use Lucide icon names (NOT emoji) for optional icon fields.",
   };
 
   const userPrompt = `Generate ${context.blockType} block content for ${context.organizationContext.name}.
@@ -681,6 +719,7 @@ export async function chatEditBlockContent(context: {
   blockType: string;
   currentData: Record<string, unknown>;
   messages: Array<{ role: "user" | "assistant"; content: string }>;
+  availableImages?: AvailableImage[];
 }): Promise<ChatEditResult> {
   const UPDATE_BLOCK_TOOL: Anthropic.Tool = {
     name: "update_block",
@@ -704,7 +743,7 @@ Current block data:
 ${JSON.stringify(context.currentData, null, 2)}
 
 ${BLOCK_TYPE_DOCS}
-
+${formatImageContext(context.availableImages)}
 Instructions:
 - When the user asks you to change content, respond with a brief confirmation AND call the update_block tool with the complete updated data.
 - When the user asks a question (e.g. "what fields can I change?"), just respond with text — no tool call needed.

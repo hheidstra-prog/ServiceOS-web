@@ -24,15 +24,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { cloudinaryThumb } from "@/lib/file-utils";
 import { BlogChat } from "./blog-chat";
 import type { BlogChatResultPayload } from "./blog-chat";
 import type { BlogPostResult } from "./blog-chat-actions";
-import { refreshBlogPostResults } from "./blog-chat-actions";
+import { refreshBlogPostResults, getRecentBlogPosts } from "./blog-chat-actions";
 
 interface BlogManagerProps {
   totalPosts: number;
   publishedCount: number;
   draftCount: number;
+  locale: string;
 }
 
 const statusBadgeStyles: Record<string, string> = {
@@ -53,6 +55,7 @@ export function BlogManager({
   totalPosts,
   publishedCount,
   draftCount,
+  locale,
 }: BlogManagerProps) {
   const router = useRouter();
   const [externalMessage, setExternalMessage] = useState<string | null>(null);
@@ -60,8 +63,16 @@ export function BlogManager({
   const [currentPostResults, setCurrentPostResults] = useState<
     BlogPostResult[]
   >([]);
+  const [initialPosts, setInitialPosts] = useState<BlogPostResult[]>([]);
   const [createdPostId, setCreatedPostId] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<BlogPostResult | null>(null);
+
+  // Load recent posts on mount for instant display
+  useEffect(() => {
+    if (totalPosts > 0) {
+      getRecentBlogPosts(20).then((posts) => setInitialPosts(posts)).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-navigate to editor after post creation
   useEffect(() => {
@@ -130,6 +141,8 @@ export function BlogManager({
           onExternalMessageConsumed={() => setExternalMessage(null)}
           onResults={handleResults}
           onPostCreated={handlePostCreated}
+          initialPostResults={initialPosts.length > 0 ? initialPosts : undefined}
+          locale={locale}
         />
       </div>
 
@@ -152,7 +165,7 @@ export function BlogManager({
                   <div className="relative aspect-[16/9] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
                     {post.featuredImage ? (
                       <img
-                        src={post.featuredImage}
+                        src={cloudinaryThumb(post.featuredImage, 500, 280)}
                         alt={post.title}
                         className="h-full w-full object-cover"
                         loading="lazy"
@@ -271,7 +284,7 @@ export function BlogManager({
               <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
                 {selectedPost.featuredImage ? (
                   <img
-                    src={selectedPost.featuredImage}
+                    src={cloudinaryThumb(selectedPost.featuredImage, 500, 280)}
                     alt={selectedPost.title}
                     className="max-h-48 w-full object-cover"
                   />

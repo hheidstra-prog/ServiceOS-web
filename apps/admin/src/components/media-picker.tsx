@@ -13,7 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { FreepikBrowser } from "./freepik-browser";
-import { getFileIcon, formatFileSize } from "@/lib/file-utils";
+import { getFileIcon, formatFileSize, cloudinaryThumb } from "@/lib/file-utils";
 
 interface SelectedFile {
   id: string;
@@ -183,7 +183,7 @@ export function MediaPicker({
                         <div className="aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
                           {isImage(file.mimeType) ? (
                             <img
-                              src={file.url}
+                              src={cloudinaryThumb(file.url, 200, 200)}
                               alt={file.name}
                               className="h-full w-full object-cover"
                               loading="lazy"

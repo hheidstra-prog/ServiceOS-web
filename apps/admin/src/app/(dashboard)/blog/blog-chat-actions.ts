@@ -682,3 +682,33 @@ export async function refreshBlogPostResults(
     tags: p.tags.map((t) => ({ name: t.tag.name })),
   }));
 }
+
+export async function getRecentBlogPosts(
+  limit = 20
+): Promise<BlogPostResult[]> {
+  const { organization } = await requireAuthWithOrg();
+
+  const posts = await db.blogPost.findMany({
+    where: { organizationId: organization.id },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      categories: { include: { category: { select: { name: true } } } },
+      tags: { include: { tag: { select: { name: true } } } },
+    },
+  });
+
+  return posts.map((p) => ({
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    excerpt: p.excerpt,
+    status: p.status,
+    featured: p.featured,
+    featuredImage: p.featuredImage,
+    publishedAt: p.publishedAt,
+    createdAt: p.createdAt,
+    categories: p.categories.map((c) => ({ name: c.category.name })),
+    tags: p.tags.map((t) => ({ name: t.tag.name })),
+  }));
+}
