@@ -229,7 +229,7 @@ The page editor uses a visual block preview with scoped CSS to render site block
 - `src/components/preview/color-utils.ts` — OKLCH palette generation
 
 ### Block Types
-`hero`, `text`, `features`, `services`, `testimonials`, `cta`, `contact`, `image`, `stats`, `faq`, `process`, `pricing`, `logos`
+`hero`, `text`, `features`, `services`, `testimonials`, `cta`, `contact`, `image`, `stats`, `faq`, `process`, `pricing`, `logos`, `columns`
 
 ### CSS Token System
 Blocks use CSS custom properties (`var(--color-primary-500)`, `var(--radius-card)`, etc.) and utility classes (`.section-padding`, `.card-base`, `.btn-primary`, `.hero-heading`, etc.). All scoped under `.block-preview-scope` to prevent conflict with admin styles.

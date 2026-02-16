@@ -138,8 +138,10 @@ Client → Project/Assignment → Work (Time Tracking) → Invoice
 - AI-powered site generation from chat conversation
 - Moodboard-driven design (upload images, pick colors/fonts, describe style)
 - Visual block preview with click-to-edit in page editor
-- 13 block types: hero, text, features, services, testimonials, cta, contact, image, stats, faq, process, pricing, logos
+- 14 block types: hero, text, features, services, testimonials, cta, contact, image, stats, faq, process, pricing, logos, columns
 - AI chat sidebar for editing blocks in natural language ("make the heading punchier", "change to dark variant")
+- **AI image search in block chat** — detects image requests, searches media archive + Freepik stock, shows clickable image grid; user clicks → image placed on correct block field by AI
+- Available images from media library passed to AI block/page/site generators for automatic image selection
 - Live preview with site theme (OKLCH color palettes, custom fonts, design tokens)
 - Block overlay with hover/select states, move up/down, delete, and positional insertion
 - Page settings (title, slug, SEO metadata with AI generation)

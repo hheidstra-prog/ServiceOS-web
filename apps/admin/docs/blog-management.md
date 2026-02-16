@@ -161,13 +161,23 @@ Without this, `hasSome: ["business woman"]` would fail because tags are individu
 
 Currently only free Freepik images are shown (`filters: { license: "freemium" }`). When subscription/financial logic is implemented, premium images can be unlocked for users with a paid Freepik plan by removing or adjusting the license filter in `aiFindAndInsertImage`.
 
+### Block Editor Image Search (Page Builder)
+
+The same image search pattern has been replicated in the page builder's block editor chat (`block-chat.tsx` + `sites/actions.ts`):
+- `aiSearchBlockImages()` — same tool-use loop with `search_archive` + `search_stock`
+- `importStockImage()` — same Freepik → Cloudinary import
+- `ImageCandidate` type exported from `sites/actions.ts` (identical shape)
+- Key difference: after user clicks an image, a follow-up message ("Use this URL for the block: {url}") is sent to `aiChatEditBlock`, which lets the AI decide which block field to set (e.g. `hero.image` vs `hero.backgroundImage` vs `columns.items[n].image`)
+- The follow-up message is filtered from the chat UI for clean UX
+
 ### Future: Media capabilities roadmap
 
 1. ~~AI finds suitable images (archive first, then free stock)~~ — done
 2. ~~User browses archive ("show me business women")~~ — done
-3. Paid stock — gated by subscription/license logic (filter is in place, needs license check)
-4. Upload from blog chat — reuse file assistant upload pattern
-5. AI-generated images
+3. ~~Image search in block editor chat~~ — done (same pattern as blog)
+4. Paid stock — gated by subscription/license logic (filter is in place, needs license check)
+5. Upload from blog chat — reuse file assistant upload pattern
+6. AI-generated images
 
 ## Data Flow: Legacy HTML Content
 

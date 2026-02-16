@@ -42,6 +42,19 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
 - Content chat: `blog-content-chat.tsx` — inline AI assistant with image upload capability
 - Status managed via Publish/Unpublish buttons in toolbar (no dropdown)
 
+## Block Editor Chat (Page Builder)
+- `block-chat.tsx` — AI chat sidebar for editing blocks in natural language
+- **Image search**: detects image-related messages via `isImageRequest()` (multilingual keyword matching)
+  - Calls `aiSearchBlockImages()` in `sites/actions.ts` — AI agent with `search_archive` + `search_stock` tools
+  - Returns `ImageCandidate[]` rendered as a 2-col clickable image grid with license badges
+  - Archive images: click sends follow-up to `aiChatEditBlock` which sets the URL on the correct block field
+  - Stock images: click imports via `importStockImage()` (Freepik → Cloudinary), then same follow-up
+  - Follow-up messages prefixed with `"Use this URL for the block:"` are hidden from chat UI but sent to AI
+  - The AI decides WHERE to place the image (hero.image vs backgroundImage vs columns.items[n].image)
+- **Normal chat**: all other messages go through `aiChatEditBlock()` → `chatEditBlockContent()` with tool_use loop
+- Same `ImageCandidate` type as blog editor (source, fileId, stockResourceId, url, name, stockLicense)
+- Key files: `sites/actions.ts` (server actions), `block-chat.tsx` (UI), `ai-site-generator.ts` (AI layer)
+
 ## File Management
 - AI-powered semantic search via `smartSearch()` in `actions.ts` (uses Claude to expand query concepts)
 - File upload: `/api/media/upload` → Cloudinary storage + async AI analysis (description + tags)
