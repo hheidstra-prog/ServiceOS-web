@@ -5,7 +5,8 @@ import { Loader2, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { aiChatEditBlock } from "../../../actions";
+import { aiChatEditBlock, aiSearchBlockImages, importStockImage } from "../../../actions";
+import type { ImageCandidate } from "../../../actions";
 
 export interface ChatMessage {
   id: string;
@@ -13,6 +14,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   appliedUpdate?: boolean;
+  imageCandidates?: ImageCandidate[];
 }
 
 interface Block {
@@ -80,6 +82,11 @@ const EXAMPLE_PROMPTS: Record<string, string[]> = {
     "Make the descriptions clearer",
     "Add icons to each step",
   ],
+  columns: [
+    "Add an image to the left column",
+    "Make it 3 columns with icons and text",
+    "Add a button to the right column",
+  ],
 };
 
 function getExamplePrompts(blockType: string): string[] {
@@ -88,6 +95,22 @@ function getExamplePrompts(blockType: string): string[] {
     "Make it more engaging",
     "What fields can I change?",
   ];
+}
+
+const IMAGE_KEYWORDS = [
+  "image", "photo", "picture", "foto", "afbeelding", "plaatje",
+  "img", "illustration", "graphic", "visual", "stock photo",
+  // Dutch
+  "beelden", "beeld", "archief",
+  // German
+  "bild", "bilder", "grafik",
+  // French
+  "visuel",
+];
+
+function isImageRequest(message: string): boolean {
+  const lower = message.toLowerCase();
+  return IMAGE_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
 export function BlockChat({
@@ -99,6 +122,7 @@ export function BlockChat({
 }: BlockChatProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [importingId, setImportingId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -130,30 +154,52 @@ export function BlockChat({
     setInput("");
     setIsLoading(true);
 
+    // Only trigger image search for user-typed messages, not follow-up selections
+    const isFollowUpSelection = message.startsWith("Use this URL for the block:");
     try {
-      const conversationHistory = updatedMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      if (!isFollowUpSelection && isImageRequest(message)) {
+        // Image search mode
+        const result = await aiSearchBlockImages(siteId, {
+          instruction: message,
+          blockType: block.type,
+          currentData: block.data,
+        });
 
-      const result = await aiChatEditBlock(siteId, {
-        blockType: block.type,
-        currentData: block.data,
-        messages: conversationHistory,
-      });
+        const assistantMessage: ChatMessage = {
+          id: `msg-${Date.now()}-ai`,
+          role: "assistant",
+          content: result.message,
+          timestamp: Date.now(),
+          imageCandidates: result.candidates.length > 0 ? result.candidates : undefined,
+        };
 
-      const assistantMessage: ChatMessage = {
-        id: `msg-${Date.now()}-ai`,
-        role: "assistant",
-        content: result.content,
-        timestamp: Date.now(),
-        appliedUpdate: !!result.updatedData,
-      };
+        onMessagesChange([...updatedMessages, assistantMessage]);
+      } else {
+        // Normal chat edit mode
+        const conversationHistory = updatedMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
 
-      onMessagesChange([...updatedMessages, assistantMessage]);
+        const result = await aiChatEditBlock(siteId, {
+          blockType: block.type,
+          currentData: block.data,
+          messages: conversationHistory,
+        });
 
-      if (result.updatedData) {
-        onBlockUpdate(result.updatedData);
+        const assistantMessage: ChatMessage = {
+          id: `msg-${Date.now()}-ai`,
+          role: "assistant",
+          content: result.content,
+          timestamp: Date.now(),
+          appliedUpdate: !!result.updatedData,
+        };
+
+        onMessagesChange([...updatedMessages, assistantMessage]);
+
+        if (result.updatedData) {
+          onBlockUpdate(result.updatedData);
+        }
       }
     } catch (error) {
       toast.error(
@@ -170,6 +216,27 @@ export function BlockChat({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleImageSelect = async (candidate: ImageCandidate) => {
+    if (candidate.source === "archive") {
+      // Archive image: send follow-up message so the AI sets it on the right field
+      handleSend(`Use this URL for the block: ${candidate.url}`);
+    } else {
+      // Stock image: import first, then send follow-up
+      setImportingId(candidate.stockResourceId ?? null);
+      try {
+        const result = await importStockImage({
+          stockResourceId: candidate.stockResourceId!,
+          title: candidate.name,
+        });
+        handleSend(`Use this URL for the block: ${result.imageUrl}`);
+      } catch {
+        toast.error("Failed to import stock image");
+      } finally {
+        setImportingId(null);
+      }
     }
   };
 
@@ -234,7 +301,7 @@ export function BlockChat({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-4">
-          {messages.map((message) => (
+          {messages.filter((m) => !m.content.startsWith("Use this URL for the block:")).map((message) => (
             <div
               key={message.id}
               className={`flex items-start gap-2 ${
@@ -259,6 +326,47 @@ export function BlockChat({
                 >
                   <p className="whitespace-pre-wrap">{message.content}</p>
                 </div>
+                {message.imageCandidates && message.imageCandidates.length > 0 && (
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                    {message.imageCandidates.map((candidate) => (
+                      <button
+                        key={candidate.fileId || candidate.stockResourceId}
+                        onClick={() => handleImageSelect(candidate)}
+                        disabled={importingId !== null}
+                        className="group flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white text-left transition-all hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-violet-700"
+                      >
+                        <div className="relative aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={candidate.url}
+                            alt={candidate.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                          {candidate.source === "stock" && importingId === candidate.stockResourceId && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                              <Loader2 className="h-5 w-5 animate-spin text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 p-1.5">
+                          <p className="flex-1 truncate text-[11px] font-medium text-zinc-950 dark:text-white">
+                            {candidate.name}
+                          </p>
+                          {candidate.source === "stock" && (
+                            <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium ${
+                              candidate.stockLicense === "free"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                                : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400"
+                            }`}>
+                              {candidate.stockLicense === "free" ? "Free" : "Premium"}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {message.appliedUpdate && (
                   <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
                     <Sparkles className="h-2.5 w-2.5" />

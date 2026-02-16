@@ -419,14 +419,38 @@ import {
   type GeneratedBlock,
   type GeneratedBlogPost,
   type ChatEditResult,
+  type AvailableImage,
 } from "@/lib/ai-site-generator";
 import { getBusinessContext } from "@/lib/ai";
+import Anthropic from "@anthropic-ai/sdk";
+import {
+  searchFreepikImages,
+  downloadAndStoreFreepikImage,
+  type FreepikImage,
+} from "@/lib/freepik";
 
 /** Helper to build OrganizationContext with BusinessProfile data */
 async function getOrgContext(organizationId: string) {
   const ctx = await getBusinessContext(organizationId);
   if (!ctx) throw new Error("Organization not found");
   return ctx;
+}
+
+/** Fetch recent images from the organization's media library for AI context */
+async function getOrganizationImages(organizationId: string): Promise<AvailableImage[]> {
+  const files = await db.file.findMany({
+    where: { organizationId, mediaType: "IMAGE" },
+    take: 50,
+    select: { name: true, url: true, cloudinaryUrl: true, aiDescription: true, tags: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return files.map((f) => ({
+    name: f.name,
+    url: f.cloudinaryUrl || f.url,
+    description: f.aiDescription,
+    tags: (f.tags as string[]) || [],
+  }));
 }
 
 export async function aiGenerateSite(data: {
@@ -474,6 +498,9 @@ export async function aiCreateSiteWithContent(data: {
   const { organization } = await requireAuthWithOrg();
   const businessContext = await getOrgContext(organization.id);
 
+  // Fetch available images for AI context
+  const availableImages = await getOrganizationImages(organization.id);
+
   // Generate site content using business profile + style choices
   const generated = await generateSiteFromDescription({
     organizationContext: businessContext,
@@ -489,6 +516,7 @@ export async function aiCreateSiteWithContent(data: {
       headerStyle: data.headerStyle,
       footerStyle: data.footerStyle,
     },
+    availableImages,
   });
 
   // Generate subdomain from name
@@ -652,11 +680,14 @@ export async function aiCreatePageWithContent(
 
   const ctx = await getOrgContext(organization.id);
 
+  const availableImages = await getOrganizationImages(organization.id);
+
   const generated = await generatePageContent({
     organizationContext: ctx,
     pageType: data.pageType,
     pageTitle: data.pageTitle,
     pageDescription: data.pageDescription,
+    availableImages,
   });
 
   // Check if slug exists
@@ -717,11 +748,14 @@ export async function aiGenerateBlock(
 
   const ctx = await getOrgContext(organization.id);
 
+  const availableImages = await getOrganizationImages(organization.id);
+
   const result = await generateBlockContent({
     organizationContext: ctx,
     blockType: data.blockType,
     instructions: data.instructions,
     currentContent: data.currentContent,
+    availableImages,
   });
 
   return result;
@@ -854,11 +888,298 @@ export async function aiChatEditBlock(
     throw new Error("Site not found");
   }
 
+  const availableImages = await getOrganizationImages(organization.id);
+
   const result = await chatEditBlockContent({
     blockType: data.blockType,
     currentData: data.currentData,
     messages: data.messages,
+    availableImages,
   });
 
   return result;
+}
+
+// ===========================================
+// AI IMAGE SEARCH FOR BLOCK EDITOR
+// ===========================================
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const IMAGE_SEARCH_MODEL = "claude-sonnet-4-20250514";
+
+const IMAGE_SEARCH_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "search_archive",
+    description:
+      "Search the organization's file archive for images. Matches against file name, AI description, and tags. Always try this first before searching stock.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: {
+          type: "string",
+          description: "Search text to match against image names, descriptions, and tags",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "search_stock",
+    description:
+      "Search Freepik stock images. Only use this if the archive search returned fewer than 3 good results.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: {
+          type: "string",
+          description: "Search query for stock images",
+        },
+      },
+      required: ["query"],
+    },
+  },
+];
+
+export type ImageCandidate = {
+  source: "archive" | "stock";
+  fileId?: string;
+  stockResourceId?: number;
+  url: string;
+  name: string;
+  description?: string | null;
+  stockLicense?: "free" | "premium";
+};
+
+export type AiBlockImageSearchResult = {
+  candidates: ImageCandidate[];
+  message: string;
+};
+
+export async function aiSearchBlockImages(
+  siteId: string,
+  data: {
+    instruction: string;
+    blockType: string;
+    currentData: Record<string, unknown>;
+  }
+): Promise<AiBlockImageSearchResult> {
+  const { organization } = await requireAuthWithOrg();
+
+  // Verify site ownership
+  const site = await db.site.findFirst({
+    where: { id: siteId, organizationId: organization.id },
+  });
+
+  if (!site) {
+    throw new Error("Site not found");
+  }
+
+  const ctx = await getOrgContext(organization.id);
+  const locale = ctx.locale || "en";
+  const localeInstructions: Record<string, string> = {
+    nl: "Respond in Dutch.",
+    en: "Respond in English.",
+    de: "Respond in German.",
+    fr: "Respond in French.",
+  };
+
+  const systemPrompt = `You are an image finder for a website page editor. The user wants to find an image for a ${data.blockType} block.
+${localeInstructions[locale] || `Respond in the language matching locale "${locale}".`}
+
+Current block data:
+${JSON.stringify(data.currentData, null, 2)}
+
+Your job:
+1. Read the block context to understand what kind of image fits.
+2. Call search_archive with a short keyword query (1-3 words).
+3. If the archive returned fewer than 3 results, ALSO call search_stock to find more options.
+4. Return ALL results to the user — do NOT pick one yourself.
+
+CRITICAL RULES:
+- ALWAYS search in English, even if the user writes in another language. File names, tags, and descriptions in the archive are in English. Translate the user's request to English keywords before searching.
+- Use short, broad search queries (e.g. "business woman" not "professional businesswoman in office").
+- Do NOT select or pick a single image. Return all search results so the user can choose.
+- CONCISE RESPONSES — the UI renders an image grid with thumbnails. Do NOT list file IDs, URLs, descriptions, or thumbnails in your text. Reply in 1-2 sentences max (e.g. "I found 5 images from your archive — click one to use it.").`;
+
+  const userMessage = `The user asked: "${data.instruction}"
+
+Search for images that would fit this ${data.blockType} block. Return all candidates.`;
+
+  const apiMessages: Anthropic.MessageParam[] = [
+    { role: "user", content: userMessage },
+  ];
+
+  const archiveCandidates: ImageCandidate[] = [];
+  const stockCandidates: ImageCandidate[] = [];
+
+  let iterations = 0;
+  const maxIterations = 5;
+
+  let response = await anthropic.messages.create({
+    model: IMAGE_SEARCH_MODEL,
+    max_tokens: 1024,
+    system: systemPrompt,
+    tools: IMAGE_SEARCH_TOOLS,
+    messages: apiMessages,
+  });
+
+  while (response.stop_reason === "tool_use" && iterations < maxIterations) {
+    iterations++;
+
+    const toolUseBlocks = response.content.filter(
+      (b): b is Anthropic.ContentBlock & { type: "tool_use" } =>
+        b.type === "tool_use"
+    );
+
+    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+    for (const block of toolUseBlocks) {
+      const input = block.input as Record<string, unknown>;
+
+      switch (block.name) {
+        case "search_archive": {
+          const query = input.query as string;
+          const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
+          const orConditions: Prisma.FileWhereInput[] = [
+            { name: { contains: query, mode: "insensitive" } },
+            { aiDescription: { contains: query, mode: "insensitive" } },
+            { tags: { hasSome: keywords } },
+          ];
+          for (const kw of keywords) {
+            orConditions.push({ aiDescription: { contains: kw, mode: "insensitive" } });
+            orConditions.push({ name: { contains: kw, mode: "insensitive" } });
+          }
+          const where: Prisma.FileWhereInput = {
+            organizationId: organization.id,
+            mediaType: "IMAGE",
+            OR: orConditions,
+          };
+
+          const files = await db.file.findMany({
+            where,
+            take: 10,
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              name: true,
+              url: true,
+              cloudinaryUrl: true,
+              aiDescription: true,
+              tags: true,
+            },
+          });
+
+          for (const f of files) {
+            if (!archiveCandidates.some((c) => c.fileId === f.id)) {
+              archiveCandidates.push({
+                source: "archive",
+                fileId: f.id,
+                url: f.cloudinaryUrl || f.url,
+                name: f.name,
+                description: f.aiDescription,
+              });
+            }
+          }
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: JSON.stringify({
+              count: files.length,
+              files: files.map((f) => ({
+                id: f.id,
+                name: f.name,
+                description: f.aiDescription,
+                tags: f.tags,
+              })),
+            }),
+          });
+          break;
+        }
+
+        case "search_stock": {
+          const query = input.query as string;
+          const result = await searchFreepikImages({ query, limit: 8, filters: { license: "freemium" } });
+
+          for (const img of result.images) {
+            if (!stockCandidates.some((c) => c.stockResourceId === img.id)) {
+              const isFree = img.licenses.some((l) => l.type === "freemium");
+              stockCandidates.push({
+                source: "stock",
+                stockResourceId: img.id,
+                url: img.thumbnail.url,
+                name: img.title,
+                stockLicense: isFree ? "free" : "premium",
+              });
+            }
+          }
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: JSON.stringify({
+              count: result.images.length,
+              images: result.images.map((img: FreepikImage) => ({
+                id: img.id,
+                title: img.title,
+                author: img.author.name,
+              })),
+            }),
+          });
+          break;
+        }
+
+        default:
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: JSON.stringify({ error: `Unknown tool: ${block.name}` }),
+          });
+      }
+    }
+
+    response = await anthropic.messages.create({
+      model: IMAGE_SEARCH_MODEL,
+      max_tokens: 1024,
+      system: systemPrompt,
+      tools: IMAGE_SEARCH_TOOLS,
+      messages: [
+        ...apiMessages,
+        { role: "assistant", content: response.content },
+        { role: "user", content: toolResults },
+      ],
+    });
+  }
+
+  const textContent = response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join(" ");
+
+  const candidates = [...archiveCandidates, ...stockCandidates];
+
+  return {
+    candidates,
+    message: textContent || (candidates.length > 0
+      ? "Here are some image options — click one to use it."
+      : "Could not find any suitable images."),
+  };
+}
+
+export async function importStockImage(data: {
+  stockResourceId: number;
+  title?: string;
+}): Promise<{ imageUrl: string }> {
+  const { organization } = await requireAuthWithOrg();
+
+  const imported = await downloadAndStoreFreepikImage(
+    data.stockResourceId,
+    organization.id,
+    data.title
+  );
+
+  return { imageUrl: imported.url };
 }
