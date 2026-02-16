@@ -12,6 +12,9 @@ import {
   Plus,
   Image as ImageIcon,
   X,
+  RefreshCw,
+  Lock,
+  LockOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,14 +27,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   updateBlogPost,
@@ -39,9 +43,14 @@ import {
   unpublishBlogPost,
   createBlogCategory,
   createBlogTag,
+  aiGenerateSEO,
+  aiRegenerateTitleAndExcerpt,
+  aiFindAndInsertImage,
+  importStockAndInsert,
 } from "../actions";
+import type { ImageCandidate } from "../actions";
 import { BlogContentChat, type ChatMessage } from "./blog-content-chat";
-import { NovelEditor } from "@/components/novel-editor";
+import { NovelEditor, type EditorSelection } from "@/components/novel-editor";
 import { MediaPicker } from "@/components/media-picker";
 import type { JSONContent, EditorInstance } from "novel";
 
@@ -61,6 +70,7 @@ interface Post {
   metaDescription: string | null;
   categoryIds: string[];
   tagIds: string[];
+  publicationSiteIds: string[];
 }
 
 interface Category {
@@ -75,16 +85,24 @@ interface Tag {
   slug: string;
 }
 
+interface Site {
+  id: string;
+  name: string;
+  subdomain: string;
+}
+
 interface BlogPostEditorProps {
   post: Post;
   categories: Category[];
   tags: Tag[];
+  sites: Site[];
 }
 
 export function BlogPostEditor({
   post,
   categories,
   tags,
+  sites,
 }: BlogPostEditorProps) {
   const [tiptapContent, setTiptapContent] = useState<JSONContent | undefined>(
     post.content || undefined
@@ -95,6 +113,7 @@ export function BlogPostEditor({
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
 
   const editorRef = useRef<EditorInstance | null>(null);
+  const [editorSelection, setEditorSelection] = useState<EditorSelection | null>(null);
 
   const [postSettings, setPostSettings] = useState({
     title: post.title,
@@ -108,7 +127,23 @@ export function BlogPostEditor({
     metaDescription: post.metaDescription || "",
     selectedCategoryIds: post.categoryIds,
     selectedTagIds: post.tagIds,
+    selectedSiteIds: post.publicationSiteIds,
   });
+
+  // Publish/unpublish modal state
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [publishSiteIds, setPublishSiteIds] = useState<string[]>([]);
+  const [unpublishDialogOpen, setUnpublishDialogOpen] = useState(false);
+  const [unpublishSiteIds, setUnpublishSiteIds] = useState<string[]>([]);
+
+  // AI regeneration state
+  const [isRegeneratingTitleExcerpt, setIsRegeneratingTitleExcerpt] = useState(false);
+  // Slug lock state (published posts start locked)
+  const [slugUnlocked, setSlugUnlocked] = useState(false);
+  // AI featured image suggestions
+  const [isSuggestingImage, setIsSuggestingImage] = useState(false);
+  const [imageCandidates, setImageCandidates] = useState<ImageCandidate[]>([]);
+  const [importingStockId, setImportingStockId] = useState<number | null>(null);
 
   // Inline create state
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -150,7 +185,25 @@ export function BlogPostEditor({
     }
   };
 
+  const openPublishDialog = () => {
+    // Pre-select: existing publications, or all sites for first publish
+    const initial = postSettings.selectedSiteIds.length > 0
+      ? postSettings.selectedSiteIds
+      : sites.map((s) => s.id);
+    setPublishSiteIds(initial);
+    setPublishDialogOpen(true);
+  };
+
+  const handleTogglePublishSite = (siteId: string) => {
+    setPublishSiteIds((prev) =>
+      prev.includes(siteId)
+        ? prev.filter((id) => id !== siteId)
+        : [...prev, siteId]
+    );
+  };
+
   const handlePublish = async () => {
+    setPublishDialogOpen(false);
     setIsSaving(true);
     try {
       // First save all content
@@ -167,9 +220,13 @@ export function BlogPostEditor({
         categoryIds: postSettings.selectedCategoryIds,
         tagIds: postSettings.selectedTagIds,
       });
-      // Then publish (sets status + creates publication)
-      await publishBlogPost(post.id);
-      setPostSettings((prev) => ({ ...prev, status: "PUBLISHED" }));
+      // Then publish (sets status + creates publications for selected sites)
+      await publishBlogPost(post.id, publishSiteIds);
+      setPostSettings((prev) => ({
+        ...prev,
+        status: "PUBLISHED",
+        selectedSiteIds: publishSiteIds,
+      }));
       toast.success("Post published successfully");
     } catch (error) {
       toast.error(
@@ -180,12 +237,42 @@ export function BlogPostEditor({
     }
   };
 
+  const openUnpublishDialog = () => {
+    setUnpublishSiteIds(postSettings.selectedSiteIds);
+    setUnpublishDialogOpen(true);
+  };
+
+  const handleToggleUnpublishSite = (siteId: string) => {
+    setUnpublishSiteIds((prev) =>
+      prev.includes(siteId)
+        ? prev.filter((id) => id !== siteId)
+        : [...prev, siteId]
+    );
+  };
+
   const handleUnpublish = async () => {
+    setUnpublishDialogOpen(false);
     setIsSaving(true);
     try {
-      await unpublishBlogPost(post.id);
-      setPostSettings((prev) => ({ ...prev, status: "DRAFT" }));
-      toast.success("Post unpublished");
+      if (unpublishSiteIds.length === 0) {
+        // No sites remaining — full unpublish
+        await unpublishBlogPost(post.id);
+        setPostSettings((prev) => ({
+          ...prev,
+          status: "DRAFT",
+          selectedSiteIds: [],
+        }));
+        toast.success("Post unpublished from all sites");
+      } else {
+        // Some sites remaining — update publications only
+        await publishBlogPost(post.id, unpublishSiteIds);
+        setPostSettings((prev) => ({
+          ...prev,
+          selectedSiteIds: unpublishSiteIds,
+        }));
+        const removed = postSettings.selectedSiteIds.length - unpublishSiteIds.length;
+        toast.success(`Removed from ${removed} site${removed === 1 ? "" : "s"}`);
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to unpublish post"
@@ -195,27 +282,141 @@ export function BlogPostEditor({
     }
   };
 
-  const handleContentUpdateFromChat = (html: string) => {
-    if (editorRef.current) {
-      editorRef.current.commands.setContent(html);
-      setTiptapContent(editorRef.current.getJSON());
+  const handleContentUpdateFromChat = (html: string, selectionRange?: { from: number; to: number }) => {
+    if (!editorRef.current) return;
+
+    if (selectionRange) {
+      // Strip outer block wrapper (p, h1-h6, div) if it's a single block element,
+      // to avoid creating extra line breaks when replacing content within an existing block
+      let cleanHtml = html.trim();
+      const match = cleanHtml.match(/^<(p|h[1-6]|div)(?:\s[^>]*)?>([\s\S]*)<\/\1>$/i);
+      if (match && !/<(p|h[1-6]|div)[\s>]/i.test(match[2])) {
+        cleanHtml = match[2];
+      }
+
+      // Replace just the selected range
+      editorRef.current
+        .chain()
+        .focus()
+        .insertContentAt(
+          { from: selectionRange.from, to: selectionRange.to },
+          cleanHtml
+        )
+        .run();
+    } else {
+      // No cursor position — append at the end of the document
+      const endPos = editorRef.current.state.doc.content.size;
+      editorRef.current
+        .chain()
+        .focus()
+        .insertContentAt(endPos, html)
+        .run();
     }
+    setTiptapContent(editorRef.current.getJSON());
   };
 
-  const handleGenerateSEO = () => {
+  const handleGenerateSEO = async () => {
     setIsGeneratingSEO(true);
     try {
-      const metaTitle = `${postSettings.title} | Blog`;
-      const metaDesc = postSettings.excerpt || postSettings.title;
+      const contentHtml = editorRef.current?.getHTML() || "";
+      const result = await aiGenerateSEO({
+        title: postSettings.title,
+        excerpt: postSettings.excerpt,
+        contentHtml,
+      });
 
       setPostSettings((prev) => ({
         ...prev,
-        metaTitle: metaTitle,
-        metaDescription: metaDesc.slice(0, 160),
+        metaTitle: result.metaTitle,
+        metaDescription: result.metaDescription,
       }));
       toast.success("SEO metadata generated!");
+    } catch {
+      toast.error("Failed to generate SEO metadata");
     } finally {
       setIsGeneratingSEO(false);
+    }
+  };
+
+  const handleRegenerateTitleAndExcerpt = async () => {
+    setIsRegeneratingTitleExcerpt(true);
+    try {
+      const contentHtml = editorRef.current?.getHTML() || "";
+      if (!contentHtml || contentHtml === "<p></p>") {
+        toast.error("Write some content first before regenerating");
+        return;
+      }
+      const result = await aiRegenerateTitleAndExcerpt({ contentHtml });
+      setPostSettings((prev) => ({
+        ...prev,
+        title: result.title,
+        excerpt: result.excerpt,
+      }));
+      toast.success("Title and excerpt regenerated!");
+    } catch {
+      toast.error("Failed to regenerate title and excerpt");
+    } finally {
+      setIsRegeneratingTitleExcerpt(false);
+    }
+  };
+
+  const handleSyncSlugFromTitle = () => {
+    const slug = postSettings.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    setPostSettings((prev) => ({ ...prev, slug }));
+    toast.success("Slug synced from title");
+  };
+
+  const handleAiSuggestImage = async () => {
+    setIsSuggestingImage(true);
+    setImageCandidates([]);
+    try {
+      const contentHtml = editorRef.current?.getHTML() || "";
+      const result = await aiFindAndInsertImage({
+        instruction: `Find a featured header image for this blog post titled "${postSettings.title}"`,
+        contextBefore: contentHtml.slice(0, 500),
+        contextAfter: "",
+        fullDocumentHtml: contentHtml,
+      });
+      setImageCandidates(result.candidates);
+      if (result.candidates.length === 0) {
+        toast.error("No suitable images found");
+      }
+    } catch {
+      toast.error("Failed to find images");
+    } finally {
+      setIsSuggestingImage(false);
+    }
+  };
+
+  const handleSelectImageCandidate = async (candidate: ImageCandidate) => {
+    if (candidate.source === "archive") {
+      setPostSettings((prev) => ({
+        ...prev,
+        featuredImage: candidate.url,
+        featuredImageAlt: candidate.description || candidate.name,
+      }));
+      setImageCandidates([]);
+    } else {
+      setImportingStockId(candidate.stockResourceId ?? null);
+      try {
+        const result = await importStockAndInsert({
+          stockResourceId: candidate.stockResourceId!,
+          title: candidate.name,
+        });
+        setPostSettings((prev) => ({
+          ...prev,
+          featuredImage: result.imageUrl,
+          featuredImageAlt: candidate.name,
+        }));
+        setImageCandidates([]);
+      } catch {
+        toast.error("Failed to import stock image");
+      } finally {
+        setImportingStockId(null);
+      }
     }
   };
 
@@ -234,6 +435,15 @@ export function BlogPostEditor({
       selectedTagIds: prev.selectedTagIds.includes(tagId)
         ? prev.selectedTagIds.filter((id) => id !== tagId)
         : [...prev.selectedTagIds, tagId],
+    }));
+  };
+
+  const handleToggleSite = (siteId: string) => {
+    setPostSettings((prev) => ({
+      ...prev,
+      selectedSiteIds: prev.selectedSiteIds.includes(siteId)
+        ? prev.selectedSiteIds.filter((id) => id !== siteId)
+        : [...prev.selectedSiteIds, siteId],
     }));
   };
 
@@ -301,11 +511,11 @@ export function BlogPostEditor({
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid h-full gap-6 lg:grid-cols-3">
       {/* Novel Editor */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className="lg:col-span-2 flex flex-col gap-4 overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex shrink-0 items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
           <div className="flex items-center gap-2">
             <span
               className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
@@ -327,12 +537,12 @@ export function BlogPostEditor({
               Save Draft
             </Button>
             {isPublished ? (
-              <Button variant="outline" onClick={handleUnpublish} disabled={isSaving}>
+              <Button variant="outline" onClick={openUnpublishDialog} disabled={isSaving}>
                 <EyeOff className="mr-1.5 h-4 w-4" />
                 Unpublish
               </Button>
             ) : (
-              <Button onClick={handlePublish} disabled={isSaving}>
+              <Button onClick={openPublishDialog} disabled={isSaving}>
                 <Eye className="mr-1.5 h-4 w-4" />
                 Publish
               </Button>
@@ -341,24 +551,27 @@ export function BlogPostEditor({
         </div>
 
         {/* Novel Editor */}
-        <NovelEditor
-          initialContent={tiptapContent}
-          onChange={setTiptapContent}
-          onEditorReady={(editor) => {
-            editorRef.current = editor;
-            // Load legacy HTML content into the editor
-            if (!post.content && post.htmlContent) {
-              editor.commands.setContent(post.htmlContent);
-              setTiptapContent(editor.getJSON());
-            }
-          }}
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <NovelEditor
+            initialContent={tiptapContent}
+            onChange={setTiptapContent}
+            onEditorReady={(editor) => {
+              editorRef.current = editor;
+              // Load legacy HTML content into the editor
+              if (!post.content && post.htmlContent) {
+                editor.commands.setContent(post.htmlContent);
+                setTiptapContent(editor.getJSON());
+              }
+            }}
+            onSelectionChange={setEditorSelection}
+          />
+        </div>
       </div>
 
       {/* Sidebar */}
-      <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-        <Tabs defaultValue="ai">
-          <TabsList className="w-full">
+      <div className="flex flex-col gap-4 overflow-hidden">
+        <Tabs defaultValue="ai" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <TabsList className="w-full shrink-0">
             <TabsTrigger value="ai" className="flex-1">
               <Sparkles className="mr-1 h-3.5 w-3.5" /> AI
             </TabsTrigger>
@@ -367,20 +580,21 @@ export function BlogPostEditor({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="ai" className="mt-4">
-            <Card className="overflow-hidden">
-              <CardContent className="h-[500px] p-0">
+          <TabsContent value="ai" className="mt-4 min-h-0 flex-1">
+            <Card className="h-full overflow-hidden">
+              <CardContent className="h-full p-0">
                 <BlogContentChat
                   currentHtml={getCurrentHtml()}
                   messages={chatMessages}
                   onMessagesChange={setChatMessages}
                   onContentUpdate={handleContentUpdateFromChat}
+                  editorSelection={editorSelection}
                 />
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="settings" className="mt-4">
+          <TabsContent value="settings" className="mt-4 min-h-0 flex-1 overflow-y-auto">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Post Settings</CardTitle>
@@ -388,7 +602,23 @@ export function BlogPostEditor({
               <CardContent className="space-y-4">
                 {/* Title */}
                 <div className="space-y-2">
-                  <Label htmlFor="postTitle">Title</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="postTitle">Title</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRegenerateTitleAndExcerpt}
+                      disabled={isRegeneratingTitleExcerpt}
+                      className="h-7 text-xs"
+                    >
+                      {isRegeneratingTitleExcerpt ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Wand2 className="mr-1 h-3 w-3" />
+                      )}
+                      Regenerate
+                    </Button>
+                  </div>
                   <Input
                     id="postTitle"
                     value={postSettings.title}
@@ -400,9 +630,39 @@ export function BlogPostEditor({
 
                 {/* Slug */}
                 <div className="space-y-2">
-                  <Label htmlFor="postSlug">Slug</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="postSlug">Slug</Label>
+                    <div className="flex items-center gap-1">
+                      {isPublished && !slugUnlocked && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSlugUnlocked(true)}
+                          className="h-7 text-xs"
+                        >
+                          <LockOpen className="mr-1 h-3 w-3" />
+                          Unlock
+                        </Button>
+                      )}
+                      {(!isPublished || slugUnlocked) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleSyncSlugFromTitle}
+                          className="h-7 text-xs"
+                          title="Generate slug from title"
+                        >
+                          <RefreshCw className="mr-1 h-3 w-3" />
+                          Sync
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex items-center">
                     <span className="flex h-9 items-center rounded-l-md border border-r-0 border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                      {isPublished && !slugUnlocked ? (
+                        <Lock className="mr-1.5 h-3.5 w-3.5" />
+                      ) : null}
                       /
                     </span>
                     <Input
@@ -412,34 +672,37 @@ export function BlogPostEditor({
                         setPostSettings({ ...postSettings, slug: e.target.value })
                       }
                       className="rounded-l-none"
+                      disabled={isPublished && !slugUnlocked}
                     />
                   </div>
-                </div>
-
-                {/* Status */}
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={postSettings.status}
-                    onValueChange={(v) =>
-                      setPostSettings({ ...postSettings, status: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DRAFT">Draft</SelectItem>
-                      <SelectItem value="PUBLISHED">Published</SelectItem>
-                      <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-                      <SelectItem value="ARCHIVED">Archived</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {isPublished && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {slugUnlocked
+                        ? "Slug unlocked — changing it may break existing links."
+                        : "Slug is locked — changing it may break existing links."}
+                    </p>
+                  )}
                 </div>
 
                 {/* Excerpt */}
                 <div className="space-y-2">
-                  <Label htmlFor="postExcerpt">Excerpt</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="postExcerpt">Excerpt</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRegenerateTitleAndExcerpt}
+                      disabled={isRegeneratingTitleExcerpt}
+                      className="h-7 text-xs"
+                    >
+                      {isRegeneratingTitleExcerpt ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Wand2 className="mr-1 h-3 w-3" />
+                      )}
+                      Regenerate
+                    </Button>
+                  </div>
                   <Textarea
                     id="postExcerpt"
                     value={postSettings.excerpt}
@@ -477,15 +740,83 @@ export function BlogPostEditor({
                       </Button>
                     </div>
                   ) : null}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setMediaPickerOpen(true)}
-                  >
-                    <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                    {postSettings.featuredImage ? "Change Image" : "Choose Image"}
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleAiSuggestImage}
+                      disabled={isSuggestingImage}
+                    >
+                      {isSuggestingImage ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      AI Suggest
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setMediaPickerOpen(true)}
+                    >
+                      <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+                      {postSettings.featuredImage ? "Change" : "Browse"}
+                    </Button>
+                  </div>
+                  {/* AI Image Candidates Grid */}
+                  {imageCandidates.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Pick an image</span>
+                        <button
+                          onClick={() => setImageCandidates([])}
+                          className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {imageCandidates.map((candidate) => (
+                          <button
+                            key={candidate.fileId || candidate.stockResourceId}
+                            onClick={() => handleSelectImageCandidate(candidate)}
+                            disabled={importingStockId !== null}
+                            className="group flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white text-left transition-all hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-violet-700"
+                          >
+                            <div className="relative aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+                              <img
+                                src={candidate.url}
+                                alt={candidate.name}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                              {candidate.source === "stock" && importingStockId === candidate.stockResourceId && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 p-1.5">
+                              <p className="flex-1 truncate text-[11px] font-medium text-zinc-950 dark:text-white">
+                                {candidate.name}
+                              </p>
+                              {candidate.source === "stock" && (
+                                <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium ${
+                                  candidate.stockLicense === "free"
+                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400"
+                                }`}>
+                                  {candidate.stockLicense === "free" ? "Free" : "Premium"}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {postSettings.featuredImage && (
                     <Input
                       value={postSettings.featuredImageAlt}
@@ -674,6 +1005,109 @@ export function BlogPostEditor({
         }}
         mediaType="IMAGE"
       />
+
+      {/* Publish Confirmation Dialog */}
+      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publish Post</DialogTitle>
+            <DialogDescription>
+              Select the sites you want to publish this post to.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1 rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
+            {sites.map((site) => (
+              <label
+                key={site.id}
+                className="flex items-center gap-2 rounded px-1.5 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900"
+              >
+                <input
+                  type="checkbox"
+                  checked={publishSiteIds.includes(site.id)}
+                  onChange={() => handleTogglePublishSite(site.id)}
+                  className="rounded border-zinc-300"
+                />
+                <span className="text-zinc-950 dark:text-white">
+                  {site.name}
+                </span>
+                <span className="text-xs text-zinc-400">
+                  {site.subdomain}
+                </span>
+              </label>
+            ))}
+            {sites.length === 0 && (
+              <p className="px-1.5 py-1 text-sm text-zinc-500">
+                No sites configured. The post will be published without site associations.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPublishDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePublish}
+              disabled={sites.length > 0 && publishSiteIds.length === 0}
+            >
+              <Eye className="mr-1.5 h-4 w-4" />
+              Publish{publishSiteIds.length > 0 ? ` to ${publishSiteIds.length} site${publishSiteIds.length === 1 ? "" : "s"}` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unpublish Dialog */}
+      <Dialog open={unpublishDialogOpen} onOpenChange={setUnpublishDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unpublish Post</DialogTitle>
+            <DialogDescription>
+              Uncheck sites to remove this post from them. Unchecking all sites will revert the post to draft.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1 rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
+            {sites.map((site) => (
+              <label
+                key={site.id}
+                className="flex items-center gap-2 rounded px-1.5 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900"
+              >
+                <input
+                  type="checkbox"
+                  checked={unpublishSiteIds.includes(site.id)}
+                  onChange={() => handleToggleUnpublishSite(site.id)}
+                  className="rounded border-zinc-300"
+                />
+                <span className="text-zinc-950 dark:text-white">
+                  {site.name}
+                </span>
+                <span className="text-xs text-zinc-400">
+                  {site.subdomain}
+                </span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setUnpublishDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleUnpublish}
+            >
+              <EyeOff className="mr-1.5 h-4 w-4" />
+              {unpublishSiteIds.length === 0
+                ? "Unpublish from all"
+                : `Remove from ${postSettings.selectedSiteIds.length - unpublishSiteIds.length} site${postSettings.selectedSiteIds.length - unpublishSiteIds.length === 1 ? "" : "s"}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

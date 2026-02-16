@@ -543,6 +543,68 @@ Important: The content field should be valid HTML with <p>, <h2>, <h3>, <ul>, <l
 }
 
 // ===========================================
+// TITLE & EXCERPT REGENERATION
+// ===========================================
+
+/**
+ * Regenerate title and excerpt from current blog content.
+ */
+export async function regenerateTitleAndExcerpt(context: {
+  organizationContext: OrganizationContext;
+  contentHtml: string;
+}): Promise<{ title: string; excerpt: string }> {
+  const locale = context.organizationContext.locale || "en";
+  const tone = context.organizationContext.toneOfVoice || "professional";
+
+  const systemPrompt = `You are a professional content strategist. Generate a compelling blog post title and excerpt based on the provided content.
+
+Rules:
+- Title: max 70 characters, engaging, specific — not clickbait
+- Excerpt: 2-3 sentences suitable for preview cards and social sharing
+- Match the tone and language of the content
+- Write in the appropriate language based on the locale
+- Return ONLY valid JSON, no markdown wrappers`;
+
+  const userPrompt = `Generate a new title and excerpt for this blog post.
+
+Locale: ${locale}
+Tone: ${tone}
+Business: ${context.organizationContext.name}
+
+Blog content:
+${context.contentHtml.slice(0, 3000)}
+
+Return ONLY valid JSON:
+{
+  "title": "Engaging title here",
+  "excerpt": "2-3 sentence excerpt here."
+}`;
+
+  const response = await anthropic.messages.create({
+    model: DEFAULT_MODEL,
+    max_tokens: 256,
+    temperature: 0.5,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const textContent = response.content.find((c) => c.type === "text");
+  if (!textContent || textContent.type !== "text") {
+    throw new Error("Failed to regenerate title and excerpt");
+  }
+
+  try {
+    let jsonStr = textContent.text.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+    return JSON.parse(jsonStr);
+  } catch {
+    throw new Error("Failed to parse regenerated title and excerpt");
+  }
+}
+
+// ===========================================
 // SEO GENERATION
 // ===========================================
 
@@ -767,6 +829,53 @@ Return ONLY the improved content, no explanations or markers.`;
   }
 
   return textContent.text.trim();
+}
+
+// ===========================================
+// INLINE SELECTION EDITING
+// ===========================================
+
+/**
+ * Edit a specific selection within a blog post.
+ * Sends the selected HTML + full document context + instruction to Claude.
+ * Returns only the replacement HTML for the selection.
+ */
+export async function inlineEditSelection(context: {
+  selectedHtml: string;
+  fullDocumentHtml: string;
+  instruction: string;
+}): Promise<{ updatedHtml: string }> {
+  const isGenerateMode = !context.selectedHtml;
+
+  const systemPrompt = isGenerateMode
+    ? "You are a professional content writer helping to write blog post content. Generate HTML content based on the user's instruction that fits naturally into the existing blog post. Return ONLY the HTML to insert — no explanation, no markdown wrappers. Use semantic HTML tags (p, h2, h3, strong, em, a, ul, ol, li, blockquote)."
+    : "You are editing a specific selection within a blog post. Return ONLY the rewritten selection HTML, not the full document. Do not include any explanation, markdown wrappers, or extra text. Return only the HTML that should replace the selected portion. Use semantic HTML tags (p, h2, h3, strong, em, a, ul, ol, li, blockquote). Preserve the general structure unless the instruction specifically asks to change it.";
+
+  const userPrompt = isGenerateMode
+    ? `Here is the current blog post for context:\n\n${context.fullDocumentHtml}\n\n---\n\nInstruction: ${context.instruction}\n\nGenerate HTML content to insert into the blog post based on the instruction above.`
+    : `Here is the full blog post for context:\n\n${context.fullDocumentHtml}\n\n---\n\nHere is the specific selected text to edit:\n\n${context.selectedHtml}\n\n---\n\nInstruction: ${context.instruction}\n\nReturn ONLY the replacement HTML for the selected text.`;
+
+  const response = await anthropic.messages.create({
+    model: DEFAULT_MODEL,
+    max_tokens: 2048,
+    temperature: 0.5,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const textContent = response.content.find((c) => c.type === "text");
+  if (!textContent || textContent.type !== "text") {
+    throw new Error("Failed to get AI response for inline edit");
+  }
+
+  let html = textContent.text.trim();
+  if (html.startsWith("```")) {
+    html = html
+      .replace(/^```(?:html)?\s*\n?/, "")
+      .replace(/\n?\s*```\s*$/, "");
+  }
+
+  return { updatedHtml: html };
 }
 
 // ===========================================

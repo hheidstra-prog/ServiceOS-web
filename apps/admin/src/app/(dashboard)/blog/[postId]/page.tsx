@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { getBlogPost, getBlogCategories, getBlogTags } from "../actions";
+import { getBlogPost, getBlogCategories, getBlogTags, getOrganizationSites } from "../actions";
 import { BlogPostEditor } from "./blog-post-editor";
 
 interface BlogPostPageProps {
@@ -11,10 +11,11 @@ interface BlogPostPageProps {
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { postId } = await params;
 
-  const [post, categories, tags] = await Promise.all([
+  const [post, categories, tags, sites] = await Promise.all([
     getBlogPost(postId),
     getBlogCategories(),
     getBlogTags(),
+    getOrganizationSites(),
   ]);
 
   if (!post) {
@@ -37,9 +38,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-4 pb-6">
         <Link
           href="/blog"
           className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-900 dark:hover:text-zinc-300"
@@ -57,6 +58,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       </div>
 
       {/* Editor */}
+      <div className="min-h-0 flex-1">
       <BlogPostEditor
         post={{
           id: post.id,
@@ -74,10 +76,13 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           metaDescription: post.metaDescription,
           categoryIds: post.categories.map((c) => c.category.id),
           tagIds: post.tags.map((t) => t.tag.id),
+          publicationSiteIds: post.publications.map((p) => p.site.id),
         }}
         categories={categories}
         tags={tags}
+        sites={sites}
       />
+      </div>
     </div>
   );
 }

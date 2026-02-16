@@ -125,7 +125,7 @@ export function MediaPicker({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Choose Media</DialogTitle>
         </DialogHeader>
@@ -171,7 +171,7 @@ export function MediaPicker({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
                   {libraryFiles.map((file) => {
                     const Icon = getFileIcon(file.mimeType);
                     return (

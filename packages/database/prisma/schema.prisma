@@ -82,7 +82,7 @@ model Organization {
   conversations     Conversation[]
   availabilities    Availability[]
   timeEntries       TimeEntry[]
-  site              Site?
+  sites             Site[]
   businessProfile   BusinessProfile?
   files             File[]
   blogPosts         BlogPost[]
@@ -1175,7 +1175,7 @@ model AuditLog {
 
 model Site {
   id             String   @id @default(cuid())
-  organizationId String   @unique
+  organizationId String
 
   // Domain
   subdomain      String   @unique  // acme.serviceos.app
@@ -1218,6 +1218,7 @@ model Site {
   theme          SiteTheme?
   publications   BlogPostPublication[]
 
+  @@index([organizationId])
   @@index([subdomain])
   @@index([customDomain])
 }

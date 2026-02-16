@@ -1,73 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Newspaper,
-  Plus,
-  MoreHorizontal,
-  Trash2,
-  Edit,
+  Sparkles,
   Star,
-  Loader2,
+  FileText,
+  Lightbulb,
+  PenLine,
+  RotateCcw,
+  Edit,
   Tag,
   FolderOpen,
-  X,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { toast } from "sonner";
-import {
-  deleteBlogPost,
-  createBlogCategory,
-  deleteBlogCategory,
-  createBlogTag,
-  deleteBlogTag,
-} from "./actions";
-
-interface BlogPost {
-  id: string;
-  title: string;
-  slug: string;
-  status: string;
-  publishedAt: Date | null;
-  featured: boolean;
-  createdAt: Date;
-  author: { firstName: string | null; lastName: string | null } | null;
-  categories: Array<{ category: { id: string; name: string } }>;
-  publications: Array<{ site: { id: string; name: string } }>;
-}
-
-interface BlogCategory {
-  id: string;
-  name: string;
-  slug: string;
-}
-
-interface BlogTag {
-  id: string;
-  name: string;
-  slug: string;
-}
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { BlogChat } from "./blog-chat";
+import type { BlogChatResultPayload } from "./blog-chat";
+import type { BlogPostResult } from "./blog-chat-actions";
+import { refreshBlogPostResults } from "./blog-chat-actions";
 
 interface BlogManagerProps {
-  posts: BlogPost[];
-  categories: BlogCategory[];
-  tags: BlogTag[];
+  totalPosts: number;
+  publishedCount: number;
+  draftCount: number;
 }
 
 const statusBadgeStyles: Record<string, string> = {
@@ -77,354 +42,371 @@ const statusBadgeStyles: Record<string, string> = {
   ARCHIVED: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
 };
 
-export function BlogManager({ posts, categories, tags }: BlogManagerProps) {
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
-  const [newTagName, setNewTagName] = useState("");
-  const [isCreatingTag, setIsCreatingTag] = useState(false);
+const quickActions = [
+  { label: "Show all posts", icon: FileText },
+  { label: "Show drafts", icon: Newspaper },
+  { label: "Write a new blog", icon: PenLine },
+  { label: "Suggest topics", icon: Lightbulb },
+];
 
-  const handleDelete = async (postId: string, postTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${postTitle}"?`)) return;
+export function BlogManager({
+  totalPosts,
+  publishedCount,
+  draftCount,
+}: BlogManagerProps) {
+  const router = useRouter();
+  const [externalMessage, setExternalMessage] = useState<string | null>(null);
+  const [chatKey, setChatKey] = useState(0);
+  const [currentPostResults, setCurrentPostResults] = useState<
+    BlogPostResult[]
+  >([]);
+  const [createdPostId, setCreatedPostId] = useState<string | null>(null);
+  const [selectedPost, setSelectedPost] = useState<BlogPostResult | null>(null);
 
-    try {
-      await deleteBlogPost(postId);
-      toast.success("Blog post deleted");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete post"
-      );
+  // Auto-navigate to editor after post creation
+  useEffect(() => {
+    if (createdPostId) {
+      const timer = setTimeout(() => {
+        router.push(`/blog/${createdPostId}`);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [createdPostId, router]);
+
+  const handleResults = async (results: BlogChatResultPayload) => {
+    setCurrentPostResults(results.postResults);
+    // Refresh from DB to pick up any edits made in the editor
+    if (results.postResults.length > 0) {
+      try {
+        const ids = results.postResults.map((p) => p.id);
+        const fresh = await refreshBlogPostResults(ids);
+        if (fresh.length > 0) {
+          setCurrentPostResults(fresh);
+        }
+      } catch {
+        // Keep stale results if refresh fails
+      }
     }
   };
 
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    setIsCreatingCategory(true);
+  const handlePostCreated = (postId: string) => {
+    setCreatedPostId(postId);
+  };
 
+  const handleClearChat = () => {
+    setChatKey((k) => k + 1);
+    setCurrentPostResults([]);
+    setCreatedPostId(null);
+    setExternalMessage(null);
     try {
-      const categorySlug = newCategoryName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      await createBlogCategory({
-        name: newCategoryName.trim(),
-        slug: categorySlug,
-      });
-      toast.success("Category created");
-      setNewCategoryName("");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create category"
-      );
-    } finally {
-      setIsCreatingCategory(false);
+      sessionStorage.removeItem("blog-chat-messages");
+    } catch {
+      // ignore
     }
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    try {
-      await deleteBlogCategory(categoryId);
-      toast.success("Category deleted");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete category"
-      );
-    }
-  };
-
-  const handleCreateTag = async () => {
-    if (!newTagName.trim()) return;
-    setIsCreatingTag(true);
-
-    try {
-      const tagSlug = newTagName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      await createBlogTag({
-        name: newTagName.trim(),
-        slug: tagSlug,
-      });
-      toast.success("Tag created");
-      setNewTagName("");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create tag"
-      );
-    } finally {
-      setIsCreatingTag(false);
-    }
-  };
-
-  const handleDeleteTag = async (tagId: string) => {
-    try {
-      await deleteBlogTag(tagId);
-      toast.success("Tag deleted");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete tag"
-      );
-    }
-  };
+  const hasResults = currentPostResults.length > 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
-            Blog
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Manage your blog posts, categories, and tags.
-          </p>
+    <div className="relative flex w-full min-h-0 flex-1 gap-4 overflow-hidden">
+      {/* Left panel: Chat */}
+      <div className="flex w-[380px] min-h-0 shrink-0 flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
+          <Sparkles className="h-4 w-4 text-violet-500" />
+          <span className="text-sm font-medium text-zinc-950 dark:text-white">
+            Blog Assistant
+          </span>
+          <button
+            onClick={handleClearChat}
+            title="New conversation"
+            className="ml-auto rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <Button asChild>
-          <Link href="/blog/new">
-            <Plus className="mr-1.5 h-4 w-4" />
-            New Post
-          </Link>
-        </Button>
+        <BlogChat
+          key={chatKey}
+          externalMessage={externalMessage}
+          onExternalMessageConsumed={() => setExternalMessage(null)}
+          onResults={handleResults}
+          onPostCreated={handlePostCreated}
+        />
       </div>
 
-      {/* Posts Table */}
-      {posts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-950/10 bg-white p-10 text-center dark:border-white/10 dark:bg-zinc-950">
-          <div className="rounded-full bg-zinc-100 p-2.5 dark:bg-zinc-900">
-            <Newspaper className="h-5 w-5 text-zinc-400" />
-          </div>
-          <h3 className="mt-3 text-sm font-semibold text-zinc-950 dark:text-white">
-            No blog posts yet
-          </h3>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Create your first blog post to get started.
-          </p>
-          <Button asChild className="mt-4" size="sm">
-            <Link href="/blog/new">
-              <Plus className="mr-1.5 h-4 w-4" />
-              New Post
-            </Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Title
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {posts.map((post) => (
-                <tr
+      {/* Right panel: Results */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        {hasResults ? (
+          <div className="flex-1 overflow-y-auto p-4">
+            <p className="mb-3 text-xs font-medium text-zinc-500">
+              {currentPostResults.length} post
+              {currentPostResults.length > 1 ? "s" : ""}
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {currentPostResults.map((post) => (
+                <button
                   key={post.id}
-                  className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                  onClick={() => setSelectedPost(post)}
+                  className="group flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white text-left transition-all hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-violet-700"
                 >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-900">
-                        <Newspaper className="h-4 w-4 text-zinc-500" />
+                  {/* Featured image or placeholder */}
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+                    {post.featuredImage ? (
+                      <img
+                        src={post.featuredImage}
+                        alt={post.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Newspaper className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
                       </div>
-                      <div>
-                        <Link
-                          href={`/blog/${post.id}`}
-                          className="font-medium text-zinc-950 hover:underline dark:text-white"
-                        >
-                          {post.title}
-                        </Link>
-                        {post.featured && (
-                          <Star className="ml-1.5 inline h-3.5 w-3.5 text-amber-500" />
-                        )}
-                        {post.categories.length > 0 && (
-                          <span className="ml-2 text-xs text-zinc-500">
-                            {post.categories.map((c) => c.category.name).join(", ")}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
+                    )}
+                    {/* Status badge */}
                     <span
-                      className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${
-                        statusBadgeStyles[post.status] || statusBadgeStyles.DRAFT
+                      className={`absolute left-2 top-2 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                        statusBadgeStyles[post.status] ||
+                        statusBadgeStyles.DRAFT
                       }`}
                     >
-                      {post.status.charAt(0) + post.status.slice(1).toLowerCase()}
+                      {post.status.charAt(0) +
+                        post.status.slice(1).toLowerCase()}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-zinc-500">
-                    {post.publishedAt
-                      ? new Date(post.publishedAt).toLocaleDateString("nl-NL")
-                      : new Date(post.createdAt).toLocaleDateString("nl-NL")}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/blog/${post.id}`}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Post
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(post.id, post.title)}
-                          className="text-red-600 dark:text-red-400"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Post
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Categories & Tags */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Categories */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FolderOpen className="h-4 w-4" />
-              Categories
-            </CardTitle>
-            <CardDescription>Organize your posts into categories.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="New category name..."
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleCreateCategory();
-                  }
-                }}
-                disabled={isCreatingCategory}
-                className="text-sm"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCreateCategory}
-                disabled={!newCategoryName.trim() || isCreatingCategory}
-              >
-                {isCreatingCategory ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            {categories.length === 0 ? (
-              <p className="text-sm text-zinc-500">No categories yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {categories.map((category) => (
-                  <div
-                    key={category.id}
-                    className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900"
-                  >
-                    <span className="text-zinc-950 dark:text-white">
-                      {category.name}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteCategory(category.id)}
-                      className="text-zinc-400 hover:text-red-500"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    {/* Featured star */}
+                    {post.featured && (
+                      <Star className="absolute right-2 top-2 h-4 w-4 fill-amber-400 text-amber-400" />
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Tags */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Tag className="h-4 w-4" />
-              Tags
-            </CardTitle>
-            <CardDescription>Add tags to your posts for filtering.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="New tag name..."
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleCreateTag();
-                  }
-                }}
-                disabled={isCreatingTag}
-                className="text-sm"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCreateTag}
-                disabled={!newTagName.trim() || isCreatingTag}
-              >
-                {isCreatingTag ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-              </Button>
+                  {/* Content */}
+                  <div className="flex flex-1 flex-col p-3">
+                    {/* Date */}
+                    <p className="text-[10px] text-zinc-400">
+                      {post.publishedAt
+                        ? new Date(post.publishedAt).toLocaleDateString(
+                            "nl-NL"
+                          )
+                        : new Date(post.createdAt).toLocaleDateString("nl-NL")}
+                    </p>
+                    {/* Title */}
+                    <h3 className="mt-1 line-clamp-2 text-sm font-medium text-zinc-950 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400">
+                      {post.title}
+                    </h3>
+                    {/* Excerpt */}
+                    {post.excerpt && (
+                      <p className="mt-1 line-clamp-2 text-xs text-zinc-500">
+                        {post.excerpt}
+                      </p>
+                    )}
+                    {/* Category pills */}
+                    {post.categories.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {post.categories.map((c) => (
+                          <span
+                            key={c.name}
+                            className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-950 dark:text-violet-400"
+                          >
+                            {c.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
             </div>
-            {tags.length === 0 ? (
-              <p className="text-sm text-zinc-500">No tags yet.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <span
-                    key={tag.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+          </div>
+        ) : (
+          /* Landing state */
+          <div className="flex flex-1 items-center justify-center p-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500">
+                <Newspaper className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-zinc-950 dark:text-white">
+                Blog Assistant
+              </h3>
+              <p className="mt-1 max-w-sm text-sm text-zinc-500">
+                {totalPosts > 0 ? (
+                  <>
+                    {totalPosts} post{totalPosts !== 1 ? "s" : ""} ({publishedCount}{" "}
+                    published, {draftCount} draft{draftCount !== 1 ? "s" : ""})
+                  </>
+                ) : (
+                  "No blog posts yet. Start by writing your first post."
+                )}
+              </p>
+
+              {/* Quick-action chips */}
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                {quickActions.map(({ label, icon: Icon }) => (
+                  <button
+                    key={label}
+                    onClick={() => setExternalMessage(label)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-violet-700 dark:hover:bg-violet-950 dark:hover:text-violet-300"
                   >
-                    {tag.name}
-                    <button
-                      onClick={() => handleDeleteTag(tag.id)}
-                      className="text-zinc-400 hover:text-red-500"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Post Detail Sheet */}
+      <Sheet
+        open={!!selectedPost}
+        onOpenChange={(open) => !open && setSelectedPost(null)}
+      >
+        <SheetContent className="w-[400px] sm:w-[500px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Post Details</SheetTitle>
+          </SheetHeader>
+
+          {selectedPost && (
+            <div className="mt-6 space-y-6 px-4">
+              {/* Featured image preview */}
+              <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
+                {selectedPost.featuredImage ? (
+                  <img
+                    src={selectedPost.featuredImage}
+                    alt={selectedPost.title}
+                    className="max-h-48 w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-32 items-center justify-center">
+                    <Newspaper className="h-12 w-12 text-zinc-300 dark:text-zinc-700" />
+                  </div>
+                )}
+              </div>
+
+              {/* Title */}
+              <div>
+                <h3 className="text-lg font-semibold text-zinc-950 dark:text-white">
+                  {selectedPost.title}
+                </h3>
+                <p className="mt-0.5 text-xs text-zinc-400">
+                  /{selectedPost.slug}
+                </p>
+              </div>
+
+              {/* Edit button */}
+              <Button asChild className="w-full">
+                <Link href={`/blog/${selectedPost.id}`}>
+                  <Edit className="mr-1.5 h-4 w-4" />
+                  Open in Editor
+                </Link>
+              </Button>
+
+              {/* Excerpt */}
+              {selectedPost.excerpt && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-zinc-500">Excerpt</p>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                    {selectedPost.excerpt}
+                  </p>
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div className="space-y-2 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-900">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-zinc-500">
+                    <FileText className="h-3 w-3" />
+                    Status
+                  </span>
+                  <span
+                    className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                      statusBadgeStyles[selectedPost.status] ||
+                      statusBadgeStyles.DRAFT
+                    }`}
+                  >
+                    {selectedPost.status.charAt(0) +
+                      selectedPost.status.slice(1).toLowerCase()}
+                  </span>
+                </div>
+                {selectedPost.featured && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-zinc-500">
+                      <Star className="h-3 w-3" />
+                      Featured
+                    </span>
+                    <span className="text-amber-600 dark:text-amber-400">
+                      Yes
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-zinc-500">
+                    <Clock className="h-3 w-3" />
+                    Created
+                  </span>
+                  <span className="text-zinc-950 dark:text-white">
+                    {new Date(selectedPost.createdAt).toLocaleDateString(
+                      "nl-NL"
+                    )}
+                  </span>
+                </div>
+                {selectedPost.publishedAt && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-zinc-500">
+                      <Calendar className="h-3 w-3" />
+                      Published
+                    </span>
+                    <span className="text-zinc-950 dark:text-white">
+                      {new Date(selectedPost.publishedAt).toLocaleDateString(
+                        "nl-NL"
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Categories */}
+              {selectedPost.categories.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-zinc-500">
+                    <FolderOpen className="h-3 w-3" />
+                    Categories
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedPost.categories.map((c) => (
+                      <span
+                        key={c.name}
+                        className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600 dark:bg-violet-950 dark:text-violet-400"
+                      >
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags */}
+              {selectedPost.tags.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-zinc-500">
+                    <Tag className="h-3 w-3" />
+                    Tags
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedPost.tags.map((t) => (
+                      <span
+                        key={t.name}
+                        className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                      >
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

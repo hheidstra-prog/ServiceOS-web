@@ -8,7 +8,7 @@ import {
   EditorCommandItem,
   EditorCommandList,
   EditorBubble,
-  EditorBubbleItem,
+  useEditor,
   StarterKit,
   TiptapImage,
   TiptapLink,
@@ -16,6 +16,9 @@ import {
   type EditorInstance,
 } from "novel";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Extension } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import {
   Bold,
   Italic,
@@ -30,17 +33,96 @@ import {
   Minus,
   Image as ImageIcon,
   Text,
+  Undo2,
+  Redo2,
+  Link,
+  ExternalLink,
+  Unlink,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type TiptapRange = { from: number; to: number };
 
+export interface EditorSelection {
+  from: number;
+  to: number;
+  text: string;
+  empty: boolean;
+  contextBefore: string;
+  contextAfter: string;
+}
+
 interface NovelEditorProps {
   initialContent?: JSONContent;
   onChange?: (content: JSONContent) => void;
   onEditorReady?: (editor: EditorInstance) => void;
+  onSelectionChange?: (selection: EditorSelection) => void;
   className?: string;
 }
+
+const SelectionHighlight = Extension.create({
+  name: "selectionHighlight",
+  addProseMirrorPlugins() {
+    const pluginKey = new PluginKey("selectionHighlight");
+    return [
+      new Plugin({
+        key: pluginKey,
+        state: {
+          init() {
+            return { blurred: false, from: 0, to: 0 };
+          },
+          apply(tr, prev) {
+            const meta = tr.getMeta(pluginKey);
+            if (meta) return meta;
+            return prev;
+          },
+        },
+        props: {
+          decorations(state) {
+            const pluginState = pluginKey.getState(state);
+            if (pluginState?.blurred && pluginState.from !== pluginState.to) {
+              return DecorationSet.create(state.doc, [
+                Decoration.inline(pluginState.from, pluginState.to, {
+                  style: "background-color: Highlight; color: HighlightText;",
+                }),
+              ]);
+            }
+            return DecorationSet.empty;
+          },
+          handleDOMEvents: {
+            blur(view) {
+              const { from, to } = view.state.selection;
+              if (from !== to) {
+                const tr = view.state.tr.setMeta(pluginKey, {
+                  blurred: true,
+                  from,
+                  to,
+                });
+                view.dispatch(tr);
+              }
+              return false;
+            },
+            focus(view) {
+              const pluginState = pluginKey.getState(view.state);
+              if (pluginState?.blurred) {
+                const tr = view.state.tr.setMeta(pluginKey, {
+                  blurred: false,
+                  from: 0,
+                  to: 0,
+                });
+                view.dispatch(tr);
+              }
+              return false;
+            },
+          },
+        },
+      }),
+    ];
+  },
+});
 
 const extensions = [
   StarterKit,
@@ -53,6 +135,7 @@ const extensions = [
   Placeholder.configure({
     placeholder: "Type '/' for commands...",
   }),
+  SelectionHighlight,
 ];
 
 const slashCommandItems = [
@@ -152,27 +235,326 @@ const slashCommandItems = [
   },
 ];
 
+
+function EditorToolbar({ editor }: { editor: EditorInstance | null }) {
+  if (!editor) return null;
+
+  const btn = (active: boolean) =>
+    cn(
+      "rounded p-1.5 transition-colors",
+      active
+        ? "bg-zinc-200 text-zinc-950 dark:bg-zinc-700 dark:text-white"
+        : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+    );
+
+  return (
+    <div className="sticky top-0 z-10 flex items-center gap-0.5 border-b border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950 rounded-t-lg">
+      {/* Undo / Redo */}
+      <button
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+        className={cn(
+          "rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white",
+          "disabled:opacity-30 disabled:pointer-events-none"
+        )}
+      >
+        <Undo2 className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+        className={cn(
+          "rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white",
+          "disabled:opacity-30 disabled:pointer-events-none"
+        )}
+      >
+        <Redo2 className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+
+      {/* Block type */}
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={btn(editor.isActive("heading", { level: 1 }))}
+      >
+        <Heading1 className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        className={btn(editor.isActive("heading", { level: 2 }))}
+      >
+        <Heading2 className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        className={btn(editor.isActive("heading", { level: 3 }))}
+      >
+        <Heading3 className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+
+      {/* Lists & quote */}
+      <button
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={btn(editor.isActive("bulletList"))}
+      >
+        <List className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={btn(editor.isActive("orderedList"))}
+      >
+        <ListOrdered className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        className={btn(editor.isActive("blockquote"))}
+      >
+        <Quote className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+
+      {/* Inline formatting */}
+      <button
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={btn(editor.isActive("bold"))}
+      >
+        <Bold className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={btn(editor.isActive("italic"))}
+      >
+        <Italic className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        className={btn(editor.isActive("strike"))}
+      >
+        <Strikethrough className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        className={btn(editor.isActive("code"))}
+      >
+        <Code className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function LinkBubbleContent() {
+  const { editor } = useEditor();
+  const [editing, setEditing] = useState(false);
+  const [href, setHref] = useState("");
+  const [openInNewTab, setOpenInNewTab] = useState(true);
+
+  if (!editor) return null;
+
+  const attrs = editor.getAttributes("link");
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <Link className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
+        <a
+          href={attrs.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="max-w-[280px] truncate text-sm text-blue-600 underline dark:text-blue-400"
+        >
+          {attrs.href}
+        </a>
+        <div className="mx-1 h-5 w-px bg-zinc-200 dark:bg-zinc-700" />
+        <button
+          onClick={() => {
+            setHref(attrs.href || "");
+            setOpenInNewTab(attrs.target === "_blank");
+            setEditing(true);
+          }}
+          className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+          title="Edit link"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().unsetLink().run()}
+          className="rounded-md p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950 dark:hover:text-red-400"
+          title="Remove link"
+        >
+          <Unlink className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  const saveLink = () => {
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href, target: openInNewTab ? "_blank" : "" })
+      .run();
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-2">
+        <input
+          type="url"
+          value={href}
+          onChange={(e) => setHref(e.target.value)}
+          placeholder="https://example.com"
+          className="h-9 w-[320px] rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-white"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              saveLink();
+            }
+          }}
+          autoFocus
+        />
+        <button
+          onClick={saveLink}
+          className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+          title="Save"
+        >
+          <Check className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+          title="Cancel"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <input
+          type="checkbox"
+          checked={openInNewTab}
+          onChange={(e) => setOpenInNewTab(e.target.checked)}
+          className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-600"
+        />
+        <ExternalLink className="h-3.5 w-3.5" />
+        Open in new tab
+      </label>
+    </div>
+  );
+}
+
+function LinkBubbleMenu() {
+  return (
+    <EditorBubble
+      pluginKey="linkBubbleMenu"
+      shouldShow={({ editor }) => editor.isActive("link")}
+      tippyOptions={{ placement: "bottom-start" }}
+      className="rounded-xl border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      <LinkBubbleContent />
+    </EditorBubble>
+  );
+}
+
+function ImageBubbleContent() {
+  const { editor } = useEditor();
+  const [alt, setAlt] = useState("");
+  const [title, setTitle] = useState("");
+  const [initialized, setInitialized] = useState(false);
+
+  if (!editor) return null;
+
+  // Sync state from editor attributes when image is first selected
+  const active = editor.isActive("image");
+  if (active && !initialized) {
+    const attrs = editor.getAttributes("image");
+    setAlt(attrs.alt || "");
+    setTitle(attrs.title || "");
+    setInitialized(true);
+  } else if (!active && initialized) {
+    setInitialized(false);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Alt text</label>
+        <input
+          type="text"
+          value={alt}
+          onChange={(e) => setAlt(e.target.value)}
+          placeholder="Describe the image for accessibility..."
+          className="h-9 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-white"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Caption</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Image caption (shown below image)..."
+          className="h-9 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-white"
+        />
+      </div>
+      <button
+        onClick={() => {
+          editor.chain().focus().updateAttributes("image", { alt, title }).run();
+        }}
+        className="flex h-9 items-center justify-center gap-1.5 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+      >
+        <Check className="h-4 w-4" />
+        Save
+      </button>
+    </div>
+  );
+}
+
+function ImageBubbleMenu() {
+  return (
+    <EditorBubble
+      pluginKey="imageBubbleMenu"
+      shouldShow={({ editor }) => editor.isActive("image")}
+      tippyOptions={{ placement: "bottom" }}
+      className="w-[340px] rounded-xl border border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      <ImageBubbleContent />
+    </EditorBubble>
+  );
+}
+
 export function NovelEditor({
   initialContent,
   onChange,
   onEditorReady,
+  onSelectionChange,
   className,
 }: NovelEditorProps) {
   const [openSlashCommand, setOpenSlashCommand] = useState(false);
+  const [editorInstance, setEditorInstance] = useState<EditorInstance | null>(null);
+  // Counter to force re-renders when cursor/selection changes
+  const [, setToolbarTick] = useState(0);
 
   const handleUpdate = useCallback(
     ({ editor }: { editor: EditorInstance }) => {
       const json = editor.getJSON();
       onChange?.(json);
+      setToolbarTick((t) => t + 1);
     },
     [onChange]
   );
 
   return (
     <EditorRoot>
+      <EditorToolbar editor={editorInstance} />
       <EditorContent
         className={cn(
-          "relative min-h-[400px] w-full rounded-lg border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-950",
+          "relative min-h-[400px] w-full rounded-b-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950",
+          "[&_.tiptap]:p-8",
           "[&_.tiptap]:outline-none [&_.tiptap]:min-h-[300px]",
           "[&_.tiptap_p]:my-2 [&_.tiptap_p]:leading-relaxed",
           "[&_.tiptap_h1]:text-3xl [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mt-6 [&_.tiptap_h1]:mb-4",
@@ -195,7 +577,17 @@ export function NovelEditor({
         initialContent={initialContent || { type: "doc", content: [{ type: "paragraph" }] }}
         onUpdate={handleUpdate}
         onCreate={({ editor }) => {
+          setEditorInstance(editor);
           onEditorReady?.(editor);
+          editor.on("selectionUpdate", () => {
+            setToolbarTick((t) => t + 1);
+            const { from, to } = editor.state.selection;
+            const text = editor.state.doc.textBetween(from, to, " ");
+            const docSize = editor.state.doc.content.size;
+            const contextBefore = editor.state.doc.textBetween(Math.max(0, from - 120), from, " ");
+            const contextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + 120), " ");
+            onSelectionChange?.({ from, to, text, empty: from === to, contextBefore, contextAfter });
+          });
         }}
         editorProps={{
           attributes: {
@@ -230,37 +622,9 @@ export function NovelEditor({
           </EditorCommandList>
         </EditorCommand>
 
-        {/* Bubble Menu (floating toolbar) */}
-        <EditorBubble className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-md dark:border-zinc-800 dark:bg-zinc-950">
-          <EditorBubbleItem
-            onSelect={(editor) => editor.chain().focus().toggleBold().run()}
-          >
-            <button className="rounded p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-              <Bold className="h-3.5 w-3.5" />
-            </button>
-          </EditorBubbleItem>
-          <EditorBubbleItem
-            onSelect={(editor) => editor.chain().focus().toggleItalic().run()}
-          >
-            <button className="rounded p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-              <Italic className="h-3.5 w-3.5" />
-            </button>
-          </EditorBubbleItem>
-          <EditorBubbleItem
-            onSelect={(editor) => editor.chain().focus().toggleStrike().run()}
-          >
-            <button className="rounded p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-              <Strikethrough className="h-3.5 w-3.5" />
-            </button>
-          </EditorBubbleItem>
-          <EditorBubbleItem
-            onSelect={(editor) => editor.chain().focus().toggleCode().run()}
-          >
-            <button className="rounded p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-              <Code className="h-3.5 w-3.5" />
-            </button>
-          </EditorBubbleItem>
-        </EditorBubble>
+        {/* Bubble Menus */}
+        <LinkBubbleMenu />
+        <ImageBubbleMenu />
       </EditorContent>
     </EditorRoot>
   );

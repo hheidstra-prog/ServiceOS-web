@@ -229,12 +229,19 @@ async function executeFileTool(
       };
 
       if (query) {
-        where.OR = [
+        const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
+        const orConditions: Prisma.FileWhereInput[] = [
           { name: { contains: query, mode: "insensitive" } },
           { fileName: { contains: query, mode: "insensitive" } },
           { aiDescription: { contains: query, mode: "insensitive" } },
-          { tags: { hasSome: [query.toLowerCase()] } },
+          { tags: { hasSome: keywords } },
         ];
+        // Also match individual keywords for broader results
+        for (const kw of keywords) {
+          orConditions.push({ aiDescription: { contains: kw, mode: "insensitive" } });
+          orConditions.push({ name: { contains: kw, mode: "insensitive" } });
+        }
+        where.OR = orConditions;
       }
 
       if (folder) where.folder = { equals: folder, mode: "insensitive" };
@@ -532,12 +539,13 @@ export async function chatFileAssistant(
 
 RULES — follow strictly:
 1. ARCHIVE FIRST — always call search_files before anything else when the user asks for an image or file.
-2. NEVER auto-search stock — if search_files returns no or poor results, call offer_stock_search to let the user decide. Do NOT call search_stock_images on your own.
-3. EXPLICIT stock requests — if the user says "search stock for X" or "search free stock for X", call search_stock_images directly with license: "freemium". If they say "search free and premium stock for X", call search_stock_images without a license filter.
-4. LICENSE DEFAULTS — "free" → license: "freemium". "free and premium" or no qualifier → omit license filter.
-5. CONCISE RESPONSES — the UI renders cards for file/stock results. Do NOT list IDs, URLs, or thumbnails. Reply in 1-2 sentences max.
-6. CONFIRM ACTIONS — briefly confirm tag/move/describe/import actions (e.g. "Tagged 3 files with 'landscape'.").
-7. AUTO-TAG ON UPLOAD — when a user uploads a file, analyze it with describe_file and confirm the auto-generated tags.
+2. ALWAYS SEARCH IN ENGLISH — file names, tags, and AI descriptions in the archive are in English. Translate the user's request to English keywords before calling search_files. Respond to the user in their language.
+3. NEVER auto-search stock — if search_files returns no or poor results, call offer_stock_search to let the user decide. Do NOT call search_stock_images on your own.
+4. EXPLICIT stock requests — if the user says "search stock for X" or "search free stock for X", call search_stock_images directly with license: "freemium". If they say "search free and premium stock for X", call search_stock_images without a license filter.
+5. LICENSE DEFAULTS — "free" → license: "freemium". "free and premium" or no qualifier → omit license filter.
+6. CONCISE RESPONSES — the UI renders cards for file/stock results. Do NOT list IDs, URLs, or thumbnails. Reply in 1-2 sentences max.
+7. CONFIRM ACTIONS — briefly confirm tag/move/describe/import actions (e.g. "Tagged 3 files with 'landscape'.").
+8. AUTO-TAG ON UPLOAD — when a user uploads a file, analyze it with describe_file and confirm the auto-generated tags.
 
 Tools: search_files, offer_stock_search, search_stock_images, import_stock_image, tag_file, move_file, list_folders, describe_file, bulk_tag.`;
 

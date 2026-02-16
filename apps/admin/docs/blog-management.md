@@ -58,6 +58,8 @@ All blog CRUD operations, using `organizationId` from `requireAuthWithOrg()`:
 | `unpublishBlogPost(postId)` | Set DRAFT + delete all publications |
 | `aiCreateBlogPostWithContent({ topic, keywords?, targetLength? })` | Generate full post with AI, auto-create tags |
 | `aiChatEditBlogContent({ currentHtml, messages })` | Conversational HTML editing via tool_use |
+| `aiFindAndInsertImage({ instruction, contextBefore, contextAfter, fullDocumentHtml })` | AI-powered image search — returns `ImageCandidate[]` from archive and/or free stock |
+| `importStockAndInsert({ stockResourceId, title? })` | Imports a Freepik stock image to Cloudinary, returns `{ imageUrl }` |
 | `getBlogCategories()` | List categories for org |
 | `createBlogCategory({ name, slug })` | Create category |
 | `deleteBlogCategory(categoryId)` | Delete category |
@@ -107,6 +109,65 @@ User types message in AI chat
     → editor.commands.setContent(html)
     → setTiptapContent(editor.getJSON())
 ```
+
+## Data Flow: AI Image Candidate Picker
+
+```
+User types image request in AI chat (detected via IMAGE_KEYWORDS)
+  → BlogContentChat.handleSend()
+  → aiFindAndInsertImage({ instruction, contextBefore, contextAfter, fullDocumentHtml })
+    → AI calls search_archive (always in English, even if user writes in other language)
+    → If < 3 archive results → AI also calls search_stock (free images only via license: "freemium")
+    → Collects all results into ImageCandidate[] (archive first, then stock)
+    → Returns { candidates, message }
+  → Chat displays 2-column image grid with clickable cards
+    → Archive images: click → insert <img> at cursor position
+    → Stock images: click → loading overlay → importStockAndInsert() → insert <img>
+    → No cursor: image appended at end of document
+  → Stock images show "Free" or "Premium" badge (currently only free images are fetched)
+```
+
+### ImageCandidate type
+
+```ts
+type ImageCandidate = {
+  source: "archive" | "stock";
+  fileId?: string;           // archive file ID
+  stockResourceId?: number;  // Freepik resource ID
+  url: string;               // thumbnail URL for display
+  name: string;
+  description?: string | null;
+  stockLicense?: "free" | "premium";
+};
+```
+
+### Image request routing
+
+Image requests are detected client-side via `IMAGE_KEYWORDS` in `blog-content-chat.tsx`. This check runs **before** cursor/selection checks, so image search works with or without a cursor placed. Keywords cover EN, NL, DE, FR (e.g. "image", "afbeelding", "beelden", "bild", "photo").
+
+### AI search language
+
+Both the blog image search and the file assistant search in **English** regardless of user language. File metadata (names, tags, AI descriptions) is stored in English. The AI translates user queries before calling search tools, but responds in the user's language.
+
+### Search quality: keyword splitting
+
+Archive search splits multi-word queries into individual keywords and matches each against name, aiDescription, and tags. This was applied to both:
+- `blog/actions.ts` → `aiFindAndInsertImage` (search_archive handler)
+- `files/file-chat-actions.ts` → `search_files` handler
+
+Without this, `hasSome: ["business woman"]` would fail because tags are individual words like "business", "woman".
+
+### Future: Stock image licensing
+
+Currently only free Freepik images are shown (`filters: { license: "freemium" }`). When subscription/financial logic is implemented, premium images can be unlocked for users with a paid Freepik plan by removing or adjusting the license filter in `aiFindAndInsertImage`.
+
+### Future: Media capabilities roadmap
+
+1. ~~AI finds suitable images (archive first, then free stock)~~ — done
+2. ~~User browses archive ("show me business women")~~ — done
+3. Paid stock — gated by subscription/license logic (filter is in place, needs license check)
+4. Upload from blog chat — reuse file assistant upload pattern
+5. AI-generated images
 
 ## Data Flow: Legacy HTML Content
 
