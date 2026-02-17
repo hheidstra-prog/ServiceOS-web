@@ -20,10 +20,12 @@ import {
   ChevronsUpDown,
   Globe,
   Newspaper,
+  Inbox,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Inbox", href: "/inbox", icon: Inbox },
   { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Projects", href: "/projects", icon: FolderKanban },

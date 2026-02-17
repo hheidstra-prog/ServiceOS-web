@@ -124,7 +124,7 @@ export function NewBookingDialog({
     try {
       await createBooking({
         clientId: clientType === "existing" ? clientId : undefined,
-        bookingTypeId: bookingTypeId || undefined,
+        bookingTypeId: bookingTypeId && bookingTypeId !== "none" ? bookingTypeId : undefined,
         guestName: clientType === "guest" ? guestName : undefined,
         guestEmail: clientType === "guest" ? guestEmail : undefined,
         guestPhone: clientType === "guest" ? guestPhone : undefined,
@@ -238,7 +238,7 @@ export function NewBookingDialog({
                   <SelectValue placeholder="Select type (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No type</SelectItem>
+                  <SelectItem value="none">No type</SelectItem>
                   {bookingTypes.map((type) => (
                     <SelectItem key={type.id} value={type.id}>
                       {type.name} ({type.durationMinutes} min)

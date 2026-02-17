@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { QuoteStatus } from "@serviceos/database";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   deleteQuote,
   duplicateQuote,
@@ -140,6 +141,7 @@ function formatDate(date: Date | null) {
 
 export function QuoteDetail({ quote }: QuoteDetailProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
 
@@ -163,7 +165,8 @@ export function QuoteDetail({ quote }: QuoteDetailProps) {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this quote?")) return;
+    const ok = await confirm({ title: "Delete quote", description: "Are you sure you want to delete this quote? This action cannot be undone.", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteQuote(quote.id);
       toast.success("Quote deleted");
@@ -184,7 +187,8 @@ export function QuoteDetail({ quote }: QuoteDetailProps) {
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm("Are you sure you want to delete this item?")) return;
+    const ok = await confirm({ title: "Delete item", description: "Are you sure you want to delete this quote item?", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteQuoteItem(itemId, quote.id);
       toast.success("Item deleted");
@@ -197,6 +201,7 @@ export function QuoteDetail({ quote }: QuoteDetailProps) {
   const isDraft = quote.status === "DRAFT";
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-6">
       {/* Status & Actions Bar */}
       <Card className={statusInfo.borderClass}>
@@ -535,5 +540,6 @@ export function QuoteDetail({ quote }: QuoteDetailProps) {
         editingItem={editingItem}
       />
     </div>
+    </>
   );
 }

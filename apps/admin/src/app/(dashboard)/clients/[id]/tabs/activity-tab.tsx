@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { createEvent, updateEvent, deleteEvent } from "../../actions";
 import { EventType } from "@serviceos/database";
 import { formatDistanceToNow, format } from "date-fns";
@@ -86,6 +87,7 @@ export function ActivityTab({ client }: ActivityTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const handleAdd = () => {
     setEditingEvent(null);
@@ -98,7 +100,13 @@ export function ActivityTab({ client }: ActivityTabProps) {
   };
 
   const handleDelete = async (eventId: string) => {
-    if (!confirm("Are you sure you want to delete this activity?")) return;
+    const ok = await confirm({
+      title: "Delete activity",
+      description: "Are you sure you want to delete this activity? This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     await deleteEvent(eventId, client.id);
   };
 
@@ -144,6 +152,8 @@ export function ActivityTab({ client }: ActivityTabProps) {
   };
 
   return (
+    <>
+    {ConfirmDialog}
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
@@ -367,5 +377,6 @@ export function ActivityTab({ client }: ActivityTabProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

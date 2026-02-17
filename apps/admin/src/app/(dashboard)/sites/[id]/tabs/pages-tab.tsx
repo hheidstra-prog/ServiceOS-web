@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { getSiteUrl } from "@/lib/utils";
 import { createPage, deletePage, aiCreatePageWithContent } from "../../actions";
 
@@ -66,6 +67,7 @@ interface PagesTabProps {
 }
 
 export function PagesTab({ site, previewToken }: PagesTabProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isAIFormOpen, setIsAIFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,7 +102,13 @@ export function PagesTab({ site, previewToken }: PagesTabProps) {
   };
 
   const handleDelete = async (pageId: string, pageTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${pageTitle}"?`)) return;
+    const ok = await confirm({
+      title: "Delete page",
+      description: `Are you sure you want to delete "${pageTitle}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deletePage(site.id, pageId);
@@ -144,6 +152,7 @@ export function PagesTab({ site, previewToken }: PagesTabProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -458,5 +467,6 @@ export function PagesTab({ site, previewToken }: PagesTabProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

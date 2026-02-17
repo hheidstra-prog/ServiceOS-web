@@ -13,10 +13,14 @@ import {
   Clock,
   MapPin,
   User,
+  Mail,
+  Phone,
   MoreHorizontal,
   CheckCircle,
   XCircle,
   Settings,
+  ExternalLink,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,10 +32,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { BookingStatus, LocationType } from "@serviceos/database";
 import { cancelBooking, confirmBooking, completeBooking, markNoShow } from "./actions";
 import { NewBookingDialog } from "./new-booking-dialog";
 import { BookingTypesDialog } from "./booking-types-dialog";
+import { AvailabilityDialog } from "./availability-dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface BookingType {
   id: string;
@@ -42,6 +54,7 @@ interface BookingType {
   currency: string;
   color: string | null;
   isActive: boolean;
+  isPublic: boolean;
   requiresConfirmation: boolean;
   bufferBefore: number;
   bufferAfter: number;
@@ -162,6 +175,7 @@ function getMonthDays(year: number, month: number) {
 
 export function BookingsList({ initialBookings, bookingTypes }: BookingsListProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [bookings] = useState(initialBookings);
   const [view, setView] = useState<"calendar" | "list">("list");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -169,6 +183,8 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "ALL">("ALL");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isTypesDialogOpen, setIsTypesDialogOpen] = useState(false);
+  const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -218,7 +234,8 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    const ok = await confirm({ title: "Cancel booking", description: "Are you sure you want to cancel this booking?", confirmLabel: "Cancel booking", destructive: true });
+    if (!ok) return;
     try {
       await cancelBooking(id);
       toast.success("Booking cancelled");
@@ -284,6 +301,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -296,6 +314,10 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
           </p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => setIsAvailabilityOpen(true)} variant="outline" size="sm">
+            <Clock className="mr-1.5 h-4 w-4" />
+            Set Hours
+          </Button>
           <Button onClick={() => setIsTypesDialogOpen(true)} variant="outline" size="sm">
             <Settings className="mr-1.5 h-4 w-4" />
             Booking Types
@@ -422,10 +444,10 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                         </div>
                         <div className="space-y-0.5">
                           {dayBookings.slice(0, 3).map((booking) => (
-                            <Link
+                            <button
                               key={booking.id}
-                              href={`/bookings/${booking.id}`}
-                              className={`block truncate rounded px-1 py-0.5 text-xs border-l-2 ${
+                              onClick={() => setSelectedBooking(booking)}
+                              className={`block w-full truncate rounded px-1 py-0.5 text-xs text-left border-l-2 ${
                                 statusConfig[booking.status].borderColor
                               } bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700`}
                               style={{
@@ -434,7 +456,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                             >
                               <span className="font-medium">{formatTime(booking.startsAt)}</span>{" "}
                               {booking.client?.name || booking.guestName}
-                            </Link>
+                            </button>
                           ))}
                           {dayBookings.length > 3 && (
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -600,6 +622,150 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
         onOpenChange={setIsTypesDialogOpen}
         bookingTypes={bookingTypes}
       />
+      <AvailabilityDialog
+        open={isAvailabilityOpen}
+        onOpenChange={setIsAvailabilityOpen}
+      />
+
+      {/* Booking Quick View Sheet */}
+      <Sheet open={!!selectedBooking} onOpenChange={(open) => !open && setSelectedBooking(null)}>
+        <SheetContent className="sm:max-w-md overflow-y-auto" overlayClassName="bg-zinc-950/10 dark:bg-zinc-950/30">
+          <SheetHeader className="pb-0">
+            <SheetTitle>Booking Details</SheetTitle>
+          </SheetHeader>
+          {selectedBooking && (() => {
+            const b = selectedBooking;
+            const config = statusConfig[b.status];
+            const clientName = b.client?.name || b.guestName || "No client";
+            return (
+              <div className="space-y-5 px-4 pb-4">
+                {/* Status + Client */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-semibold text-zinc-950 dark:text-white">
+                      {clientName}
+                    </h3>
+                    <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
+                      {config.label}
+                    </span>
+                  </div>
+                  {b.client?.companyName && (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{b.client.companyName}</p>
+                  )}
+                </div>
+
+                {/* Schedule */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-zinc-950 dark:text-white">
+                        {formatDateLong(new Date(b.startsAt))}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {formatTime(b.startsAt)} — {formatTime(b.endsAt)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {b.bookingType && (
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-4 w-4 text-zinc-400 shrink-0" />
+                      <p className="text-sm text-zinc-950 dark:text-white">
+                        {b.bookingType.name} ({b.bookingType.durationMinutes} min)
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-4 w-4 text-zinc-400 shrink-0" />
+                    <p className="text-sm text-zinc-950 dark:text-white">
+                      {locationTypeLabels[b.locationType]}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Contact info */}
+                {(b.client?.email || b.client?.phone || b.guestEmail) && (
+                  <div className="space-y-2 border-t border-zinc-950/10 pt-3 dark:border-white/10">
+                    {(b.client?.email || b.guestEmail) && (
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-4 w-4 text-zinc-400" />
+                        <a
+                          href={`mailto:${b.client?.email || b.guestEmail}`}
+                          className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
+                        >
+                          {b.client?.email || b.guestEmail}
+                        </a>
+                      </div>
+                    )}
+                    {(b.client?.phone) && (
+                      <div className="flex items-center gap-3">
+                        <Phone className="h-4 w-4 text-zinc-400" />
+                        <a
+                          href={`tel:${b.client.phone}`}
+                          className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
+                        >
+                          {b.client.phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes */}
+                {b.notes && (
+                  <div className="border-t border-zinc-950/10 pt-3 dark:border-white/10">
+                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1">
+                      Notes
+                    </p>
+                    <p className="text-sm text-zinc-950 dark:text-white whitespace-pre-wrap">
+                      {b.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2 border-t border-zinc-950/10 pt-3 dark:border-white/10">
+                  {b.status === "PENDING" && (
+                    <Button size="sm" onClick={() => { handleConfirm(b.id); setSelectedBooking(null); }}>
+                      <CheckCircle className="mr-1.5 h-4 w-4" />
+                      Confirm
+                    </Button>
+                  )}
+                  {b.status === "CONFIRMED" && (
+                    <Button size="sm" onClick={() => { handleComplete(b.id); setSelectedBooking(null); }}>
+                      <CheckCircle className="mr-1.5 h-4 w-4" />
+                      Complete
+                    </Button>
+                  )}
+                  {["PENDING", "CONFIRMED"].includes(b.status) && (
+                    <Button size="sm" variant="outline" onClick={() => { handleCancel(b.id); setSelectedBooking(null); }}>
+                      <XCircle className="mr-1.5 h-4 w-4" />
+                      Cancel
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={`/bookings/${b.id}`}>
+                      <ExternalLink className="mr-1.5 h-4 w-4" />
+                      Full Details
+                    </Link>
+                  </Button>
+                  {b.client && (
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href={`/clients/${b.client.id}`}>
+                        <User className="mr-1.5 h-4 w-4" />
+                        View Client
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
+    </>
   );
 }

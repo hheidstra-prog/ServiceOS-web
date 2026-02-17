@@ -45,6 +45,7 @@ import {
   deleteBooking,
   updateBooking,
 } from "../actions";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface BookingType {
   id: string;
@@ -141,6 +142,7 @@ function formatTime(date: Date) {
 
 export function BookingDetail({ booking }: BookingDetailProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -170,7 +172,8 @@ export function BookingDetail({ booking }: BookingDetailProps) {
   };
 
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    const ok = await confirm({ title: "Cancel booking", description: "Are you sure you want to cancel this booking?", confirmLabel: "Cancel booking", destructive: true });
+    if (!ok) return;
     try {
       await cancelBooking(booking.id);
       toast.success("Booking cancelled");
@@ -201,7 +204,8 @@ export function BookingDetail({ booking }: BookingDetailProps) {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to permanently delete this booking?")) return;
+    const ok = await confirm({ title: "Delete booking", description: "Are you sure you want to permanently delete this booking? This action cannot be undone.", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteBooking(booking.id);
       toast.success("Booking deleted");
@@ -238,6 +242,7 @@ export function BookingDetail({ booking }: BookingDetailProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="grid gap-6 lg:grid-cols-3">
       {/* Main Content */}
       <div className="space-y-6 lg:col-span-2">
@@ -599,5 +604,6 @@ export function BookingDetail({ booking }: BookingDetailProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

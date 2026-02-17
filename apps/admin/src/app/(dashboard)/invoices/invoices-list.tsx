@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { InvoiceStatus } from "@serviceos/database";
 import { deleteInvoice, duplicateInvoice, sendInvoice } from "./actions";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
@@ -114,6 +115,7 @@ function isOverdue(dueDate: Date, status: InvoiceStatus) {
 
 export function InvoicesList({ invoices }: InvoicesListProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
@@ -151,7 +153,8 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this invoice?")) return;
+    const ok = await confirm({ title: "Delete invoice", description: "Are you sure you want to delete this invoice? This action cannot be undone.", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteInvoice(id);
       toast.success("Invoice deleted");
@@ -179,6 +182,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -411,5 +415,6 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
         />
       )}
     </div>
+    </>
   );
 }

@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +74,7 @@ function formatCurrency(amount: number, currency: string) {
 
 export function ServicesList({ services }: ServicesListProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -124,11 +126,16 @@ export function ServicesList({ services }: ServicesListProps) {
 
   const handleDelete = async (service: Service) => {
     const hasUsage = service._count.quoteItems > 0 || service._count.invoiceItems > 0;
-    const message = hasUsage
-      ? "This service is used in quotes/invoices and will be deactivated instead of deleted. Continue?"
-      : "Are you sure you want to delete this service?";
 
-    if (!confirm(message)) return;
+    const ok = await confirm({
+      title: hasUsage ? "Deactivate service" : "Delete service",
+      description: hasUsage
+        ? "This service is used in quotes/invoices and will be deactivated instead of deleted. Continue?"
+        : "Are you sure you want to delete this service? This action cannot be undone.",
+      confirmLabel: hasUsage ? "Deactivate" : "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteService(service.id);
@@ -140,6 +147,7 @@ export function ServicesList({ services }: ServicesListProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -382,5 +390,6 @@ export function ServicesList({ services }: ServicesListProps) {
         editingService={editingService}
       />
     </div>
+    </>
   );
 }

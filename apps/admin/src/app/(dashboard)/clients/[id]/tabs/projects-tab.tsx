@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { createProject, updateProject, deleteProject } from "../../actions";
 import { ProjectStatus } from "@serviceos/database";
 
@@ -57,6 +58,7 @@ export function ProjectsTab({ client }: ProjectsTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const handleAdd = () => {
     setEditingProject(null);
@@ -69,7 +71,13 @@ export function ProjectsTab({ client }: ProjectsTabProps) {
   };
 
   const handleDelete = async (projectId: string) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
+    const ok = await confirm({
+      title: "Delete project",
+      description: "Are you sure you want to delete this project? This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteProject(projectId, client.id);
       toast.success("Project deleted");
@@ -118,6 +126,8 @@ export function ProjectsTab({ client }: ProjectsTabProps) {
   };
 
   return (
+    <>
+    {ConfirmDialog}
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
@@ -299,5 +309,6 @@ export function ProjectsTab({ client }: ProjectsTabProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

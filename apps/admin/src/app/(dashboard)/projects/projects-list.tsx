@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,6 +95,7 @@ function formatCurrency(amount: number | null, currency: string) {
 
 export function ProjectsList({ projects }: ProjectsListProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | "ALL">("ALL");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -132,7 +134,13 @@ export function ProjectsList({ projects }: ProjectsListProps) {
   };
 
   const handleDelete = async (project: Project) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
+    const ok = await confirm({
+      title: "Delete project",
+      description: "Are you sure you want to delete this project? This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteProject(project.id);
       toast.success("Project deleted");
@@ -143,6 +151,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -341,5 +350,6 @@ export function ProjectsList({ projects }: ProjectsListProps) {
         editingProject={editingProject}
       />
     </div>
+    </>
   );
 }

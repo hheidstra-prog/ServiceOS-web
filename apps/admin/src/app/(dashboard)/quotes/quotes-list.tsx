@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { QuoteStatus } from "@serviceos/database";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { deleteQuote, duplicateQuote, sendQuote } from "./actions";
 import { NewQuoteDialog } from "./new-quote-dialog";
 
@@ -101,6 +102,7 @@ function formatDate(date: Date | null) {
 
 export function QuotesList({ quotes }: QuotesListProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "ALL">("ALL");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
@@ -138,7 +140,8 @@ export function QuotesList({ quotes }: QuotesListProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this quote?")) return;
+    const ok = await confirm({ title: "Delete quote", description: "Are you sure you want to delete this quote? This action cannot be undone.", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteQuote(id);
       toast.success("Quote deleted");
@@ -148,6 +151,7 @@ export function QuotesList({ quotes }: QuotesListProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -333,5 +337,6 @@ export function QuotesList({ quotes }: QuotesListProps) {
       {/* New Quote Dialog */}
       <NewQuoteDialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen} />
     </div>
+    </>
   );
 }

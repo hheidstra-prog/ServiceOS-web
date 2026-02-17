@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createBookingType, updateBookingType, deleteBookingType } from "./actions";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface BookingType {
   id: string;
@@ -35,6 +36,7 @@ interface BookingType {
   currency: string;
   color: string | null;
   isActive: boolean;
+  isPublic: boolean;
   requiresConfirmation: boolean;
   bufferBefore: number;
   bufferAfter: number;
@@ -59,6 +61,7 @@ const colorOptions = [
 
 export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: BookingTypesDialogProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [isEditing, setIsEditing] = useState(false);
   const [editingType, setEditingType] = useState<BookingType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +73,7 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
   const [price, setPrice] = useState("");
   const [color, setColor] = useState("#3b82f6");
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
   const [bufferBefore, setBufferBefore] = useState("0");
   const [bufferAfter, setBufferAfter] = useState("0");
   const [isActive, setIsActive] = useState(true);
@@ -81,6 +85,7 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
     setPrice("");
     setColor("#3b82f6");
     setRequiresConfirmation(false);
+    setIsPublic(false);
     setBufferBefore("0");
     setBufferAfter("0");
     setIsActive(true);
@@ -96,6 +101,7 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
     setPrice(type.price?.toString() || "");
     setColor(type.color || "#3b82f6");
     setRequiresConfirmation(type.requiresConfirmation);
+    setIsPublic(type.isPublic);
     setBufferBefore(type.bufferBefore.toString());
     setBufferAfter(type.bufferAfter.toString());
     setIsActive(type.isActive);
@@ -103,7 +109,8 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this booking type?")) return;
+    const ok = await confirm({ title: "Delete booking type", description: "Are you sure you want to delete this booking type? This action cannot be undone.", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteBookingType(id);
       toast.success("Booking type deleted");
@@ -132,6 +139,7 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
           price: price ? parseFloat(price) : undefined,
           color,
           requiresConfirmation,
+          isPublic,
           bufferBefore: parseInt(bufferBefore),
           bufferAfter: parseInt(bufferAfter),
           isActive,
@@ -145,6 +153,7 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
           price: price ? parseFloat(price) : undefined,
           color,
           requiresConfirmation,
+          isPublic,
           bufferBefore: parseInt(bufferBefore),
           bufferAfter: parseInt(bufferAfter),
         });
@@ -160,6 +169,7 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
   };
 
   return (
+    <>{ConfirmDialog}
     <Dialog
       open={open}
       onOpenChange={(isOpen) => {
@@ -363,6 +373,19 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
                   onCheckedChange={setRequiresConfirmation}
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="isPublic">Public Booking</Label>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Show on public site for new visitors (e.g. free intro call)
+                  </p>
+                </div>
+                <Switch
+                  id="isPublic"
+                  checked={isPublic}
+                  onCheckedChange={setIsPublic}
+                />
+              </div>
               {editingType && (
                 <div className="flex items-center justify-between">
                   <div>
@@ -388,5 +411,6 @@ export function BookingTypesDialog({ open, onOpenChange, bookingTypes }: Booking
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

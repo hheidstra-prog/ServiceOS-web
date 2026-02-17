@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { slugify } from "./blog-utils";
 
 interface TextNode {
   type: "text";
@@ -87,7 +88,7 @@ function renderTextNode(node: TextNode, index: number): React.ReactNode {
     for (const mark of node.marks) {
       switch (mark.type) {
         case "bold":
-          element = <strong key={`bold-${index}`}>{element}</strong>;
+          element = <strong key={`bold-${index}`} className="text-on-surface font-semibold">{element}</strong>;
           break;
         case "italic":
           element = <em key={`italic-${index}`}>{element}</em>;
@@ -115,7 +116,7 @@ function renderTextNode(node: TextNode, index: number): React.ReactNode {
               href={mark.attrs?.href}
               target={mark.attrs?.target || "_blank"}
               rel="noopener noreferrer"
-              className="text-primary-600 underline hover:text-primary-700"
+              className="text-[color:var(--color-link)] underline hover:text-[color:var(--color-link-hover)]"
             >
               {element}
             </a>
@@ -133,45 +134,51 @@ function renderTextContent(content?: TextNode[]): React.ReactNode {
   return content.map((node, index) => renderTextNode(node, index));
 }
 
+function getPlainText(content?: TextNode[]): string {
+  if (!content) return "";
+  return content.map((node) => node.text).join("");
+}
+
 function renderNode(node: ContentNode, index: number): React.ReactNode {
   switch (node.type) {
     case "paragraph":
       return (
-        <p key={index} className="mb-4 leading-relaxed">
+        <p key={index} className="mb-4 leading-relaxed text-on-surface-secondary">
           {renderTextContent(node.content)}
         </p>
       );
 
     case "heading": {
       const headingClasses: Record<number, string> = {
-        1: "text-3xl font-bold mt-8 mb-4",
-        2: "text-2xl font-bold mt-8 mb-4",
-        3: "text-xl font-semibold mt-6 mb-3",
-        4: "text-lg font-semibold mt-4 mb-2",
-        5: "text-base font-semibold mt-4 mb-2",
-        6: "text-sm font-semibold mt-4 mb-2",
+        1: "text-3xl font-bold mt-8 mb-4 text-on-surface",
+        2: "text-2xl font-bold mt-8 mb-4 text-on-surface",
+        3: "text-xl font-semibold mt-6 mb-3 text-on-surface",
+        4: "text-lg font-semibold mt-4 mb-2 text-on-surface",
+        5: "text-base font-semibold mt-4 mb-2 text-on-surface",
+        6: "text-sm font-semibold mt-4 mb-2 text-on-surface",
       };
       const className = headingClasses[node.attrs.level];
       const content = renderTextContent(node.content);
+      const id = slugify(getPlainText(node.content));
       switch (node.attrs.level) {
         case 1:
-          return <h1 key={index} className={className}>{content}</h1>;
+          return <h1 key={index} id={id} className={className}>{content}</h1>;
         case 2:
-          return <h2 key={index} className={className}>{content}</h2>;
+          return <h2 key={index} id={id} className={className}>{content}</h2>;
         case 3:
-          return <h3 key={index} className={className}>{content}</h3>;
+          return <h3 key={index} id={id} className={className}>{content}</h3>;
         case 4:
-          return <h4 key={index} className={className}>{content}</h4>;
+          return <h4 key={index} id={id} className={className}>{content}</h4>;
         case 5:
-          return <h5 key={index} className={className}>{content}</h5>;
+          return <h5 key={index} id={id} className={className}>{content}</h5>;
         case 6:
-          return <h6 key={index} className={className}>{content}</h6>;
+          return <h6 key={index} id={id} className={className}>{content}</h6>;
       }
     }
 
     case "bulletList":
       return (
-        <ul key={index} className="mb-4 ml-6 list-disc space-y-2">
+        <ul key={index} className="mb-4 ml-6 list-disc space-y-2 text-on-surface-secondary">
           {node.content.map((item, itemIndex) => (
             <li key={itemIndex}>
               {item.content.map((p, pIndex) => renderTextContent(p.content))}
@@ -182,7 +189,7 @@ function renderNode(node: ContentNode, index: number): React.ReactNode {
 
     case "orderedList":
       return (
-        <ol key={index} className="mb-4 ml-6 list-decimal space-y-2">
+        <ol key={index} className="mb-4 ml-6 list-decimal space-y-2 text-on-surface-secondary">
           {node.content.map((item, itemIndex) => (
             <li key={itemIndex}>
               {item.content.map((p, pIndex) => renderTextContent(p.content))}

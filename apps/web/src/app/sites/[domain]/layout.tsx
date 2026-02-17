@@ -35,6 +35,7 @@ async function getSite(domain: string) {
           postalCode: true,
           country: true,
           logo: true,
+          locale: true,
         },
       },
       theme: true,

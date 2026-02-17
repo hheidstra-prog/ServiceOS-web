@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { InvoiceStatus } from "@serviceos/database";
 import { deleteInvoice, deleteInvoiceItem, duplicateInvoice, sendInvoice } from "../actions";
 import { InvoiceItemDialog } from "./invoice-item-dialog";
@@ -127,6 +128,7 @@ function formatDate(date: Date | null) {
 
 export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -156,7 +158,8 @@ export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this invoice?")) return;
+    const ok = await confirm({ title: "Delete invoice", description: "Are you sure you want to delete this invoice? This action cannot be undone.", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteInvoice(invoice.id);
       toast.success("Invoice deleted");
@@ -172,7 +175,8 @@ export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm("Are you sure you want to delete this item?")) return;
+    const ok = await confirm({ title: "Delete item", description: "Are you sure you want to delete this invoice item?", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteInvoiceItem(itemId, invoice.id);
       toast.success("Item deleted");
@@ -187,6 +191,7 @@ export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="grid gap-6 lg:grid-cols-3">
       {/* Main Content */}
       <div className="space-y-6 lg:col-span-2">
@@ -483,5 +488,6 @@ export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
         invoice={invoice}
       />
     </div>
+    </>
   );
 }

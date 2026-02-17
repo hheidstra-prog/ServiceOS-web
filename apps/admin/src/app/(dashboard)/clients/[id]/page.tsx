@@ -100,7 +100,7 @@ export default async function ClientDetailPage({ params, searchParams }: ClientD
             <p className="text-muted-foreground">{client.companyName}</p>
           )}
         </div>
-        <ClientActions client={{ id: client.id }} />
+        <ClientActions client={{ id: client.id, status: client.status }} />
       </div>
 
       {/* Tabs */}

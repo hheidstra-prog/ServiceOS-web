@@ -28,6 +28,7 @@ interface Site {
     postalCode: string | null;
     country: string | null;
     logo: string | null;
+    locale: string;
   };
   theme: {
     template: string;

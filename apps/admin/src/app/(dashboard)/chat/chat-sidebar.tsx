@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { createConversation, deleteConversation, archiveConversation } from "./actions";
 
 interface Conversation {
@@ -33,6 +34,7 @@ interface ChatSidebarProps {
 export function ChatSidebar({ conversations, activeConversationId }: ChatSidebarProps) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const handleNewChat = async () => {
     setIsCreating(true);
@@ -47,7 +49,8 @@ export function ChatSidebar({ conversations, activeConversationId }: ChatSidebar
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this conversation?")) return;
+    const ok = await confirm({ title: "Delete conversation", description: "Are you sure you want to delete this conversation? This action cannot be undone.", confirmLabel: "Delete", destructive: true });
+    if (!ok) return;
     try {
       await deleteConversation(id);
       if (activeConversationId === id) {
@@ -96,6 +99,7 @@ export function ChatSidebar({ conversations, activeConversationId }: ChatSidebar
   );
 
   return (
+    <>{ConfirmDialog}
     <div className="flex h-full flex-col border-r border-zinc-950/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-900">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-zinc-950/10 p-3 dark:border-white/10">
@@ -150,6 +154,7 @@ export function ChatSidebar({ conversations, activeConversationId }: ChatSidebar
         )}
       </div>
     </div>
+    </>
   );
 }
 

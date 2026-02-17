@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { createContact, updateContact, deleteContact } from "../../actions";
 
 interface Contact {
@@ -40,6 +41,7 @@ export function ContactsTab({ client }: ContactsTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const handleAdd = () => {
     setEditingContact(null);
@@ -52,7 +54,13 @@ export function ContactsTab({ client }: ContactsTabProps) {
   };
 
   const handleDelete = async (contactId: string) => {
-    if (!confirm("Are you sure you want to delete this contact?")) return;
+    const ok = await confirm({
+      title: "Delete contact",
+      description: "Are you sure you want to delete this contact? This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteContact(contactId, client.id);
       toast.success("Contact deleted");
@@ -92,6 +100,8 @@ export function ContactsTab({ client }: ContactsTabProps) {
   };
 
   return (
+    <>
+    {ConfirmDialog}
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
@@ -265,5 +275,6 @@ export function ContactsTab({ client }: ContactsTabProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

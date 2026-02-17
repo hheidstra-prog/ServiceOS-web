@@ -113,6 +113,16 @@ export async function createBooking(data: {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
 
+  // Get booking type name for the event title
+  let bookingTypeName = "Appointment";
+  if (data.bookingTypeId) {
+    const bt = await db.bookingType.findUnique({
+      where: { id: data.bookingTypeId },
+      select: { name: true },
+    });
+    if (bt) bookingTypeName = bt.name;
+  }
+
   const booking = await db.booking.create({
     data: {
       organizationId: organization.id,
@@ -131,6 +141,24 @@ export async function createBooking(data: {
       timezone: organization.timezone,
     },
   });
+
+  // Create activity event on the client timeline
+  if (data.clientId) {
+    await db.event.create({
+      data: {
+        clientId: data.clientId,
+        type: "APPOINTMENT",
+        title: `Booking: ${bookingTypeName}`,
+        description: data.notes || null,
+        scheduledAt: data.startsAt,
+        metadata: {
+          source: "admin_booking",
+          bookingId: booking.id,
+          bookingType: bookingTypeName,
+        },
+      },
+    });
+  }
 
   revalidatePath("/bookings");
   return booking;
@@ -294,6 +322,7 @@ export async function createBookingType(data: {
   price?: number;
   color?: string;
   requiresConfirmation?: boolean;
+  isPublic?: boolean;
   bufferBefore?: number;
   bufferAfter?: number;
 }) {
@@ -310,6 +339,7 @@ export async function createBookingType(data: {
       currency: organization.defaultCurrency,
       color: data.color,
       requiresConfirmation: data.requiresConfirmation ?? false,
+      isPublic: data.isPublic ?? false,
       bufferBefore: data.bufferBefore ?? 0,
       bufferAfter: data.bufferAfter ?? 0,
     },
@@ -329,6 +359,7 @@ export async function updateBookingType(
     price?: number;
     color?: string;
     isActive?: boolean;
+    isPublic?: boolean;
     requiresConfirmation?: boolean;
     bufferBefore?: number;
     bufferAfter?: number;
@@ -354,6 +385,54 @@ export async function deleteBookingType(id: string) {
   await db.bookingType.delete({
     where: { id, organizationId: organization.id },
   });
+
+  revalidatePath("/bookings");
+}
+
+// =====================
+// AVAILABILITY
+// =====================
+
+// Get availability rules for the organization
+export async function getAvailability() {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) return [];
+
+  return db.availability.findMany({
+    where: { organizationId: organization.id },
+    orderBy: { dayOfWeek: "asc" },
+  });
+}
+
+// Set availability rules (replace all existing)
+export async function setAvailability(
+  rules: Array<{
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    isActive: boolean;
+  }>
+) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) throw new Error("Not authorized");
+
+  // Delete existing rules and create new ones in a transaction
+  await db.$transaction([
+    db.availability.deleteMany({
+      where: { organizationId: organization.id },
+    }),
+    ...rules.map((rule) =>
+      db.availability.create({
+        data: {
+          organizationId: organization.id,
+          dayOfWeek: rule.dayOfWeek,
+          startTime: rule.startTime,
+          endTime: rule.endTime,
+          isActive: rule.isActive,
+        },
+      })
+    ),
+  ]);
 
   revalidatePath("/bookings");
 }

@@ -6,9 +6,18 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useSite } from "@/lib/site-context";
 
+const bookNowLabels: Record<string, string> = {
+  nl: "Afspraak maken",
+  en: "Book Now",
+  de: "Termin buchen",
+  fr: "Réserver",
+};
+
 export function SiteHeader() {
   const site = useSite();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const locale = site.organization.locale || "en";
+  const bookNowLabel = bookNowLabels[locale] || bookNowLabels.en;
 
   const logo = site.logo || site.organization.logo;
 
@@ -63,7 +72,7 @@ export function SiteHeader() {
           )}
           {site.bookingEnabled && (
             <Link href="/book" className="btn-primary text-sm">
-              Book Now
+              {bookNowLabel}
             </Link>
           )}
         </div>
@@ -123,7 +132,7 @@ export function SiteHeader() {
                 className="btn-primary mt-4 block w-full text-center text-base"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Book Now
+                {bookNowLabel}
               </Link>
             )}
           </div>

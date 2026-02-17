@@ -95,8 +95,18 @@ function StatusBadge({ status }: { status: ClientStatus }) {
 export function ClientsList({ clients }: ClientsListProps) {
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const archivedCount = clients.filter((c) => c.status === "ARCHIVED").length;
 
   const filteredClients = clients.filter((client) => {
+    // Filter by archived status
+    if (showArchived) {
+      if (client.status !== "ARCHIVED") return false;
+    } else {
+      if (client.status === "ARCHIVED") return false;
+    }
+    // Filter by search
     const searchLower = search.toLowerCase();
     return (
       client.name.toLowerCase().includes(searchLower) ||
@@ -130,17 +140,42 @@ export function ClientsList({ clients }: ClientsListProps) {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-        {/* Placeholder: text-sm, font-normal */}
-        <input
-          type="search"
-          placeholder="Search clients..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-8 w-full rounded-md border border-zinc-950/10 bg-white pl-8 pr-3 text-sm text-zinc-950 placeholder:text-zinc-400 transition-colors focus:border-zinc-950/20 focus:bg-sky-50/50 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-sky-950/20"
-        />
+      {/* Search + filter */}
+      <div className="flex items-center gap-4">
+        <div className="relative max-w-xs flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="search"
+            placeholder="Search clients..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 w-full rounded-md border border-zinc-950/10 bg-white pl-8 pr-3 text-sm text-zinc-950 placeholder:text-zinc-400 transition-colors focus:border-zinc-950/20 focus:bg-sky-50/50 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-sky-950/20"
+          />
+        </div>
+        {archivedCount > 0 && (
+          <div className="flex gap-1">
+            <button
+              onClick={() => setShowArchived(false)}
+              className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                !showArchived
+                  ? "bg-zinc-950/5 text-zinc-950 dark:bg-white/10 dark:text-white"
+                  : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setShowArchived(true)}
+              className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                showArchived
+                  ? "bg-zinc-950/5 text-zinc-950 dark:bg-white/10 dark:text-white"
+                  : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
+              }`}
+            >
+              Archived ({archivedCount})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Clients List */}

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -159,12 +160,17 @@ function formatDuration(minutes: number) {
 
 export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDetailProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this project? This will also delete all tasks.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete project",
+      description: "Are you sure you want to delete this project? This will also delete all tasks.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     setIsDeleting(true);
     try {
@@ -189,6 +195,7 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
   };
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -384,6 +391,7 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
         </TabsContent>
       </Tabs>
     </div>
+    </>
   );
 }
 
@@ -715,6 +723,7 @@ function OverviewTab({ project }: { project: Project }) {
 
 function FilesTab({ projectId, files }: { projectId: string; files: ProjectFile[] }) {
   const router = useRouter();
+  const { confirm, ConfirmDialog: FilesConfirmDialog } = useConfirm();
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -748,7 +757,13 @@ function FilesTab({ projectId, files }: { projectId: string; files: ProjectFile[
   };
 
   const handleDelete = async (fileId: string, fileName: string) => {
-    if (!confirm(`Delete "${fileName}"?`)) return;
+    const ok = await confirm({
+      title: "Delete file",
+      description: `Are you sure you want to delete "${fileName}"?`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteFile(fileId);
@@ -776,6 +791,7 @@ function FilesTab({ projectId, files }: { projectId: string; files: ProjectFile[
   };
 
   return (
+    <>{FilesConfirmDialog}
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -845,6 +861,7 @@ function FilesTab({ projectId, files }: { projectId: string; files: ProjectFile[
         )}
       </CardContent>
     </Card>
+    </>
   );
 }
 

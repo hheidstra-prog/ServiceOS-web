@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { createNote, updateNote, deleteNote } from "../../actions";
 import { formatDistanceToNow } from "date-fns";
 
@@ -42,6 +43,7 @@ export function NotesTab({ client }: NotesTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const handleAdd = () => {
     setEditingNote(null);
@@ -54,7 +56,13 @@ export function NotesTab({ client }: NotesTabProps) {
   };
 
   const handleDelete = async (noteId: string) => {
-    if (!confirm("Are you sure you want to delete this note?")) return;
+    const ok = await confirm({
+      title: "Delete note",
+      description: "Are you sure you want to delete this note? This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteNote(noteId, client.id);
       toast.success("Note deleted");
@@ -112,6 +120,8 @@ export function NotesTab({ client }: NotesTabProps) {
   });
 
   return (
+    <>
+    {ConfirmDialog}
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
@@ -237,5 +247,6 @@ export function NotesTab({ client }: NotesTabProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

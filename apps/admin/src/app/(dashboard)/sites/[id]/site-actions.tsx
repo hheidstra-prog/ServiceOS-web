@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { SiteStatus } from "@serviceos/database";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { updateSite, deleteSite } from "../actions";
 
 interface Site {
@@ -26,6 +27,7 @@ interface SiteActionsProps {
 
 export function SiteActions({ site }: SiteActionsProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const handlePublish = async () => {
     try {
@@ -55,12 +57,13 @@ export function SiteActions({ site }: SiteActionsProps) {
   };
 
   const handleDelete = async () => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${site.name}"? This action cannot be undone.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete site",
+      description: `Are you sure you want to delete "${site.name}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteSite(site.id);
@@ -72,6 +75,7 @@ export function SiteActions({ site }: SiteActionsProps) {
   };
 
   return (
+    <>{ConfirmDialog}
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon-sm">
@@ -119,5 +123,6 @@ export function SiteActions({ site }: SiteActionsProps) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }

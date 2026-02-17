@@ -121,6 +121,29 @@ export async function archiveClient(id: string) {
   revalidatePath(`/clients/${id}`);
 }
 
+export async function unarchiveClient(id: string) {
+  const { organization } = await requireAuthWithOrg();
+
+  const existing = await db.client.findFirst({
+    where: { id, organizationId: organization.id },
+  });
+
+  if (!existing) {
+    throw new Error("Client not found");
+  }
+
+  await db.client.update({
+    where: { id },
+    data: {
+      archivedAt: null,
+      status: "ACTIVE",
+    },
+  });
+
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${id}`);
+}
+
 export async function getClients(includeArchived = false) {
   const { organization } = await requireAuthWithOrg();
 

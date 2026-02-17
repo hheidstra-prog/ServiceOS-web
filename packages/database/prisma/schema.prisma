@@ -88,6 +88,7 @@ model Organization {
   blogPosts         BlogPost[]
   blogCategories    BlogCategory[]
   blogTags          BlogTag[]
+  notifications     Notification[]
 
   @@index([clerkOrgId])
 }
@@ -603,6 +604,7 @@ model BookingType {
   // Settings
   color          String?
   isActive       Boolean  @default(true)
+  isPublic       Boolean  @default(false) // Show on public /book page (intro calls, free consults)
   requiresConfirmation Boolean @default(false)
 
   // Buffer time
@@ -1121,24 +1123,27 @@ enum TemplateType {
 // ===========================================
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
+  id             String   @id @default(cuid())
+  organizationId String
 
-  type      String   // e.g., "quote_viewed", "payment_received"
-  title     String
-  message   String?
+  type       String    // "contact_form", "booking_confirmed", etc.
+  title      String
+  message    String?
 
-  // Reference to related entity
-  entityType String?
+  // Link to related entity for navigation
+  entityType String?   // "client", "invoice", "booking", etc.
   entityId   String?
 
-  isRead    Boolean  @default(false)
-  readAt    DateTime?
+  isRead     Boolean  @default(false)
+  readAt     DateTime?
 
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
-  @@index([userId])
-  @@index([userId, isRead])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, isRead])
+  @@index([createdAt])
 }
 
 // ===========================================

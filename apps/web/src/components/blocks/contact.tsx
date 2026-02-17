@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Mail, Phone, MapPin, Send, CheckCircle2 } from "lucide-react";
 import { getBlockBackgroundProps } from "./block-helpers";
+import { useSite } from "@/lib/site-context";
+import { submitContactForm } from "@/lib/actions/contact";
 
 interface ContactData {
   heading?: string;
@@ -28,20 +30,39 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
     name: "",
     email: "",
     phone: "",
+    company: "",
+    website: "",
     subject: "",
     message: "",
+    _hp: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const site = useSite();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
 
-    // TODO: Implement form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const result = await submitContactForm({
+      organizationId: site.organization.id,
+      name: formState.name,
+      email: formState.email,
+      phone: formState.phone || undefined,
+      company: formState.company || undefined,
+      website: formState.website || undefined,
+      subject: formState.subject || undefined,
+      message: formState.message,
+      _hp: formState._hp || undefined,
+    });
 
-    setSubmitted(true);
+    if (result.success) {
+      setSubmitted(true);
+    } else {
+      setError(result.error);
+    }
     setIsSubmitting(false);
   };
 
@@ -147,7 +168,7 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                       type="button"
                       onClick={() => {
                         setSubmitted(false);
-                        setFormState({ name: "", email: "", phone: "", subject: "", message: "" });
+                        setFormState({ name: "", email: "", phone: "", company: "", website: "", subject: "", message: "", _hp: "" });
                       }}
                       className="mt-6 text-sm font-medium text-[var(--color-link)] hover:text-[var(--color-link-hover)] transition-colors"
                     >
@@ -156,6 +177,17 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Honeypot — hidden from humans, filled by bots */}
+                    <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
+                      <input
+                        type="text"
+                        name="website_url_confirm"
+                        tabIndex={-1}
+                        autoComplete="new-password"
+                        value={formState._hp}
+                        onChange={(e) => setFormState({ ...formState, _hp: e.target.value })}
+                      />
+                    </div>
                     {/* Name & Email row */}
                     <div className="grid gap-5 sm:grid-cols-2">
                       <div>
@@ -201,7 +233,7 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                       </div>
                     </div>
 
-                    {/* Phone & Subject row */}
+                    {/* Phone & Company row */}
                     <div className="grid gap-5 sm:grid-cols-2">
                       <div>
                         <label
@@ -217,6 +249,49 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                           value={formState.phone}
                           onChange={(e) =>
                             setFormState({ ...formState, phone: e.target.value })
+                          }
+                          className={inputClassName}
+                          style={{ borderRadius: "var(--radius-input)" }}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="contact-company"
+                          className="block text-sm font-medium text-[var(--color-on-surface)] mb-2"
+                        >
+                          Company <span className="text-[var(--color-on-surface-muted)] font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="contact-company"
+                          placeholder="Your company"
+                          value={formState.company}
+                          onChange={(e) =>
+                            setFormState({ ...formState, company: e.target.value })
+                          }
+                          className={inputClassName}
+                          style={{ borderRadius: "var(--radius-input)" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Website & Subject row */}
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="contact-website"
+                          className="block text-sm font-medium text-[var(--color-on-surface)] mb-2"
+                        >
+                          Website <span className="text-[var(--color-on-surface-muted)] font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="url"
+                          id="contact-website"
+                          placeholder="https://yourcompany.com"
+                          value={formState.website}
+                          onChange={(e) =>
+                            setFormState({ ...formState, website: e.target.value })
                           }
                           className={inputClassName}
                           style={{ borderRadius: "var(--radius-input)" }}
@@ -264,6 +339,10 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                         style={{ borderRadius: "var(--radius-input)" }}
                       />
                     </div>
+
+                    {error && (
+                      <p className="text-sm text-red-600">{error}</p>
+                    )}
 
                     <button
                       type="submit"

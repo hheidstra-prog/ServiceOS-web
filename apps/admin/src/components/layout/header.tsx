@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
+import { NotificationBell } from "./notification-bell";
 
 interface HeaderProps {
   organizationName?: string;
@@ -65,6 +66,9 @@ export function Header({ organizationName }: HeaderProps) {
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
           <span className="sr-only">Toggle theme</span>
         </Button>
+
+        {/* Notifications */}
+        <NotificationBell />
 
         {/* User menu */}
         <UserButton

@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { deleteTimeEntry } from "./actions";
 import { TimeEntryDialog } from "./time-entry-dialog";
 
@@ -120,6 +121,7 @@ export function TimeTracker({
   weekStart: initialWeekStart,
 }: TimeTrackerProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [entries] = useState(initialEntries);
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -167,7 +169,13 @@ export function TimeTracker({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this time entry?")) return;
+    const ok = await confirm({
+      title: "Delete time entry",
+      description: "Are you sure you want to delete this time entry? This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteTimeEntry(id);
       toast.success("Time entry deleted");
@@ -204,6 +212,7 @@ export function TimeTracker({
   const isToday = (date: Date) => isSameDay(date, new Date());
 
   return (
+    <>{ConfirmDialog}
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -411,5 +420,6 @@ export function TimeTracker({
         projects={projects}
       />
     </div>
+    </>
   );
 }
