@@ -1,4 +1,4 @@
-import Link from "./preview-link";
+import Link from "next/link";
 import { BlockIcon } from "./block-icon";
 import { getBlockBackgroundProps } from "./block-helpers";
 

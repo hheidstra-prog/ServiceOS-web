@@ -78,7 +78,7 @@ export function HeroBlock({ data }: { data: Record<string, unknown> }) {
                 {renderHeading(hero.heading, hero.highlightWord)}
               </h1>
               {hero.subheading && (
-                <p className="mt-4 text-[var(--subheading-size)] font-medium text-[var(--color-primary-600)]">
+                <p className="mt-4 text-[length:var(--subheading-size)] font-medium text-[color:var(--color-primary-600)]">
                   {hero.subheading}
                 </p>
               )}
@@ -123,11 +123,13 @@ export function HeroBlock({ data }: { data: Record<string, unknown> }) {
     return (
       <section
         className="relative overflow-hidden bg-[var(--color-primary-900)]"
-        style={
-          hero.backgroundImage
+        style={{
+          ...(hero.backgroundImage
             ? { backgroundImage: `url(${hero.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" }
-            : undefined
-        }
+            : {}),
+          "--btn-primary-bg": "white",
+          "--btn-primary-color": "var(--color-primary-700)",
+        } as React.CSSProperties}
       >
         <div className="absolute inset-0 bg-[var(--color-primary-950)]/70" />
         <div className="section-padding relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
@@ -140,7 +142,7 @@ export function HeroBlock({ data }: { data: Record<string, unknown> }) {
             {renderHeading(hero.heading, hero.highlightWord)}
           </h1>
           {hero.subheading && (
-            <p className="mt-4 text-[var(--subheading-size)] font-medium text-[var(--color-primary-200)]">
+            <p className="mt-4 text-[length:var(--subheading-size)] font-medium text-[color:var(--color-primary-200)]">
               {hero.subheading}
             </p>
           )}
@@ -150,7 +152,7 @@ export function HeroBlock({ data }: { data: Record<string, unknown> }) {
           {(primaryCta || secondaryCta) && (
             <div className="mt-10 flex flex-wrap justify-center gap-4">
               {primaryCta && (
-                <Link href={primaryCta.href} className="btn-primary !bg-white !text-[var(--color-primary-700)]">
+                <Link href={primaryCta.href} className="btn-primary">
                   {primaryCta.label}
                 </Link>
               )}
@@ -189,7 +191,7 @@ export function HeroBlock({ data }: { data: Record<string, unknown> }) {
           {renderHeading(hero.heading, hero.highlightWord)}
         </h1>
         {hero.subheading && (
-          <p className="mt-4 text-[var(--subheading-size)] font-medium text-[var(--color-primary-600)]">
+          <p className="mt-4 text-[length:var(--subheading-size)] font-medium text-[color:var(--color-primary-600)]">
             {hero.subheading}
           </p>
         )}

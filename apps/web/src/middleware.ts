@@ -7,6 +7,21 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
   const url = request.nextUrl.clone();
 
+  // ─── Preview mode: set cookie and redirect to clean URL ───
+  const previewToken = url.searchParams.get("preview");
+  if (previewToken) {
+    url.searchParams.delete("preview");
+    const response = NextResponse.redirect(url);
+    response.cookies.set("__serviceos_preview", previewToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: "/",
+    });
+    return response;
+  }
+
   // Get the subdomain
   // In production: acme.serviceos.app -> acme
   // In development: acme.localhost:3001 -> acme

@@ -9,6 +9,7 @@ import { getBusinessContext, type BusinessContext } from "@/lib/ai";
 import { generateSiteFromDescription, generateBlogPost } from "@/lib/ai-site-generator";
 import { buildDesignerSystemPrompt, DESIGNER_TOOLS } from "./designer-prompt";
 import type { MoodboardItem, DesignDirection, DesignerMessage } from "./types";
+import { enrichBlocksWithStockImages } from "@/lib/enrich-block-images";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -294,12 +295,25 @@ export async function aiCreateSiteFromDesigner(
   });
 
   // Create pages from generated content
+  const createdPages: Array<{ pageId: string; blocks: Array<{ id: string; type: string; data: Record<string, unknown> }> }> = [];
+
   for (let i = 0; i < generated.pages.length; i++) {
     const page = generated.pages[i];
     const cleanSlug = page.slug.replace(/^\/+/, "");
     const isHomepage = cleanSlug === "" || cleanSlug === "home" || i === 0;
 
-    await db.page.create({
+    // AI may return flat blocks (type + fields) or nested (type + data).
+    // Normalize to always have { id, type, data }.
+    const normalizedBlocks = page.blocks.map((block, idx) => {
+      const { type, data, ...rest } = block as unknown as Record<string, unknown>;
+      return {
+        id: `block-${Date.now()}-${idx}`,
+        type: type as string,
+        data: (data ?? rest) as Record<string, unknown>,
+      };
+    });
+
+    const dbPage = await db.page.create({
       data: {
         siteId: site.id,
         title: page.title,
@@ -308,22 +322,11 @@ export async function aiCreateSiteFromDesigner(
         isPublished: true,
         metaTitle: page.metaTitle || null,
         metaDescription: page.metaDescription || null,
-        content: JSON.parse(
-          JSON.stringify({
-            blocks: page.blocks.map((block, idx) => {
-              // AI may return flat blocks (type + fields) or nested (type + data).
-              // Normalize to always have { id, type, data }.
-              const { type, data, ...rest } = block as unknown as Record<string, unknown>;
-              return {
-                id: `block-${Date.now()}-${idx}`,
-                type,
-                data: data ?? rest,
-              };
-            }),
-          })
-        ),
+        content: JSON.parse(JSON.stringify({ blocks: normalizedBlocks })),
       },
     });
+
+    createdPages.push({ pageId: dbPage.id, blocks: normalizedBlocks });
   }
 
   // Create navigation items
@@ -340,6 +343,10 @@ export async function aiCreateSiteFromDesigner(
   if (navItems.length > 0) {
     await db.navigation.createMany({ data: navItems });
   }
+
+  // Fire-and-forget: enrich blocks with stock images
+  enrichBlocksWithStockImages(createdPages, organization.id, site.id)
+    .catch((err) => console.error("Stock image enrichment failed:", err));
 
   // Fire-and-forget: generate starter blog posts in the background
   generateStarterBlogPosts(

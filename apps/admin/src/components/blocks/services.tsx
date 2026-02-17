@@ -1,5 +1,6 @@
 import Link from "./preview-link";
 import { BlockIcon } from "./block-icon";
+import { getBlockBackgroundProps } from "./block-helpers";
 
 interface Service {
   name?: string;
@@ -18,6 +19,7 @@ interface ServicesData {
   columns?: 2 | 3 | 4;
   showPrices?: boolean;
   variant?: "cards" | "numbered";
+  background?: string;
 }
 
 export function ServicesBlock({ data }: { data: Record<string, unknown> }) {
@@ -25,6 +27,7 @@ export function ServicesBlock({ data }: { data: Record<string, unknown> }) {
   const services = data as unknown as ServicesData;
   const columns = services.columns || 3;
   const variant = services.variant || "cards";
+  const bg = getBlockBackgroundProps(services.background || "muted");
 
   const gridCols = {
     2: "md:grid-cols-2",
@@ -34,7 +37,7 @@ export function ServicesBlock({ data }: { data: Record<string, unknown> }) {
 
   if (variant === "numbered") {
     return (
-      <section className="section-padding bg-[var(--color-surface-alt)]">
+      <section className={bg.className} style={bg.style}>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {(services.heading || services.subheading) && (
             <div className="text-center mb-12">
@@ -60,7 +63,7 @@ export function ServicesBlock({ data }: { data: Record<string, unknown> }) {
                 {(service.href || service.link) && (
                   <Link
                     href={service.href || service.link!}
-                    className="mt-4 inline-block text-sm font-medium text-[var(--color-primary-600)] hover:text-[var(--color-primary-800)]"
+                    className="mt-4 inline-block text-sm font-medium text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
                   >
                     Learn more &rarr;
                   </Link>
@@ -75,7 +78,7 @@ export function ServicesBlock({ data }: { data: Record<string, unknown> }) {
 
   // Cards variant (default)
   return (
-    <section className="section-padding bg-[var(--color-surface-alt)]">
+    <section className={bg.className} style={bg.style}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {(services.heading || services.subheading) && (
           <div className="text-center mb-12">
@@ -103,7 +106,7 @@ export function ServicesBlock({ data }: { data: Record<string, unknown> }) {
               {(service.href || service.link) && (
                 <Link
                   href={service.href || service.link!}
-                  className="mt-4 inline-block text-sm font-medium text-[var(--color-primary-600)] hover:text-[var(--color-primary-800)]"
+                  className="mt-4 inline-block text-sm font-medium text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
                 >
                   Learn more &rarr;
                 </Link>

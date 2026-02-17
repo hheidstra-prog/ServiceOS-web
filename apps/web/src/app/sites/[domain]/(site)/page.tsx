@@ -3,16 +3,21 @@ import { db } from "@serviceos/database";
 import { PageRenderer } from "@/components/renderer/page-renderer";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
+import { isPreviewMode } from "@/lib/preview";
+
+export const dynamic = "force-dynamic";
 
 interface SiteHomeProps {
   params: Promise<{ domain: string }>;
 }
 
 async function getHomepage(domain: string) {
+  const preview = await isPreviewMode(domain);
+
   const site = await db.site.findFirst({
     where: {
       OR: [{ subdomain: domain }, { customDomain: domain }],
-      status: "PUBLISHED",
+      ...(preview ? {} : { status: "PUBLISHED" }),
     },
     select: { id: true },
   });
@@ -23,7 +28,7 @@ async function getHomepage(domain: string) {
     where: {
       siteId: site.id,
       isHomepage: true,
-      isPublished: true,
+      ...(preview ? {} : { isPublished: true }),
     },
   });
 

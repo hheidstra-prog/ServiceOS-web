@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { getBlockBackgroundProps } from "./block-helpers";
 
 interface Logo {
   name: string;
@@ -8,14 +9,16 @@ interface Logo {
 interface LogosData {
   heading?: string;
   logos: Logo[];
+  background?: string;
 }
 
 export function LogosBlock({ data }: { data: Record<string, unknown> }) {
   if (!data) return null;
   const block = data as unknown as LogosData;
+  const bg = getBlockBackgroundProps(block.background || "default");
 
   return (
-    <section className="section-padding bg-[var(--color-surface)]">
+    <section className={bg.className} style={bg.style}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {block.heading && (
           <p className="text-center text-sm font-medium uppercase tracking-wider text-[var(--color-on-surface-muted)] mb-8">

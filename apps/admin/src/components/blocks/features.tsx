@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { BlockIcon } from "./block-icon";
+import { getBlockBackgroundProps } from "./block-helpers";
 
 interface Feature {
   title: string;
@@ -13,6 +14,7 @@ interface FeaturesData {
   features: Feature[];
   columns?: 2 | 3 | 4;
   variant?: "cards" | "list" | "icons";
+  background?: string;
 }
 
 export function FeaturesBlock({ data }: { data: Record<string, unknown> }) {
@@ -20,6 +22,8 @@ export function FeaturesBlock({ data }: { data: Record<string, unknown> }) {
   const block = data as unknown as FeaturesData;
   const columns = block.columns || 3;
   const variant = block.variant || "cards";
+  const defaultBg = variant === "list" ? "default" : "muted";
+  const bg = getBlockBackgroundProps(block.background || defaultBg);
 
   const gridCols = {
     2: "md:grid-cols-2",
@@ -29,7 +33,7 @@ export function FeaturesBlock({ data }: { data: Record<string, unknown> }) {
 
   if (variant === "list") {
     return (
-      <section className="section-padding bg-[var(--color-surface)]">
+      <section className={bg.className} style={bg.style}>
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           {(block.heading || block.subheading) && (
             <div className="text-center mb-12">
@@ -61,7 +65,7 @@ export function FeaturesBlock({ data }: { data: Record<string, unknown> }) {
 
   if (variant === "icons") {
     return (
-      <section className="section-padding bg-[var(--color-surface-alt)]">
+      <section className={bg.className} style={bg.style}>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {(block.heading || block.subheading) && (
             <div className="text-center mb-12">
@@ -91,7 +95,7 @@ export function FeaturesBlock({ data }: { data: Record<string, unknown> }) {
 
   // Cards variant (default)
   return (
-    <section className="section-padding bg-[var(--color-surface-alt)]">
+    <section className={bg.className} style={bg.style}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {(block.heading || block.subheading) && (
           <div className="text-center mb-12">

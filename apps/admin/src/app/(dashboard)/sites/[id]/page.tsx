@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getSiteUrl } from "@/lib/utils";
+import { generatePreviewToken, getPreviewUrl } from "@/lib/preview";
 import { getSite } from "../actions";
 import { OverviewTab } from "./tabs/overview-tab";
 import { PagesTab } from "./tabs/pages-tab";
@@ -49,6 +50,9 @@ export default async function SiteDetailPage({ params, searchParams }: SiteDetai
 
   const status = statusConfig[site.status];
   const siteUrl = getSiteUrl(site);
+  const previewToken = site.status !== "PUBLISHED"
+    ? generatePreviewToken(site)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -80,11 +84,18 @@ export default async function SiteDetailPage({ params, searchParams }: SiteDetai
         </div>
 
         <div className="flex items-center gap-2">
-          {site.status === "PUBLISHED" && (
+          {site.status === "PUBLISHED" ? (
             <Button variant="outline" size="sm" asChild>
               <a href={siteUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-1.5 h-4 w-4" />
                 View Site
+              </a>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" asChild>
+              <a href={getPreviewUrl(siteUrl, previewToken!)} target="_blank" rel="noopener noreferrer">
+                <Eye className="mr-1.5 h-4 w-4" />
+                Preview
               </a>
             </Button>
           )}
@@ -106,7 +117,7 @@ export default async function SiteDetailPage({ params, searchParams }: SiteDetai
         </TabsContent>
 
         <TabsContent value="pages">
-          <PagesTab site={site} />
+          <PagesTab site={site} previewToken={previewToken} />
         </TabsContent>
 
         <TabsContent value="design">

@@ -35,7 +35,7 @@ export function SiteHeader() {
             <Link
               key={item.id}
               href={item.href}
-              className="text-sm font-medium text-[var(--color-on-surface-secondary)] hover:text-[var(--color-primary-600)] transition-colors"
+              className="text-sm font-medium text-[var(--color-on-surface-secondary)] hover:text-[var(--color-on-surface)] transition-colors"
               style={{ transitionDuration: "var(--transition-duration)" }}
             >
               {item.label}
@@ -45,7 +45,7 @@ export function SiteHeader() {
           {site.blogEnabled && (
             <Link
               href="/blog"
-              className="text-sm font-medium text-[var(--color-on-surface-secondary)] hover:text-[var(--color-primary-600)] transition-colors"
+              className="text-sm font-medium text-[var(--color-on-surface-secondary)] hover:text-[var(--color-on-surface)] transition-colors"
               style={{ transitionDuration: "var(--transition-duration)" }}
             >
               Blog
@@ -55,7 +55,7 @@ export function SiteHeader() {
           {site.portalEnabled && (
             <Link
               href="/portal"
-              className="text-sm font-medium text-[var(--color-on-surface-secondary)] hover:text-[var(--color-primary-600)] transition-colors"
+              className="text-sm font-medium text-[var(--color-on-surface-secondary)] hover:text-[var(--color-on-surface)] transition-colors"
               style={{ transitionDuration: "var(--transition-duration)" }}
             >
               Client Portal

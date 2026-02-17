@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { updatePage, aiGenerateSEO } from "../../../actions";
+import { updatePage, aiGenerateSEO, aiCreateBlockFromPrompt } from "../../../actions";
 import { BlockChat, type ChatMessage } from "./block-chat";
 import { BlockPreviewRenderer } from "@/components/preview/block-preview-renderer";
 import type { SiteTheme } from "@/components/preview/preview-theme";
@@ -231,6 +231,8 @@ export function PageEditor({ siteId, page, siteTheme }: PageEditorProps) {
   const [blockChatMessages, setBlockChatMessages] = useState<
     Record<string, ChatMessage[]>
   >({});
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [pageSettings, setPageSettings] = useState({
     title: page.title,
     slug: page.slug,
@@ -256,6 +258,49 @@ export function PageEditor({ siteId, page, siteTheme }: PageEditorProps) {
     setSelectedBlock(newBlock.id);
     setIsAddBlockOpen(false);
     setInsertAfterIndex(null);
+  };
+
+  const handleAiAddBlock = async () => {
+    if (!aiPrompt.trim()) return;
+    setIsAiGenerating(true);
+    try {
+      const result = await aiCreateBlockFromPrompt(siteId, aiPrompt);
+      const newBlock: Block = {
+        id: generateBlockId(),
+        type: result.type as BlockType,
+        data: result.data,
+      };
+
+      let newBlocks: Block[];
+      if (insertAfterIndex !== null && insertAfterIndex >= 0) {
+        newBlocks = [...blocks];
+        newBlocks.splice(insertAfterIndex + 1, 0, newBlock);
+      } else {
+        newBlocks = [...blocks, newBlock];
+      }
+
+      setBlocks(newBlocks);
+      setSelectedBlock(newBlock.id);
+      setIsAddBlockOpen(false);
+      setInsertAfterIndex(null);
+      setAiPrompt("");
+
+      // Auto-save so the new block is immediately visible in preview
+      await updatePage(siteId, page.id, {
+        title: pageSettings.title,
+        slug: pageSettings.slug,
+        metaTitle: pageSettings.metaTitle || undefined,
+        metaDescription: pageSettings.metaDescription || undefined,
+        content: JSON.parse(JSON.stringify({ blocks: newBlocks })),
+      });
+      toast.success("Block generated and saved");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate block"
+      );
+    } finally {
+      setIsAiGenerating(false);
+    }
   };
 
   const handleDeleteBlock = (blockId: string) => {
@@ -413,6 +458,7 @@ export function PageEditor({ siteId, page, siteTheme }: PageEditorProps) {
                   <BlockChat
                     block={selectedBlockData}
                     siteId={siteId}
+                    siteTheme={siteTheme}
                     messages={blockChatMessages[selectedBlockData.id] || []}
                     onMessagesChange={(msgs) =>
                       setBlockChatMessages((prev) => ({
@@ -513,36 +559,75 @@ export function PageEditor({ siteId, page, siteTheme }: PageEditorProps) {
       </div>
 
       {/* Add Block Dialog */}
-      <Dialog open={isAddBlockOpen} onOpenChange={(open) => { setIsAddBlockOpen(open); if (!open) setInsertAfterIndex(null); }}>
+      <Dialog open={isAddBlockOpen} onOpenChange={(open) => { setIsAddBlockOpen(open); if (!open) { setInsertAfterIndex(null); setAiPrompt(""); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add Block</DialogTitle>
-            <DialogDescription>
-              Choose a block type to add to your page.
+            <DialogDescription className="sr-only">
+              Add a new block to your page.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2 sm:grid-cols-2 max-h-[60vh] overflow-y-auto">
-            {blockTypes.map((blockType) => {
-              const Icon = blockType.icon;
-              return (
-                <button
-                  key={blockType.type}
-                  onClick={() => handleAddBlock(blockType.type)}
-                  className="flex items-start gap-3 rounded-lg border border-zinc-200 p-3 text-left hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                    <Icon className="h-5 w-5 text-zinc-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-zinc-950 dark:text-white">
-                      {blockType.label}
-                    </p>
-                    <p className="text-xs text-zinc-500">{blockType.description}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <Tabs defaultValue="ai">
+            <TabsList className="w-full">
+              <TabsTrigger value="ai" className="flex-1">
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                AI Assistant
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="flex-1">
+                <Layers className="mr-1.5 h-3.5 w-3.5" />
+                Manual
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="ai" className="mt-4 space-y-4">
+              <p className="text-sm text-zinc-500">
+                Describe the section you want and AI will create it for you.
+              </p>
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleAiAddBlock(); }}
+                className="space-y-3"
+              >
+                <Textarea
+                  placeholder="e.g. A pricing section with 3 plans: Starter, Pro, and Enterprise..."
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  disabled={isAiGenerating}
+                  rows={4}
+                />
+                <Button type="submit" className="w-full" disabled={isAiGenerating || !aiPrompt.trim()}>
+                  {isAiGenerating ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-1.5 h-4 w-4" />
+                  )}
+                  {isAiGenerating ? "Generating..." : "Generate Block"}
+                </Button>
+              </form>
+            </TabsContent>
+            <TabsContent value="manual" className="mt-4">
+              <div className="grid gap-2 sm:grid-cols-2 max-h-[60vh] overflow-y-auto">
+                {blockTypes.map((blockType) => {
+                  const Icon = blockType.icon;
+                  return (
+                    <button
+                      key={blockType.type}
+                      onClick={() => handleAddBlock(blockType.type)}
+                      className="flex items-start gap-3 rounded-lg border border-zinc-200 p-3 text-left hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                        <Icon className="h-5 w-5 text-zinc-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-zinc-950 dark:text-white">
+                          {blockType.label}
+                        </p>
+                        <p className="text-xs text-zinc-500">{blockType.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>

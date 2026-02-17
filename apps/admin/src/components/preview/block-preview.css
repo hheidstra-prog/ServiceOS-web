@@ -84,7 +84,7 @@
 
   /* ─── Gradients & Decorative ─── */
   --hero-gradient: linear-gradient(to bottom, var(--color-primary-50), var(--color-surface));
-  --gradient-primary: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-700));
+  --gradient-primary: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-800));
   --gradient-accent: linear-gradient(135deg, var(--color-primary-600), var(--color-secondary-600));
   --bg-pattern: none;
 
@@ -106,6 +106,8 @@
   --icon-container-radius: 0.75rem;
   --icon-container-bg: var(--color-primary-100);
   --icon-container-color: var(--color-primary-600);
+  --color-link: var(--color-primary-600);
+  --color-link-hover: var(--color-primary-700);
 
   /* Base font family */
   font-family: var(--font-sans);
@@ -132,6 +134,8 @@
   --hero-gradient: linear-gradient(to bottom, var(--color-primary-950), var(--color-surface));
   --icon-container-bg: var(--color-primary-950);
   --icon-container-color: var(--color-primary-400);
+  --color-link: var(--color-primary-400);
+  --color-link-hover: var(--color-primary-300);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -177,8 +181,8 @@
   align-items: center;
   justify-content: center;
   padding: var(--button-padding-y) var(--button-padding-x);
-  background: var(--gradient-primary);
-  color: white;
+  background: var(--btn-primary-bg, var(--gradient-primary));
+  color: var(--btn-primary-color, var(--color-on-primary, white));
   font-weight: var(--button-font-weight);
   text-transform: var(--button-text-transform);
   letter-spacing: var(--button-tracking);

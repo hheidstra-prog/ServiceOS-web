@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { getBlockBackgroundProps } from "./block-helpers";
 
 interface FaqItem {
   question: string;
@@ -12,6 +13,7 @@ interface FaqData {
   heading?: string;
   subheading?: string;
   items: FaqItem[];
+  background?: string;
 }
 
 function FaqAccordion({ item, isOpen, onToggle }: { item: FaqItem; isOpen: boolean; onToggle: () => void }) {
@@ -69,8 +71,10 @@ export function FaqBlock({ data }: { data: Record<string, unknown> }) {
     });
   };
 
+  const bg = getBlockBackgroundProps(block.background || "default");
+
   return (
-    <section className="section-padding bg-[var(--color-surface)]">
+    <section className={bg.className} style={bg.style}>
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         {(block.heading || block.subheading) && (
           <div className="text-center mb-10">

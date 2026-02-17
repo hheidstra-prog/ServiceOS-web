@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Phone, MapPin, Send, CheckCircle2 } from "lucide-react";
+import { getBlockBackgroundProps } from "./block-helpers";
 
 interface ContactData {
   heading?: string;
@@ -13,6 +14,7 @@ interface ContactData {
   email?: string;
   phone?: string;
   address?: string;
+  background?: string;
 }
 
 const inputClassName =
@@ -44,9 +46,10 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
   };
 
   const hasInfo = contact.showInfo !== false && (contact.email || contact.phone || contact.address);
+  const bg = getBlockBackgroundProps(raw.background || "default");
 
   return (
-    <section className="section-padding bg-[var(--color-surface)]">
+    <section className={bg.className} style={bg.style}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {(contact.heading || contact.description) && (
           <div className="text-center mb-12">
@@ -73,7 +76,7 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                     <p className="text-sm font-medium text-[var(--color-on-surface-muted)] uppercase tracking-wide">Email</p>
                     <a
                       href={`mailto:${contact.email}`}
-                      className="mt-1 block text-[var(--color-on-surface)] hover:text-[var(--color-primary-600)] transition-colors"
+                      className="mt-1 block text-[var(--color-on-surface)] hover:text-[var(--color-link)] transition-colors"
                     >
                       {contact.email}
                     </a>
@@ -93,7 +96,7 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                     <p className="text-sm font-medium text-[var(--color-on-surface-muted)] uppercase tracking-wide">Phone</p>
                     <a
                       href={`tel:${contact.phone}`}
-                      className="mt-1 block text-[var(--color-on-surface)] hover:text-[var(--color-primary-600)] transition-colors"
+                      className="mt-1 block text-[var(--color-on-surface)] hover:text-[var(--color-link)] transition-colors"
                     >
                       {contact.phone}
                     </a>
@@ -146,7 +149,7 @@ export function ContactBlock({ data }: { data: Record<string, unknown> }) {
                         setSubmitted(false);
                         setFormState({ name: "", email: "", phone: "", subject: "", message: "" });
                       }}
-                      className="mt-6 text-sm font-medium text-[var(--color-primary-600)] hover:text-[var(--color-primary-800)] transition-colors"
+                      className="mt-6 text-sm font-medium text-[var(--color-link)] hover:text-[var(--color-link-hover)] transition-colors"
                     >
                       Send another message
                     </button>

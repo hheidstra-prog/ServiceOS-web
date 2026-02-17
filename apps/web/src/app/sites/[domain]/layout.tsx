@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { db } from "@serviceos/database";
 import { SiteProvider } from "@/lib/site-context";
-import { generateOklchPalette } from "@/lib/color-utils";
+import { generateOklchPalette, getPrimaryContrastColor } from "@/lib/color-utils";
+import { isPreviewMode } from "@/lib/preview";
+import { PreviewBanner } from "@/components/site/preview-banner";
 
 interface SiteLayoutProps {
   children: React.ReactNode;
@@ -9,13 +11,15 @@ interface SiteLayoutProps {
 }
 
 async function getSite(domain: string) {
+  const preview = await isPreviewMode(domain);
+
   const site = await db.site.findFirst({
     where: {
       OR: [
         { subdomain: domain },
         { customDomain: domain },
       ],
-      status: "PUBLISHED",
+      ...(preview ? {} : { status: "PUBLISHED" }),
     },
     include: {
       organization: {
@@ -68,6 +72,7 @@ export async function generateMetadata({ params }: SiteLayoutProps) {
 export default async function SiteLayout({ children, params }: SiteLayoutProps) {
   const { domain } = await params;
   const site = await getSite(domain);
+  const preview = await isPreviewMode(domain);
 
   if (!site) {
     notFound();
@@ -80,6 +85,7 @@ export default async function SiteLayout({ children, params }: SiteLayoutProps) 
     for (const [shade, color] of Object.entries(palette)) {
       paletteVars += `--color-primary-${shade}: ${color};\n      `;
     }
+    paletteVars += `--color-on-primary: ${getPrimaryContrastColor(site.primaryColor)};\n      `;
   }
   if (site.secondaryColor) {
     const palette = generateOklchPalette(site.secondaryColor);
@@ -134,6 +140,7 @@ export default async function SiteLayout({ children, params }: SiteLayoutProps) 
         {googleFontsUrl && (
           <link rel="stylesheet" href={googleFontsUrl} />
         )}
+        {preview && <PreviewBanner />}
         {children}
       </div>
     </SiteProvider>

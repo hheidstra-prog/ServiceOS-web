@@ -1,7 +1,10 @@
+import { getBlockBackgroundProps } from "./block-helpers";
+
 interface TextData {
   heading?: string;
   content: string;
   align?: "left" | "center" | "right";
+  background?: string;
 }
 
 export function TextBlock({ data }: { data: Record<string, unknown> }) {
@@ -15,8 +18,10 @@ export function TextBlock({ data }: { data: Record<string, unknown> }) {
     right: "text-right",
   }[align];
 
+  const bg = getBlockBackgroundProps(text.background || "default");
+
   return (
-    <section className="section-padding bg-[var(--color-surface)]">
+    <section className={bg.className} style={bg.style}>
       <div className={`mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 ${alignClass}`}>
         {text.heading && <h2 className="section-heading">{text.heading}</h2>}
         <div
@@ -25,7 +30,7 @@ export function TextBlock({ data }: { data: Record<string, unknown> }) {
             lineHeight: "var(--body-line-height)",
             "--tw-prose-body": "var(--color-on-surface-secondary)",
             "--tw-prose-headings": "var(--color-on-surface)",
-            "--tw-prose-links": "var(--color-primary-600)",
+            "--tw-prose-links": "var(--color-link)",
             "--tw-prose-bold": "var(--color-on-surface)",
             "--tw-prose-hr": "var(--color-border)",
             "--tw-prose-quotes": "var(--color-on-surface)",

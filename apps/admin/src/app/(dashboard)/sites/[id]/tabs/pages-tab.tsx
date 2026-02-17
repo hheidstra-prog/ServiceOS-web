@@ -9,6 +9,7 @@ import {
   Trash2,
   Edit,
   ExternalLink,
+  Eye,
   Home,
   Sparkles,
   Loader2,
@@ -61,9 +62,10 @@ interface Site {
 
 interface PagesTabProps {
   site: Site;
+  previewToken: string | null;
 }
 
-export function PagesTab({ site }: PagesTabProps) {
+export function PagesTab({ site, previewToken }: PagesTabProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isAIFormOpen, setIsAIFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -274,6 +276,18 @@ export function PagesTab({ site }: PagesTabProps) {
                               >
                                 <ExternalLink className="mr-2 h-4 w-4" />
                                 View Live
+                              </a>
+                            </DropdownMenuItem>
+                          )}
+                          {previewToken && (
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={`${siteUrl}/${page.slug}?preview=${previewToken}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                Preview
                               </a>
                             </DropdownMenuItem>
                           )}

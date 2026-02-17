@@ -21,6 +21,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { getSiteUrl } from "@/lib/utils";
@@ -66,22 +76,25 @@ const statusConfig: Record<
 export function SitesList({ sites }: SitesListProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredSites = sites.filter((site) =>
     site.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     site.subdomain.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
-      return;
-    }
-
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      await deleteSite(id);
+      await deleteSite(deleteTarget.id);
       toast.success("Site deleted successfully");
-    } catch (error) {
+      setDeleteTarget(null);
+    } catch {
       toast.error("Failed to delete site");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -223,7 +236,7 @@ export function SitesList({ sites }: SitesListProps) {
                       )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={() => handleDelete(site.id, site.name)}
+                        onClick={() => setDeleteTarget({ id: site.id, name: site.name })}
                         className="text-red-600 dark:text-red-400"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -271,6 +284,28 @@ export function SitesList({ sites }: SitesListProps) {
 
       {/* Create Site Form */}
       <SiteForm open={isFormOpen} onOpenChange={setIsFormOpen} />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete site</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-medium text-zinc-950 dark:text-white">{deleteTarget?.name}</span>? All pages and content will be permanently removed. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Delete site"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

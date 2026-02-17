@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Loader2, Send, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Check, Loader2, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { aiChatEditBlock, aiSearchBlockImages, importStockImage } from "../../../actions";
 import type { ImageCandidate } from "../../../actions";
+import type { SiteTheme } from "@/components/preview/preview-theme";
+import { generateOklchPalette } from "@/components/preview/color-utils";
 
 export interface ChatMessage {
   id: string;
@@ -15,6 +17,7 @@ export interface ChatMessage {
   timestamp: number;
   appliedUpdate?: boolean;
   imageCandidates?: ImageCandidate[];
+  backgroundOptions?: boolean;
 }
 
 interface Block {
@@ -26,6 +29,7 @@ interface Block {
 interface BlockChatProps {
   block: Block;
   siteId: string;
+  siteTheme?: SiteTheme;
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
   onBlockUpdate: (data: Record<string, unknown>) => void;
@@ -108,14 +112,128 @@ const IMAGE_KEYWORDS = [
   "visuel",
 ];
 
+// Keywords that indicate the user wants to modify an existing image property
+// (size, position, shape, etc.) rather than search for a new image.
+const IMAGE_MODIFY_KEYWORDS = [
+  // English
+  "smaller", "bigger", "larger", "resize", "size", "scale",
+  "crop", "round", "square", "circular", "width", "height",
+  "move", "position", "align", "left", "right", "center",
+  "remove", "delete", "hide", "shrink", "grow", "adjust",
+  // Dutch
+  "kleiner", "groter", "formaat", "schalen", "bijsnijden",
+  "rond", "vierkant", "breedte", "hoogte", "verplaats",
+  "positie", "verwijder", "verberg", "aanpassen",
+  // German
+  "kleiner", "größer", "skalieren", "zuschneiden",
+  "rund", "quadratisch", "breite", "höhe", "verschieben",
+  "position", "entfernen", "ausblenden", "anpassen",
+  // French
+  "plus petit", "plus grand", "redimensionner", "taille",
+  "recadrer", "rond", "carré", "largeur", "hauteur",
+  "déplacer", "position", "supprimer", "masquer", "ajuster",
+];
+
 function isImageRequest(message: string): boolean {
   const lower = message.toLowerCase();
-  return IMAGE_KEYWORDS.some((kw) => lower.includes(kw));
+  const hasImageKeyword = IMAGE_KEYWORDS.some((kw) => lower.includes(kw));
+  if (!hasImageKeyword) return false;
+  // If the message also contains modification keywords, treat it as a block edit
+  const hasModifyKeyword = IMAGE_MODIFY_KEYWORDS.some((kw) => lower.includes(kw));
+  if (hasModifyKeyword) return false;
+  return true;
 }
+
+// ─── Background picker ──────────────────────────────────────────
+
+const BACKGROUND_KEYWORDS = [
+  // English
+  "background", "section color", "section colour",
+  // Dutch
+  "achtergrond", "achtergrondkleur", "sectie kleur",
+  // German
+  "hintergrund", "hintergrundfarbe",
+  // French
+  "arrière-plan", "arriere-plan", "couleur de fond",
+];
+
+const BACKGROUND_SUPPORTED_BLOCKS = new Set([
+  "text", "features", "services", "testimonials", "contact",
+  "faq", "process", "pricing", "logos", "columns",
+]);
+
+function isBackgroundRequest(message: string): boolean {
+  const lower = message.toLowerCase();
+  return BACKGROUND_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+interface BackgroundSwatch {
+  value: string;
+  label: string;
+  background: string;
+  textColor: string;
+  showBorder: boolean;
+}
+
+function getBackgroundSwatches(siteTheme?: SiteTheme): BackgroundSwatch[] {
+  const isDark = siteTheme?.theme?.colorMode === "dark";
+  const primaryColor = siteTheme?.primaryColor;
+  const secondaryColor = siteTheme?.secondaryColor;
+
+  // Compute accent (primary-900) and gradient colors from theme
+  let accentBg = "oklch(0.25 0.09 250)";
+  let gradientBg = "linear-gradient(135deg, oklch(0.47 0.18 250), oklch(0.47 0.18 160))";
+
+  if (primaryColor) {
+    const palette = generateOklchPalette(primaryColor);
+    accentBg = palette["900"];
+    const p600 = palette["600"];
+    if (secondaryColor) {
+      const secPalette = generateOklchPalette(secondaryColor);
+      gradientBg = `linear-gradient(135deg, ${p600}, ${secPalette["600"]})`;
+    } else {
+      gradientBg = `linear-gradient(135deg, ${p600}, ${palette["800"]})`;
+    }
+  }
+
+  return [
+    {
+      value: "default",
+      label: "Default",
+      background: isDark ? "#0a0a0b" : "#ffffff",
+      textColor: isDark ? "#f4f4f5" : "#18181b",
+      showBorder: true,
+    },
+    {
+      value: "muted",
+      label: "Muted",
+      background: isDark ? "#18181b" : "#f4f4f5",
+      textColor: isDark ? "#f4f4f5" : "#18181b",
+      showBorder: true,
+    },
+    {
+      value: "accent",
+      label: "Accent",
+      background: accentBg,
+      textColor: "#f4f4f5",
+      showBorder: false,
+    },
+    {
+      value: "gradient",
+      label: "Gradient",
+      background: gradientBg,
+      textColor: "#ffffff",
+      showBorder: false,
+    },
+  ];
+}
+
+// ─── Component ──────────────────────────────────────────────────
 
 export function BlockChat({
   block,
   siteId,
+  siteTheme,
   messages,
   onMessagesChange,
   onBlockUpdate,
@@ -125,6 +243,8 @@ export function BlockChat({
   const [importingId, setImportingId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const backgroundSwatches = useMemo(() => getBackgroundSwatches(siteTheme), [siteTheme]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -157,6 +277,25 @@ export function BlockChat({
     // Only trigger image search for user-typed messages, not follow-up selections
     const isFollowUpSelection = message.startsWith("Use this URL for the block:");
     try {
+      // Background picker: intercept for supported blocks
+      if (
+        !isFollowUpSelection &&
+        BACKGROUND_SUPPORTED_BLOCKS.has(block.type) &&
+        isBackgroundRequest(message) &&
+        !isImageRequest(message)
+      ) {
+        const assistantMessage: ChatMessage = {
+          id: `msg-${Date.now()}-ai`,
+          role: "assistant",
+          content: "Choose a background for this section:",
+          timestamp: Date.now(),
+          backgroundOptions: true,
+        };
+        onMessagesChange([...updatedMessages, assistantMessage]);
+        setIsLoading(false);
+        return;
+      }
+
       if (!isFollowUpSelection && isImageRequest(message)) {
         // Image search mode
         const result = await aiSearchBlockImages(siteId, {
@@ -239,6 +378,22 @@ export function BlockChat({
       }
     }
   };
+
+  const handleBackgroundSelect = (value: string) => {
+    onBlockUpdate({ background: value });
+
+    const label = backgroundSwatches.find((s) => s.value === value)?.label || value;
+    const confirmMessage: ChatMessage = {
+      id: `msg-${Date.now()}-ai`,
+      role: "assistant",
+      content: `Background changed to "${label}".`,
+      timestamp: Date.now(),
+      appliedUpdate: true,
+    };
+    onMessagesChange([...messages, confirmMessage]);
+  };
+
+  const currentBackground = (block.data.background as string) || "default";
 
   // Empty state
   if (messages.length === 0 && !isLoading) {
@@ -326,6 +481,48 @@ export function BlockChat({
                 >
                   <p className="whitespace-pre-wrap">{message.content}</p>
                 </div>
+
+                {/* Background swatches */}
+                {message.backgroundOptions && (
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                    {backgroundSwatches.map((swatch) => {
+                      const isActive = currentBackground === swatch.value;
+                      return (
+                        <button
+                          key={swatch.value}
+                          onClick={() => handleBackgroundSelect(swatch.value)}
+                          className={`group relative flex flex-col overflow-hidden rounded-lg text-left transition-all ${
+                            isActive
+                              ? "ring-2 ring-violet-500 ring-offset-1"
+                              : "hover:ring-2 hover:ring-violet-300 hover:ring-offset-1 dark:hover:ring-violet-700"
+                          } ${swatch.showBorder ? "border border-zinc-200 dark:border-zinc-700" : ""}`}
+                        >
+                          <div
+                            className="flex h-12 items-center justify-center px-3"
+                            style={{ background: swatch.background }}
+                          >
+                            <span
+                              className="text-xs font-semibold"
+                              style={{ color: swatch.textColor }}
+                            >
+                              Aa
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-white px-2 py-1.5 dark:bg-zinc-900">
+                            <p className="flex-1 text-[11px] font-medium text-zinc-950 dark:text-white">
+                              {swatch.label}
+                            </p>
+                            {isActive && (
+                              <Check className="h-3 w-3 text-violet-500" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Image candidates */}
                 {message.imageCandidates && message.imageCandidates.length > 0 && (
                   <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                     {message.imageCandidates.map((candidate) => (
@@ -367,6 +564,7 @@ export function BlockChat({
                     ))}
                   </div>
                 )}
+
                 {message.appliedUpdate && (
                   <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
                     <Sparkles className="h-2.5 w-2.5" />

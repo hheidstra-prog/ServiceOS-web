@@ -23,13 +23,13 @@ export function CTABlock({ data }: { data: Record<string, unknown> }) {
 
   if (variant === "gradient") {
     return (
-      <section className="section-padding" style={{ background: "var(--gradient-accent)" }}>
+      <section className="section-padding" style={{ background: "var(--gradient-accent)", "--btn-primary-bg": "white", "--btn-primary-color": "var(--color-primary-700)" } as React.CSSProperties}>
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="section-heading !text-white">{cta.heading}</h2>
           {description && <p className="mt-4 text-lg text-white/80">{description}</p>}
           {primaryLabel && (
             <div className="mt-8 flex flex-wrap justify-center gap-4">
-              <Link href={primaryHref} className="btn-primary !bg-white !text-[var(--color-primary-700)]">
+              <Link href={primaryHref} className="btn-primary">
                 {primaryLabel}
               </Link>
               {cta.secondaryCta && (
@@ -46,13 +46,13 @@ export function CTABlock({ data }: { data: Record<string, unknown> }) {
 
   if (variant === "dark") {
     return (
-      <section className="section-padding bg-[var(--color-primary-900)]">
+      <section className="section-padding bg-[var(--color-primary-900)]" style={{ "--btn-primary-bg": "white", "--btn-primary-color": "var(--color-primary-700)" } as React.CSSProperties}>
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="section-heading !text-white">{cta.heading}</h2>
           {description && <p className="mt-4 text-lg text-white/80">{description}</p>}
           {primaryLabel && (
             <div className="mt-8 flex flex-wrap justify-center gap-4">
-              <Link href={primaryHref} className="btn-primary !bg-white !text-[var(--color-primary-700)]">
+              <Link href={primaryHref} className="btn-primary">
                 {primaryLabel}
               </Link>
               {cta.secondaryCta && (

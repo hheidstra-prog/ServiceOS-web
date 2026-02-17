@@ -1,4 +1,4 @@
-import { generateOklchPalette } from "./color-utils";
+import { generateOklchPalette, getPrimaryContrastColor } from "./color-utils";
 
 export interface SiteTheme {
   primaryColor: string | null;
@@ -24,6 +24,7 @@ export function buildThemeVars(siteTheme: SiteTheme): React.CSSProperties {
     for (const [shade, color] of Object.entries(palette)) {
       vars[`--color-primary-${shade}`] = color;
     }
+    vars["--color-on-primary"] = getPrimaryContrastColor(siteTheme.primaryColor);
   }
   if (siteTheme.secondaryColor) {
     const palette = generateOklchPalette(siteTheme.secondaryColor);

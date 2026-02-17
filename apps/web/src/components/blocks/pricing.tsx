@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getBlockBackgroundProps } from "./block-helpers";
 
 interface PricingFeature {
   text: string;
@@ -20,6 +21,7 @@ interface PricingData {
   heading?: string;
   subheading?: string;
   plans: PricingPlan[];
+  background?: string;
 }
 
 export function PricingBlock({ data }: { data: Record<string, unknown> }) {
@@ -27,9 +29,10 @@ export function PricingBlock({ data }: { data: Record<string, unknown> }) {
   const block = data as unknown as PricingData;
   const planCount = block.plans?.length || 3;
   const gridCols = planCount <= 2 ? "md:grid-cols-2 max-w-3xl" : "lg:grid-cols-3 max-w-6xl";
+  const bg = getBlockBackgroundProps(block.background || "muted");
 
   return (
-    <section className="section-padding bg-[var(--color-surface-alt)]">
+    <section className={bg.className} style={bg.style}>
       <div className={`mx-auto ${gridCols} px-4 sm:px-6 lg:px-8`}>
         {(block.heading || block.subheading) && (
           <div className="text-center mb-12" style={{ gridColumn: "1 / -1" }}>
@@ -53,8 +56,8 @@ export function PricingBlock({ data }: { data: Record<string, unknown> }) {
             >
               {plan.highlighted && (
                 <span
-                  className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-semibold text-white"
-                  style={{ background: "var(--gradient-primary)", borderRadius: "var(--radius-badge)" }}
+                  className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-semibold"
+                  style={{ background: "var(--gradient-primary)", borderRadius: "var(--radius-badge)", color: "var(--color-on-primary, white)" }}
                 >
                   Most Popular
                 </span>

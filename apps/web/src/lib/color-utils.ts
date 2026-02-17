@@ -56,6 +56,62 @@ export function hexToOklch(hex: string): [number, number, number] {
   return oklabToOklch(L, a, bVal);
 }
 
+// ─── OKLCH → sRGB reverse pipeline (for contrast computation) ────
+
+/** OKLCH → OKLab (polar → cartesian) */
+function oklchToOklab(L: number, C: number, H: number): [number, number, number] {
+  const hRad = (H * Math.PI) / 180;
+  return [L, C * Math.cos(hRad), C * Math.sin(hRad)];
+}
+
+/** OKLab → Linear RGB (inverse of LMS transform) */
+function oklabToLinearRgb(L: number, a: number, b: number): [number, number, number] {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+
+  const l = l_ * l_ * l_;
+  const m = m_ * m_ * m_;
+  const s = s_ * s_ * s_;
+
+  return [
+    +( 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    +(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    +(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s),
+  ];
+}
+
+/** WCAG relative luminance from linear RGB */
+function relativeLuminance(r: number, g: number, b: number): number {
+  return 0.2126 * Math.max(0, r) + 0.7152 * Math.max(0, g) + 0.0722 * Math.max(0, b);
+}
+
+/**
+ * Determine the best text color for content on a primary-colored background.
+ * Computes WCAG contrast ratio of the primary-500 shade against white and dark text,
+ * returns whichever provides better contrast (preferring white when equal).
+ */
+export function getPrimaryContrastColor(hex: string): string {
+  const [, sourceChroma, hue] = hexToOklch(hex);
+  const peakChroma = Math.max(sourceChroma, 0.08);
+
+  // Primary-600 shade (lightest in gradient-primary): L=0.47, chromaScale=0.95
+  const L = 0.47;
+  const C = peakChroma * 0.95;
+  const [labL, labA, labB] = oklchToOklab(L, C, hue);
+  const [lr, lg, lb] = oklabToLinearRgb(labL, labA, labB);
+  const bgLum = relativeLuminance(lr, lg, lb);
+
+  // White text luminance = 1.0, dark text (#1a1a1a) luminance ≈ 0.0093
+  const whiteLum = 1.0;
+  const darkLum = 0.0093;
+
+  const whiteContrast = (whiteLum + 0.05) / (bgLum + 0.05);
+  const darkContrast = (bgLum + 0.05) / (darkLum + 0.05);
+
+  return whiteContrast >= darkContrast ? "white" : "#1a1a1a";
+}
+
 // ─── Palette generation ─────────────────────────────────────────────
 
 /**

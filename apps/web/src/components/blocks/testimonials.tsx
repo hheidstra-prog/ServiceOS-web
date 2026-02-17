@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { getBlockBackgroundProps } from "./block-helpers";
 
 interface Testimonial {
   quote: string;
@@ -12,14 +13,16 @@ interface TestimonialsData {
   heading?: string;
   subheading?: string;
   testimonials: Testimonial[];
+  background?: string;
 }
 
 export function TestimonialsBlock({ data }: { data: Record<string, unknown> }) {
   if (!data) return null;
   const block = data as unknown as TestimonialsData;
+  const bg = getBlockBackgroundProps(block.background || "default");
 
   return (
-    <section className="section-padding bg-[var(--color-surface)]">
+    <section className={bg.className} style={bg.style}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {(block.heading || block.subheading) && (
           <div className="text-center mb-12">

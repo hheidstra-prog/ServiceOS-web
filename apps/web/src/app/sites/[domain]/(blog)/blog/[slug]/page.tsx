@@ -8,16 +8,21 @@ import { SiteFooter } from "@/components/site/footer";
 import { BlogContent } from "@/components/blog/blog-content";
 import { format } from "date-fns";
 import { ArrowLeft, Calendar, User, Tag } from "lucide-react";
+import { isPreviewMode } from "@/lib/preview";
+
+export const dynamic = "force-dynamic";
 
 interface BlogPostPageProps {
   params: Promise<{ domain: string; slug: string }>;
 }
 
 async function getPost(domain: string, slug: string) {
+  const preview = await isPreviewMode(domain);
+
   const site = await db.site.findFirst({
     where: {
       OR: [{ subdomain: domain }, { customDomain: domain }],
-      status: "PUBLISHED",
+      ...(preview ? {} : { status: "PUBLISHED" }),
       blogEnabled: true,
     },
     select: { id: true, name: true },
@@ -38,8 +43,7 @@ async function getPost(domain: string, slug: string) {
   const post = await db.blogPost.findFirst({
     where: {
       id: publication.postId,
-      status: "PUBLISHED",
-      publishedAt: { lte: new Date() },
+      ...(preview ? {} : { status: "PUBLISHED", publishedAt: { lte: new Date() } }),
     },
     include: {
       author: {
@@ -64,8 +68,7 @@ async function getPost(domain: string, slug: string) {
   const relatedPosts = await db.blogPost.findMany({
     where: {
       publications: { some: { siteId: site.id } },
-      status: "PUBLISHED",
-      publishedAt: { lte: new Date() },
+      ...(preview ? {} : { status: "PUBLISHED", publishedAt: { lte: new Date() } }),
       id: { not: post.id },
       OR: post.categories.length > 0
         ? [

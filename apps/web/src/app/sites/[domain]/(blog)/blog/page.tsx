@@ -5,6 +5,9 @@ import { db } from "@serviceos/database";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { formatDistanceToNow } from "date-fns";
+import { isPreviewMode } from "@/lib/preview";
+
+export const dynamic = "force-dynamic";
 
 interface BlogPageProps {
   params: Promise<{ domain: string }>;
@@ -16,10 +19,12 @@ async function getSiteAndPosts(
   page: number = 1,
   categorySlug?: string
 ) {
+  const preview = await isPreviewMode(domain);
+
   const site = await db.site.findFirst({
     where: {
       OR: [{ subdomain: domain }, { customDomain: domain }],
-      status: "PUBLISHED",
+      ...(preview ? {} : { status: "PUBLISHED" }),
       blogEnabled: true,
     },
     select: { id: true, name: true, organizationId: true },
@@ -33,8 +38,7 @@ async function getSiteAndPosts(
   // Build where clause — query through publications
   const where: Record<string, unknown> = {
     publications: { some: { siteId: site.id } },
-    status: "PUBLISHED",
-    publishedAt: { lte: new Date() },
+    ...(preview ? {} : { status: "PUBLISHED", publishedAt: { lte: new Date() } }),
   };
 
   if (categorySlug) {

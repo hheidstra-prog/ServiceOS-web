@@ -152,25 +152,30 @@ Example: { "type": "hero", "data": { "heading": "Welcome", "subheading": "Hello 
 ## Block Types (fields go inside "data"):
 
 - hero: { heading, subheading?, description?, badge?, highlightWord?, stats?: [{value, label}], primaryCta?: {label, href}, secondaryCta?: {label, href}, variant?: "centered"|"split"|"background", image?, backgroundImage? }
-- text: { heading?, content (HTML string), align?: "left"|"center"|"right" }
-- features: { heading?, subheading?, features: [{ icon?, title, description }], columns?: 2|3|4, variant?: "cards"|"list"|"icons" }
+- text: { heading?, content (HTML string), align?: "left"|"center"|"right", background?: "default"|"muted"|"accent"|"gradient" }
+- features: { heading?, subheading?, features: [{ icon?, title, description }], columns?: 2|3|4, variant?: "cards"|"list"|"icons", background?: "default"|"muted"|"accent"|"gradient" }
   - IMPORTANT: "icon" must be a Lucide icon name (lowercase, hyphenated), NOT an emoji. Allowed names: zap, shield, heart, star, check, rocket, target, users, clock, globe, sparkles, lightbulb, trending-up, award, lock, eye, message-circle, phone, mail, map-pin, calendar, bar-chart, settings, search, thumbs-up, headphones, cpu, layers, puzzle, wrench, dollar-sign, brain, leaf, palette, camera, code, database, cloud, shield-check
-- services: { heading?, subheading?, services: [{ title, description, price?, icon?, link? }], columns?: 2|3|4, variant?: "cards"|"numbered" }
+- services: { heading?, subheading?, services: [{ title, description, price?, icon?, link? }], columns?: 2|3|4, variant?: "cards"|"numbered", background?: "default"|"muted"|"accent"|"gradient" }
   - IMPORTANT: "icon" must be a Lucide icon name (same list as features), NOT an emoji.
-- testimonials: { heading?, subheading?, testimonials: [{ quote, author, role?, company? }] }
+- testimonials: { heading?, subheading?, testimonials: [{ quote, author, role?, company? }], background?: "default"|"muted"|"accent"|"gradient" }
 - cta: { heading, subheading?, primaryCta?: {label, href}, secondaryCta?: {label, href}, variant?: "default"|"dark"|"gradient" }
-- contact: { heading?, subheading?, email?, phone?, address?, showForm?: true, showInfo?: true }
+- contact: { heading?, subheading?, email?, phone?, address?, showForm?: true, showInfo?: true, background?: "default"|"muted"|"accent"|"gradient" }
 - stats: { heading?, stats: [{ value, label }], variant?: "default"|"gradient"|"cards" }
-- faq: { heading?, subheading?, items: [{ question, answer }] }
-- process: { heading?, subheading?, steps: [{ title, description, icon? }] }
+- faq: { heading?, subheading?, items: [{ question, answer }], background?: "default"|"muted"|"accent"|"gradient" }
+- process: { heading?, subheading?, steps: [{ title, description, icon? }], background?: "default"|"muted"|"accent"|"gradient" }
   - IMPORTANT: "icon" must be a Lucide icon name (same list as features), NOT an emoji. If omitted, a step number is shown instead.
-- pricing: { heading?, subheading?, plans: [{ name, description?, price, period?, features: [string], ctaText?, ctaLink?, highlighted?: boolean }] }
-- logos: { heading?, logos: [{ name, src? }] }
-- columns: { heading?, subheading?, columns?: 2|3|4, layout?: "equal"|"wide-left"|"wide-right", gap?: "sm"|"md"|"lg", items: [{ heading?, text?, image?, icon?, list?: [string], cta?: {label, href} }] }
+- pricing: { heading?, subheading?, plans: [{ name, description?, price, period?, features: [string], ctaText?, ctaLink?, highlighted?: boolean }], background?: "default"|"muted"|"accent"|"gradient" }
+- logos: { heading?, logos: [{ name, src? }], background?: "default"|"muted"|"accent"|"gradient" }
+- columns: { heading?, subheading?, columns?: 2|3|4, layout?: "equal"|"wide-left"|"wide-right", gap?: "sm"|"md"|"lg", verticalAlign?: "top"|"center"|"bottom", items: [{ heading?, text? (plain text or simple HTML — no CSS classes), image?, imageSize?: "sm"|"md"|"lg"|"full", imageShape?: "auto"|"circle"|"rounded", textAlign?: "left"|"center"|"right", icon?, list?: [string], cta?: {label, href} }], background?: "default"|"muted"|"accent"|"gradient" }
   - Use for flexible multi-column layouts that don't fit a semantic block type
   - Each item is one column — fill in whichever fields are needed (all are optional)
   - "wide-left" gives 2/3 to the first column, "wide-right" gives 2/3 to the second column (only for 2 columns)
+  - imageSize: "sm" = 150px, "md" = 250px, "lg" = 350px, "full" = 100% width. For profile/portrait photos use "sm" or "md".
+  - imageShape: "circle" for profile photos, "rounded" for soft corners, "auto" for default site radius.
+  - textAlign: controls text alignment for the entire column item (heading, text, etc.)
+  - verticalAlign: aligns column items vertically when columns have different heights. Use "center" for image+text side-by-side layouts.
   - IMPORTANT: "icon" must be a Lucide icon name (same list as features), NOT an emoji.
+  - IMPORTANT: "text" supports simple HTML tags (<p>, <em>, <strong>, <blockquote>) but NEVER include CSS class attributes. Styling is handled by the renderer.
 
 Tips:
 - Use "badge" on hero to add a small label above the heading (e.g. "AI-Powered Platform")
@@ -183,6 +188,8 @@ Tips:
 - Use "logos" block for "Trusted by" sections (use text names if no image URLs available)
 - Use "columns" block for custom layouts: image + text side-by-side, multi-column cards, or any layout that doesn't fit a semantic block
 - Use "columns" with layout "wide-left" for image-left + text-right sections, or "wide-right" for text-left + image-right
+- For founder/team/about sections with a photo + bio: use columns with imageSize "md", imageShape "circle", textAlign "center" on the photo column, and verticalAlign "center" on the block
+- For blocks that support "background": controls the section background. "default" = site base background, "muted" = subtle contrast shade (good for alternating sections), "accent" = bold primary-colored section, "gradient" = colorful gradient using primary+secondary. Accent and gradient automatically invert text colors. Alternate "default" and "muted" for visual rhythm; use "accent" or "gradient" sparingly for emphasis.
 `;
 
 // ===========================================
@@ -461,7 +468,7 @@ ${formatImageContext(context.availableImages)}`;
     process: "Generate 3-5 steps for a 'How it works' section. Use Lucide icon names (NOT emoji) for optional icon fields.",
     pricing: "Generate 2-3 pricing plans with features.",
     logos: "Generate 4-6 client/partner company names for a 'Trusted by' section.",
-    columns: "Generate a flexible multi-column layout. Each column item can have any combination of heading, text, image, icon, list, and cta. Use Lucide icon names (NOT emoji) for optional icon fields.",
+    columns: "Generate a flexible multi-column layout. Each column item can have any combination of heading, text, image, icon, list, and cta. Use Lucide icon names (NOT emoji) for optional icon fields. Set imageSize (sm/md/lg/full), imageShape (circle for portraits), textAlign, and verticalAlign as appropriate for the content.",
   };
 
   const userPrompt = `Generate ${context.blockType} block content for ${context.organizationContext.name}.
@@ -491,6 +498,67 @@ Return ONLY valid JSON (no markdown):
   const textContent = response.content.find((c) => c.type === "text");
   if (!textContent || textContent.type !== "text") {
     throw new Error("Failed to generate block content");
+  }
+
+  try {
+    let jsonStr = textContent.text.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+    return JSON.parse(jsonStr) as GeneratedBlock;
+  } catch {
+    throw new Error("Failed to parse generated block content");
+  }
+}
+
+/**
+ * Determine the best block type and generate content from a free-form prompt
+ */
+export async function createBlockFromPrompt(context: {
+  organizationContext: OrganizationContext;
+  prompt: string;
+  availableImages?: AvailableImage[];
+}): Promise<GeneratedBlock> {
+  const localeInstructions: Record<string, string> = {
+    nl: "Write ALL content in Dutch.",
+    en: "Write ALL content in English.",
+    de: "Write ALL content in German.",
+    fr: "Write ALL content in French.",
+  };
+  const locale = context.organizationContext.locale || "en";
+
+  const systemPrompt = `You are a website block generator. Given a user's description, determine the best block type and generate compelling content for it.
+
+Available block types: hero, text, features, services, testimonials, cta, contact, image, stats, faq, process, pricing, logos, columns.
+
+${BLOCK_TYPE_DOCS}
+${formatImageContext(context.availableImages)}
+${localeInstructions[locale] || `Write ALL content in the language matching locale "${locale}".`}
+
+Return ONLY valid JSON (no markdown wrapper):
+{
+  "type": "<block_type>",
+  "data": { ... }
+}`;
+
+  const userPrompt = `Create a website block for: ${context.prompt}
+
+Business: ${context.organizationContext.name}
+Industry: ${context.organizationContext.industry || "General Services"}
+Locale: ${locale}
+Tone: ${context.organizationContext.toneOfVoice || "professional"}`;
+
+  const response = await anthropic.messages.create({
+    model: DEFAULT_MODEL,
+    max_tokens: 2048,
+    temperature: 0.7,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const textContent = response.content.find((c) => c.type === "text");
+  if (!textContent || textContent.type !== "text") {
+    throw new Error("Failed to generate block from prompt");
   }
 
   try {
@@ -720,6 +788,7 @@ export async function chatEditBlockContent(context: {
   currentData: Record<string, unknown>;
   messages: Array<{ role: "user" | "assistant"; content: string }>;
   availableImages?: AvailableImage[];
+  locale?: string;
 }): Promise<ChatEditResult> {
   const UPDATE_BLOCK_TOOL: Anthropic.Tool = {
     name: "update_block",
@@ -737,7 +806,16 @@ export async function chatEditBlockContent(context: {
     },
   };
 
+  const localeInstructions: Record<string, string> = {
+    nl: "Respond in Dutch.",
+    en: "Respond in English.",
+    de: "Respond in German.",
+    fr: "Respond in French.",
+  };
+  const locale = context.locale || "en";
+
   const systemPrompt = `You are an AI assistant helping a user edit a "${context.blockType}" block on their website. You can both respond conversationally AND update the block content using the update_block tool.
+${localeInstructions[locale] || `Respond in the language matching locale "${locale}".`}
 
 Current block data:
 ${JSON.stringify(context.currentData, null, 2)}

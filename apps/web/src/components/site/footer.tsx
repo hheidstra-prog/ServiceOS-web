@@ -33,7 +33,7 @@ export function SiteFooter() {
                 <li key={item.id}>
                   <Link
                     href={item.href}
-                    className="text-sm text-[var(--color-on-surface-secondary)] hover:text-[var(--color-primary-600)] transition-colors"
+                    className="text-sm text-[var(--color-on-surface-secondary)] hover:text-[var(--color-on-surface)] transition-colors"
                     style={{ transitionDuration: "var(--transition-duration)" }}
                   >
                     {item.label}
@@ -44,7 +44,7 @@ export function SiteFooter() {
                 <li>
                   <Link
                     href="/blog"
-                    className="text-sm text-[var(--color-on-surface-secondary)] hover:text-[var(--color-primary-600)] transition-colors"
+                    className="text-sm text-[var(--color-on-surface-secondary)] hover:text-[var(--color-on-surface)] transition-colors"
                     style={{ transitionDuration: "var(--transition-duration)" }}
                   >
                     Blog

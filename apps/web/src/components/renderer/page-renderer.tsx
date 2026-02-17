@@ -11,6 +11,7 @@ import { FaqBlock } from "@/components/blocks/faq";
 import { ProcessBlock } from "@/components/blocks/process";
 import { PricingBlock } from "@/components/blocks/pricing";
 import { LogosBlock } from "@/components/blocks/logos";
+import { ColumnsBlock } from "@/components/blocks/columns";
 
 interface Block {
   id: string;
@@ -36,6 +37,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<{ data: Record<string
   process: ProcessBlock,
   pricing: PricingBlock,
   logos: LogosBlock,
+  columns: ColumnsBlock,
 };
 
 interface PageRendererProps {

@@ -420,6 +420,7 @@ import {
   type GeneratedBlogPost,
   type ChatEditResult,
   type AvailableImage,
+  createBlockFromPrompt,
 } from "@/lib/ai-site-generator";
 import { getBusinessContext } from "@/lib/ai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -428,6 +429,7 @@ import {
   downloadAndStoreFreepikImage,
   type FreepikImage,
 } from "@/lib/freepik";
+import { enrichBlocksWithStockImages } from "@/lib/enrich-block-images";
 
 /** Helper to build OrganizationContext with BusinessProfile data */
 async function getOrgContext(organizationId: string) {
@@ -577,13 +579,24 @@ export async function aiCreateSiteWithContent(data: {
   });
 
   // Create pages from generated content
+  const createdPages: Array<{ pageId: string; blocks: Array<{ id: string; type: string; data: Record<string, unknown> }> }> = [];
+
   for (let i = 0; i < generated.pages.length; i++) {
     const page = generated.pages[i];
     // Normalize slug: strip leading slashes, treat "home"/"" as homepage
     const cleanSlug = page.slug.replace(/^\/+/, "");
     const isHomepage = cleanSlug === "" || cleanSlug === "home" || i === 0;
 
-    await db.page.create({
+    const normalizedBlocks = page.blocks.map((block, idx) => {
+      const { type, data, ...rest } = block as unknown as Record<string, unknown>;
+      return {
+        id: `block-${Date.now()}-${idx}`,
+        type: type as string,
+        data: (data ?? rest) as Record<string, unknown>,
+      };
+    });
+
+    const dbPage = await db.page.create({
       data: {
         siteId: site.id,
         title: page.title,
@@ -592,18 +605,11 @@ export async function aiCreateSiteWithContent(data: {
         isPublished: true,
         metaTitle: page.metaTitle || null,
         metaDescription: page.metaDescription || null,
-        content: JSON.parse(JSON.stringify({
-          blocks: page.blocks.map((block, idx) => {
-            const { type, data, ...rest } = block as unknown as Record<string, unknown>;
-            return {
-              id: `block-${Date.now()}-${idx}`,
-              type,
-              data: data ?? rest,
-            };
-          }),
-        })),
+        content: JSON.parse(JSON.stringify({ blocks: normalizedBlocks })),
       },
     });
+
+    createdPages.push({ pageId: dbPage.id, blocks: normalizedBlocks });
   }
 
   // Create navigation items (exclude homepage)
@@ -622,6 +628,10 @@ export async function aiCreateSiteWithContent(data: {
       data: navItems,
     });
   }
+
+  // Fire-and-forget: enrich blocks with stock images
+  enrichBlocksWithStockImages(createdPages, organization.id, site.id)
+    .catch((err) => console.error("Stock image enrichment failed:", err));
 
   revalidatePath("/sites");
 
@@ -700,6 +710,15 @@ export async function aiCreatePageWithContent(
     slug = `${slug}-${Date.now()}`;
   }
 
+  const normalizedBlocks = generated.blocks.map((block, idx) => {
+    const { type, data, ...rest } = block as unknown as Record<string, unknown>;
+    return {
+      id: `block-${Date.now()}-${idx}`,
+      type: type as string,
+      data: (data ?? rest) as Record<string, unknown>,
+    };
+  });
+
   const page = await db.page.create({
     data: {
       siteId,
@@ -709,18 +728,16 @@ export async function aiCreatePageWithContent(
       isPublished: false,
       metaTitle: generated.metaTitle || null,
       metaDescription: generated.metaDescription || null,
-      content: JSON.parse(JSON.stringify({
-        blocks: generated.blocks.map((block, idx) => {
-          const { type, data, ...rest } = block as unknown as Record<string, unknown>;
-          return {
-            id: `block-${Date.now()}-${idx}`,
-            type,
-            data: data ?? rest,
-          };
-        }),
-      })),
+      content: JSON.parse(JSON.stringify({ blocks: normalizedBlocks })),
     },
   });
+
+  // Fire-and-forget: enrich blocks with stock images
+  enrichBlocksWithStockImages(
+    [{ pageId: page.id, blocks: normalizedBlocks }],
+    organization.id,
+    siteId,
+  ).catch((err) => console.error("Stock image enrichment failed:", err));
 
   revalidatePath(`/sites/${siteId}`);
 
@@ -755,6 +772,33 @@ export async function aiGenerateBlock(
     blockType: data.blockType,
     instructions: data.instructions,
     currentContent: data.currentContent,
+    availableImages,
+  });
+
+  return result;
+}
+
+export async function aiCreateBlockFromPrompt(
+  siteId: string,
+  prompt: string
+): Promise<GeneratedBlock> {
+  const { organization } = await requireAuthWithOrg();
+
+  const site = await db.site.findFirst({
+    where: { id: siteId, organizationId: organization.id },
+  });
+
+  if (!site) {
+    throw new Error("Site not found");
+  }
+
+  const ctx = await getOrgContext(organization.id);
+
+  const availableImages = await getOrganizationImages(organization.id);
+
+  const result = await createBlockFromPrompt({
+    organizationContext: ctx,
+    prompt,
     availableImages,
   });
 
@@ -888,13 +932,17 @@ export async function aiChatEditBlock(
     throw new Error("Site not found");
   }
 
-  const availableImages = await getOrganizationImages(organization.id);
+  const [availableImages, ctx] = await Promise.all([
+    getOrganizationImages(organization.id),
+    getOrgContext(organization.id),
+  ]);
 
   const result = await chatEditBlockContent({
     blockType: data.blockType,
     currentData: data.currentData,
     messages: data.messages,
     availableImages,
+    locale: ctx.locale || "en",
   });
 
   return result;
