@@ -6,13 +6,14 @@ import {
   LayoutDashboard,
   FolderKanban,
   FileText,
-  Files,
+  ScrollText,
   Calendar,
   LogOut,
   Menu,
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { PortalThemeToggle } from "./portal-theme-toggle";
 
 interface PortalNavProps {
   siteName: string;
@@ -24,7 +25,7 @@ const navItems = [
   { href: "/portal", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/portal/projects", label: "Projects", icon: FolderKanban },
   { href: "/portal/invoices", label: "Invoices", icon: FileText },
-  { href: "/portal/files", label: "Files", icon: Files },
+  { href: "/portal/quotes", label: "Quotes", icon: ScrollText },
   { href: "/portal/bookings", label: "Bookings", icon: Calendar },
 ];
 
@@ -44,7 +45,7 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white">
+    <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
@@ -52,9 +53,9 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
             {siteLogo ? (
               <img src={siteLogo} alt={siteName} className="h-8 w-auto" />
             ) : (
-              <span className="text-lg font-bold text-zinc-900">{siteName}</span>
+              <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{siteName}</span>
             )}
-            <span className="hidden text-sm text-zinc-500 sm:inline">
+            <span className="hidden text-sm text-zinc-500 dark:text-zinc-400 sm:inline">
               Client Portal
             </span>
           </Link>
@@ -70,8 +71,8 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
                   href={item.href}
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-zinc-100 text-zinc-900"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                      ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -82,11 +83,12 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
           </nav>
 
           {/* User Menu (Desktop) */}
-          <div className="hidden items-center gap-4 md:flex">
-            <span className="text-sm text-zinc-600">{clientName}</span>
+          <div className="hidden items-center gap-2 md:flex">
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">{clientName}</span>
+            <PortalThemeToggle />
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             >
               <LogOut className="h-4 w-4" />
               Sign out
@@ -96,7 +98,7 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
           {/* Mobile menu button */}
           <button
             type="button"
-            className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-50 md:hidden"
+            className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800 md:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? (
@@ -109,7 +111,7 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="border-t border-zinc-200 py-4 md:hidden">
+          <div className="border-t border-zinc-200 py-4 dark:border-zinc-800 md:hidden">
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -121,8 +123,8 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       active
-                        ? "bg-zinc-100 text-zinc-900"
-                        : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                        ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                        : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                     }`}
                   >
                     <Icon className="h-5 w-5" />
@@ -130,11 +132,14 @@ export function PortalNav({ siteName, siteLogo, clientName }: PortalNavProps) {
                   </Link>
                 );
               })}
-              <div className="my-2 border-t border-zinc-200" />
-              <div className="px-3 py-2 text-sm text-zinc-600">{clientName}</div>
+              <div className="my-2 border-t border-zinc-200 dark:border-zinc-800" />
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">{clientName}</span>
+                <PortalThemeToggle />
+              </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
               >
                 <LogOut className="h-5 w-5" />
                 Sign out

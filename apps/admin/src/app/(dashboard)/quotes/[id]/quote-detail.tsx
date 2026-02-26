@@ -10,12 +10,14 @@ import {
   Plus,
   Pencil,
   MoreHorizontal,
+  Sparkles,
   Building,
   Mail,
   Phone,
   MapPin,
   Calendar,
   Clock,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,11 +33,17 @@ import {
 import { QuoteStatus, TaxType } from "@servible/database";
 import { TAX_TYPE_CONFIG } from "@/lib/tax-utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   deleteQuote,
   duplicateQuote,
   sendQuote,
+  updateQuote,
   deleteQuoteItem,
+  generateQuoteIntroduction,
 } from "../actions";
 import { QuoteItemDialog } from "./quote-item-dialog";
 
@@ -71,6 +79,7 @@ interface Quote {
   viewedAt: Date | null;
   acceptedAt: Date | null;
   rejectedAt: Date | null;
+  portalVisible: boolean;
   createdAt: Date;
   client: {
     id: string;
@@ -98,6 +107,11 @@ const statusConfig: Record<QuoteStatus, { label: string; className: string; bord
     label: "Draft",
     className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
     borderClass: "",
+  },
+  FINALIZED: {
+    label: "Finalized",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+    borderClass: "border-blue-300 dark:border-blue-500/50",
   },
   SENT: {
     label: "Sent",
@@ -147,11 +161,69 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
   const { confirm, ConfirmDialog } = useConfirm();
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
+  const [editingField, setEditingField] = useState<"title" | "introduction" | "terms" | "validUntil" | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const startEditing = (field: "title" | "introduction" | "terms" | "validUntil") => {
+    setEditingField(field);
+    if (field === "validUntil") {
+      setEditValue(quote.validUntil ? new Date(quote.validUntil).toISOString().split("T")[0] : "");
+    } else {
+      setEditValue(quote[field] || "");
+    }
+  };
+
+  const saveField = async () => {
+    if (!editingField) return;
+    try {
+      const value = editingField === "validUntil"
+        ? { validUntil: editValue ? new Date(editValue) : null }
+        : { [editingField]: editValue || undefined };
+      await updateQuote(quote.id, value);
+      toast.success("Quote updated");
+      setEditingField(null);
+      router.refresh();
+    } catch {
+      toast.error("Failed to update quote");
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const handleGenerateIntro = async () => {
+    setIsGenerating(true);
+    try {
+      const text = await generateQuoteIntroduction(quote.id);
+      setEditValue(text);
+      if (editingField !== "introduction") {
+        setEditingField("introduction");
+      }
+    } catch {
+      toast.error("Failed to generate introduction");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    try {
+      await updateQuote(quote.id, { status: "FINALIZED" as any });
+      toast.success("Quote finalized");
+      router.refresh();
+    } catch {
+      toast.error("Failed to finalize quote");
+    }
+  };
 
   const handleSend = async () => {
     try {
       await sendQuote(quote.id);
       toast.success("Quote sent to client");
+      router.refresh();
     } catch {
       toast.error("Failed to send quote");
     }
@@ -215,8 +287,34 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
               Created {formatDate(quote.createdAt)}
             </span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            {!isDraft && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="portalVisible"
+                  checked={quote.portalVisible}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      await updateQuote(quote.id, { portalVisible: checked });
+                      toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                      router.refresh();
+                    } catch {
+                      toast.error("Failed to update portal visibility");
+                    }
+                  }}
+                />
+                <Label htmlFor="portalVisible" className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Portal
+                </Label>
+              </div>
+            )}
             {isDraft && (
+              <Button onClick={handleFinalize} size="sm">
+                <Check className="mr-1.5 h-4 w-4" />
+                Finalize
+              </Button>
+            )}
+            {!isDraft && (
               <Button onClick={handleSend} size="sm">
                 <Send className="mr-1.5 h-4 w-4" />
                 Send to Client
@@ -248,16 +346,87 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Introduction */}
-          {quote.introduction && (
+          {/* Title */}
+          {(quote.title || isDraft) && (
             <Card>
-              <CardHeader>
-                <CardTitle>Introduction</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Title</CardTitle>
+                {isDraft && editingField !== "title" && (
+                  <Button variant="ghost" size="sm" onClick={() => startEditing("title")}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">
-                  {quote.introduction}
-                </p>
+                {editingField === "title" ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      placeholder="e.g., Website Development Project"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveField();
+                        if (e.key === "Escape") cancelEditing();
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={saveField}>Save</Button>
+                      <Button size="sm" variant="outline" onClick={cancelEditing}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                    {quote.title || <span className="text-zinc-400 italic">No title set</span>}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Introduction */}
+          {(quote.introduction || isDraft) && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Introduction</CardTitle>
+                {isDraft && editingField !== "introduction" && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={handleGenerateIntro} disabled={isGenerating}>
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => startEditing("introduction")}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent>
+                {editingField === "introduction" ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      placeholder="Thank you for considering our services..."
+                      rows={4}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") cancelEditing();
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={saveField}>Save</Button>
+                      <Button size="sm" variant="outline" onClick={cancelEditing}>Cancel</Button>
+                      <Button size="sm" variant="outline" onClick={handleGenerateIntro} disabled={isGenerating}>
+                        <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                        {isGenerating ? "Generating..." : "AI Generate"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">
+                    {quote.introduction || <span className="text-zinc-400 italic">No introduction set</span>}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -421,15 +590,39 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
           </Card>
 
           {/* Terms */}
-          {quote.terms && (
+          {(quote.terms || isDraft) && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Terms & Conditions</CardTitle>
+                {isDraft && editingField !== "terms" && (
+                  <Button variant="ghost" size="sm" onClick={() => startEditing("terms")}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">
-                  {quote.terms}
-                </p>
+                {editingField === "terms" ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      placeholder="Payment terms, conditions, etc."
+                      rows={4}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") cancelEditing();
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={saveField}>Save</Button>
+                      <Button size="sm" variant="outline" onClick={cancelEditing}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">
+                    {quote.terms || <span className="text-zinc-400 italic">No terms set</span>}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -499,11 +692,33 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
             <CardContent className="space-y-3">
               <div className="flex items-start gap-2 text-sm">
                 <Calendar className="h-4 w-4 shrink-0 mt-0.5 text-zinc-400" />
-                <div>
+                <div className="flex-1">
                   <div className="text-zinc-500 dark:text-zinc-400">Valid Until</div>
-                  <div className="text-zinc-950 dark:text-white">
-                    {formatDate(quote.validUntil)}
-                  </div>
+                  {editingField === "validUntil" ? (
+                    <div className="mt-1 space-y-2">
+                      <Input
+                        type="date"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveField();
+                          if (e.key === "Escape") cancelEditing();
+                        }}
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={saveField}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={cancelEditing}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`text-zinc-950 dark:text-white ${isDraft ? "cursor-pointer hover:underline" : ""}`}
+                      onClick={isDraft ? () => startEditing("validUntil") : undefined}
+                    >
+                      {formatDate(quote.validUntil)}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -556,6 +771,7 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
               )}
             </CardContent>
           </Card>
+
         </div>
       </div>
 

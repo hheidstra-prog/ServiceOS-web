@@ -1,5 +1,8 @@
 # Project Instructions
 
+## IMPORTANT: Dev Servers
+When killing dev servers (e.g. via `taskkill`, `kill`, `pkill`), **only target the specific processes you need to kill**. Do NOT blindly kill all Node/Next.js processes — the user may have other dev servers running that should not be interrupted.
+
 ## Screenshots
 When the user says "see screenshot" or references a screenshot, always check the `screenshots/` folder in the project root for the latest files. Do not ask for a file path.
 
@@ -73,8 +76,8 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
 - Component exists in both apps: `apps/admin/src/components/blocks/columns.tsx` and `apps/web/src/components/blocks/columns.tsx` (web uses `next/link`, admin uses `preview-link`)
 
 ## Dual App Architecture
-- **Admin app** (`apps/admin`, port 3000) — content management
-- **Web app** (`apps/web`, port 3001) — public/preview site rendering
+- **Admin app** (`apps/admin`, port 3001) — content management
+- **Web app** (`apps/web`, port 3002) — public/preview site rendering
 - Both share the database but have **separate Next.js caches**
 - Web app pages use `export const dynamic = "force-dynamic"` to always fetch fresh data
 - Block components exist in both apps — keep them in sync when making changes
@@ -142,27 +145,63 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
   - Token stored in `PortalSession` model, cookie set as `portal_token` (httpOnly, secure, sameSite lax)
   - Every protected page validates token + org match, redirects to login if invalid
   - Sign out deletes session from DB + clears cookie
-- **Portal pages** (all read-only):
-  - **Dashboard** (`/portal`): stat cards (projects, invoices, files, bookings) + recent items
+- **Portal pages**:
+  - **Dashboard** (`/portal`): stat cards (projects, invoices, quotes, bookings) + recent items
   - **Projects** (`/portal/projects`): list with status, task progress bar; detail view with tasks + files
   - **Invoices** (`/portal/invoices`): pending/paid sections; detail view with full line items (drafts excluded)
+  - **Quotes** (`/portal/quotes`): pending/responded sections; detail view with accept/reject buttons
   - **Files** (`/portal/files`): grouped by project, download links
   - **Bookings** (`/portal/bookings`): upcoming cards + past table, "Book Appointment" link to `/book`
 - **Portal context**: `usePortal()` hook provides client info + organization + site name
 - **Key files**:
   - Login: `apps/web/src/app/sites/[domain]/portal/login/page.tsx`
   - Magic link API: `apps/web/src/app/api/portal/send-magic-link/route.ts`
+  - Verify magic link: `apps/web/src/app/api/portal/verify-magic-link/route.ts`
   - Logout API: `apps/web/src/app/api/portal/logout/route.ts`
+  - Magic link email: `apps/admin/src/lib/email.ts` and `apps/web/src/lib/email.ts` (Resend integration with i18n)
   - Dashboard layout: `apps/web/src/app/sites/[domain]/portal/(dashboard)/layout.tsx`
   - Portal nav: `apps/web/src/components/portal/portal-nav.tsx`
   - Portal context: `apps/web/src/lib/portal/portal-context.tsx`
+  - Quote actions: `apps/web/src/lib/actions/quote.ts`
+  - Quotes listing: `apps/web/src/app/sites/[domain]/portal/(dashboard)/quotes/page.tsx`
+  - Quote detail: `apps/web/src/app/sites/[domain]/portal/(dashboard)/quotes/[quoteId]/page.tsx` + `quote-detail-client.tsx`
 - **Access control**: site-level only — all clients of an org can access if portal is enabled (no per-client toggle)
 - **Backlog**:
-  - Email delivery for magic links (currently `console.log` only — needs Resend/SendGrid integration)
-  - Admin "Send portal invite" button on client detail page
   - Per-client portal access control (`portalEnabled` field on Client model)
-  - Invoice PDF download (button exists, generation not implemented)
+  - Invoice PDF generation + download (button exists in portal, generation not implemented). Needed for both admin (print/email) and portal (client download). Consider `@react-pdf/renderer` or headless browser approach. Should use org branding.
   - Rate limiting on magic link requests
+
+## Portal Quotes (Accept/Reject)
+- Clients can view, accept, or reject quotes directly from the portal
+- **Quote workflow** (admin): DRAFT → Finalize → (portal toggle / send button)
+  - DRAFT: editable, "Finalize" button in top bar
+  - FINALIZED: locked, Portal toggle + "Send to Client" button appear in top bar
+  - Portal toggle: controls visibility on client portal (independent of send)
+  - "Send to Client": sets status to SENT (for future email notification)
+- **Portal visibility**: `portalVisible` field on Quote model (same pattern as Invoice, Project, Booking, File)
+- **Portal listing** (`/portal/quotes`): two sections — Pending (FINALIZED/SENT/VIEWED) and Responded (ACCEPTED/REJECTED/EXPIRED)
+- **Portal detail** (`/portal/quotes/[quoteId]`): addresses, dates, introduction, line items with VAT breakdown, terms
+  - Accept/Reject buttons shown when status is FINALIZED/SENT/VIEWED
+  - Accept: status → ACCEPTED, client promoted PROSPECT→CLIENT
+  - Reject: status → REJECTED
+  - Status notices after action (green/red banners with date)
+- **Dashboard**: "Pending Quotes" stat card + recent quotes section
+- **Portal nav**: Quotes link (ScrollText icon) between Invoices and Bookings
+- **Server actions**: `apps/web/src/lib/actions/quote.ts` — `getPortalQuotes`, `getPortalQuote`, `acceptQuote`, `rejectQuote`
+- Client sees FINALIZED and SENT both as "Pending" — no internal status leaking
+
+## Time Tracking
+- Two entry points: **project time tab** (inline dialog, no navigation away) and **timesheet page** (`/time`)
+- Two methods: **timer** (DB-stored on User model for PWA support) and **manual** (log time with duration or time range)
+- **Timer bar**: `apps/admin/src/components/layout/timer-bar.tsx` — persistent bar in dashboard layout, ticks every second, stop (with note) and discard buttons
+- **StartTimerDialog**: `apps/admin/src/app/(dashboard)/time/start-timer-dialog.tsx` — service/task/note/billable selection
+- **TimeEntryDialog**: `apps/admin/src/app/(dashboard)/time/time-entry-dialog.tsx` — full form with service + task selectors, `hideProjectFields` prop for project context
+- **Server actions**: `apps/admin/src/app/(dashboard)/time/actions.ts` — CRUD + `startTimer`, `stopTimer`, `discardTimer`, `getRunningTimer`, `getTasksForSelect`
+- **Hourly rate**: auto-derived from Service.price when pricingType is HOURLY
+- **Task time display**: project tasks show logged time vs estimated hours, red when over budget
+- **Editability**: unbilled entries are editable/deletable, billed entries are locked
+- **Serialization**: server actions return plain objects (`{ id }` or `{ success: true }`) — never raw Prisma objects with Decimals
+- **Backlog**: timesheet page Start Timer button needs StartTimerDialog, PWA timer notifications
 
 ## File Management
 - AI-powered semantic search via `smartSearch()` in `actions.ts` (uses Claude to expand query concepts)

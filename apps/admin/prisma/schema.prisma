@@ -687,6 +687,9 @@ model Quote {
   acceptedAt     DateTime?
   rejectedAt     DateTime?
 
+  // Portal
+  portalVisible  Boolean  @default(false)
+
   // Access
   accessToken    String   @unique @default(cuid()) // For public viewing
 
@@ -710,6 +713,7 @@ model Quote {
 
 enum QuoteStatus {
   DRAFT
+  FINALIZED
   SENT
   VIEWED
   ACCEPTED

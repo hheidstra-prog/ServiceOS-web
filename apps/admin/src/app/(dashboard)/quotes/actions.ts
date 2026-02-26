@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
 import { QuoteStatus, TaxType } from "@servible/database";
 import { taxRateFromType } from "@/lib/tax-utils";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Get all quotes for the organization
 export async function getQuotes() {
@@ -122,7 +125,7 @@ export async function createQuote(data: {
   });
 
   revalidatePath("/quotes");
-  return quote;
+  return { id: quote.id };
 }
 
 // Update quote details
@@ -134,6 +137,8 @@ export async function updateQuote(
     terms?: string;
     validUntil?: Date | null;
     status?: QuoteStatus;
+    portalVisible?: boolean;
+    sentAt?: Date;
   }
 ) {
   const { organization } = await getCurrentUserAndOrg();
@@ -146,7 +151,7 @@ export async function updateQuote(
 
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${id}`);
-  return quote;
+  return { id: quote.id };
 }
 
 // Delete a quote
@@ -217,7 +222,7 @@ export async function addQuoteItem(
   await recalculateQuoteTotals(quoteId);
 
   revalidatePath(`/quotes/${quoteId}`);
-  return item;
+  return { id: item.id };
 }
 
 // Update a line item
@@ -276,7 +281,7 @@ export async function updateQuoteItem(
   await recalculateQuoteTotals(quoteId);
 
   revalidatePath(`/quotes/${quoteId}`);
-  return item;
+  return { id: item.id };
 }
 
 // Delete a line item
@@ -347,7 +352,7 @@ export async function sendQuote(id: string) {
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${id}`);
   revalidatePath("/clients");
-  return quote;
+  return { id: quote.id };
 }
 
 // Duplicate a quote
@@ -396,7 +401,7 @@ export async function duplicateQuote(id: string) {
   });
 
   revalidatePath("/quotes");
-  return newQuote;
+  return { id: newQuote.id };
 }
 
 // Get clients for dropdown
@@ -423,7 +428,7 @@ export async function getServicesForSelect() {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) return [];
 
-  return db.service.findMany({
+  const services = await db.service.findMany({
     where: {
       organizationId: organization.id,
       isActive: true,
@@ -438,4 +443,82 @@ export async function getServicesForSelect() {
     },
     orderBy: { name: "asc" },
   });
+
+  return services.map((s) => ({
+    ...s,
+    price: Number(s.price),
+  }));
+}
+
+// Generate AI introduction for a quote
+export async function generateQuoteIntroduction(quoteId: string) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) throw new Error("Not authorized");
+
+  const quote = await db.quote.findFirst({
+    where: { id: quoteId, organizationId: organization.id },
+    include: {
+      client: {
+        select: { name: true, companyName: true },
+      },
+      items: {
+        select: { description: true, quantity: true, unitPrice: true, total: true },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+  if (!quote) throw new Error("Quote not found");
+
+  const org = await db.organization.findUnique({
+    where: { id: organization.id },
+    select: {
+      name: true,
+      locale: true,
+      toneOfVoice: true,
+      industry: true,
+    },
+  });
+
+  const locale = org?.locale || "en";
+  const langMap: Record<string, string> = {
+    nl: "Dutch", en: "English", de: "German", fr: "French",
+  };
+  const language = langMap[locale] || "English";
+
+  const clientName = quote.client.companyName || quote.client.name;
+  const itemsSummary = quote.items.length > 0
+    ? quote.items.map((i) => `- ${i.description} (${Number(i.quantity)} × €${Number(i.unitPrice)})`).join("\n")
+    : "No items yet";
+
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 300,
+    temperature: 0.7,
+    messages: [
+      {
+        role: "user",
+        content: `Write a professional quote introduction paragraph for a client.
+
+Company: ${org?.name}
+${org?.industry ? `Industry: ${org.industry}` : ""}
+${org?.toneOfVoice ? `Tone: ${org.toneOfVoice}` : ""}
+Client: ${clientName}
+${quote.title ? `Quote title: ${quote.title}` : ""}
+
+Line items:
+${itemsSummary}
+
+Requirements:
+- Write in ${language}
+- 2-4 sentences, professional but warm
+- Reference the services/work being quoted
+- Do NOT include greetings like "Dear..." — this is the body introduction, not a letter
+- Do NOT include pricing or amounts
+- Output ONLY the introduction text, nothing else`,
+      },
+    ],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  return textBlock?.text || "";
 }

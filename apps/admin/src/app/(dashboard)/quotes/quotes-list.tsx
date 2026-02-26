@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { QuoteStatus } from "@serviceos/database";
+import { QuoteStatus } from "@servible/database";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { deleteQuote, duplicateQuote, sendQuote } from "./actions";
 import { NewQuoteDialog } from "./new-quote-dialog";
@@ -50,6 +50,10 @@ const statusConfig: Record<QuoteStatus, { label: string; className: string }> = 
   DRAFT: {
     label: "Draft",
     className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+  },
+  FINALIZED: {
+    label: "Finalized",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
   },
   SENT: {
     label: "Sent",
@@ -182,7 +186,7 @@ export function QuotesList({ quotes }: QuotesListProps) {
           />
         </div>
         <div className="flex gap-1">
-          {(["ALL", "DRAFT", "SENT", "VIEWED", "ACCEPTED", "REJECTED"] as const).map((status) => (
+          {(["ALL", "DRAFT", "FINALIZED", "SENT", "VIEWED", "ACCEPTED", "REJECTED"] as const).map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
