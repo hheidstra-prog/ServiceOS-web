@@ -833,7 +833,7 @@ async function executeAssistantTool(
         include: {
           client: { select: { id: true, name: true, companyName: true } },
           _count: { select: { tasks: true } },
-          tasks: { select: { completed: true } },
+          tasks: { select: { status: true } },
         },
       });
 
@@ -846,7 +846,7 @@ async function executeAssistantTool(
         startDate: p.startDate?.toISOString() || null,
         endDate: p.endDate?.toISOString() || null,
         taskCount: p._count.tasks,
-        completedTaskCount: p.tasks.filter((t) => t.completed).length,
+        completedTaskCount: p.tasks.filter((t) => t.status === "DONE").length,
       }));
 
       return {
@@ -1739,7 +1739,7 @@ export async function getRecentActivity(): Promise<RecentActivity> {
       include: {
         client: { select: { id: true, name: true, companyName: true } },
         _count: { select: { tasks: true } },
-        tasks: { select: { completed: true } },
+        tasks: { select: { status: true } },
       },
     }),
   ]);
@@ -1774,7 +1774,7 @@ export async function getRecentActivity(): Promise<RecentActivity> {
       startDate: p.startDate?.toISOString() || null,
       endDate: p.endDate?.toISOString() || null,
       taskCount: p._count.tasks,
-      completedTaskCount: p.tasks.filter((t) => t.completed).length,
+      completedTaskCount: p.tasks.filter((t) => t.status === "DONE").length,
     })),
   };
 }

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import {
   ArrowLeft,
   Clock,
@@ -51,10 +51,11 @@ async function getProject(
     where: {
       id: projectId,
       clientId: session.clientId,
+      portalVisible: true,
     },
     include: {
       tasks: {
-        orderBy: [{ completed: "asc" }, { sortOrder: "asc" }],
+        orderBy: [{ status: "asc" }, { sortOrder: "asc" }],
       },
       files: {
         orderBy: { createdAt: "desc" },
@@ -131,7 +132,7 @@ export default async function ProjectDetailPage({
   };
 
   const status = statusConfig[project.status];
-  const completedTasks = project.tasks.filter((t) => t.completed).length;
+  const completedTasks = project.tasks.filter((t) => t.status === "DONE").length;
   const totalTasks = project.tasks.length;
   const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
@@ -229,54 +230,72 @@ export default async function ProjectDetailPage({
                 No tasks yet
               </p>
             ) : (
-              project.tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className={`flex items-start gap-3 px-6 py-4 ${
-                    task.completed ? "opacity-60" : ""
-                  }`}
-                >
+              project.tasks.map((task) => {
+                const isDone = task.status === "DONE";
+                const isInProgress = task.status === "IN_PROGRESS";
+                const taskStatusLabel = isDone ? "Done" : isInProgress ? "In Progress" : "To Do";
+                const taskStatusColor = isDone
+                  ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                  : isInProgress
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400";
+
+                return (
                   <div
-                    className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full ${
-                      task.completed
-                        ? "bg-green-100 text-green-600"
-                        : "bg-zinc-100 text-zinc-400"
-                    }`}
+                    key={task.id}
+                    className={`flex items-start gap-3 px-6 py-4 ${isDone ? "opacity-60" : ""}`}
                   >
-                    {task.completed ? (
-                      <CheckCircle className="h-3.5 w-3.5" />
-                    ) : (
-                      <Clock className="h-3.5 w-3.5" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p
-                      className={`font-medium ${
-                        task.completed
-                          ? "text-zinc-500 line-through"
-                          : "text-zinc-900"
+                    <div
+                      className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full ${
+                        isDone
+                          ? "bg-green-100 text-green-600"
+                          : isInProgress
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-zinc-100 text-zinc-400"
                       }`}
                     >
-                      {task.title}
-                    </p>
-                    {task.description && (
-                      <p className="mt-1 text-sm text-zinc-500">
-                        {task.description}
-                      </p>
-                    )}
-                    <div className="mt-2 flex items-center gap-3 text-xs">
-                      <span className={priorityColors[task.priority]}>
-                        {task.priority.toLowerCase()} priority
-                      </span>
-                      {task.dueDate && (
-                        <span className="text-zinc-500">
-                          Due {format(new Date(task.dueDate), "MMM d")}
-                        </span>
+                      {isDone ? (
+                        <CheckCircle className="h-3.5 w-3.5" />
+                      ) : (
+                        <Clock className="h-3.5 w-3.5" />
                       )}
                     </div>
+                    <div className="flex-1">
+                      <p
+                        className={`font-medium ${
+                          isDone ? "text-zinc-500 line-through" : "text-zinc-900 dark:text-zinc-100"
+                        }`}
+                      >
+                        {task.title}
+                      </p>
+                      {task.description && (
+                        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                          {task.description}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-3 text-xs">
+                        <span className={`rounded-full px-2 py-0.5 font-medium ${taskStatusColor}`}>
+                          {taskStatusLabel}
+                        </span>
+                        <span className={priorityColors[task.priority]}>
+                          {task.priority.toLowerCase()} priority
+                        </span>
+                        {task.dueDate && (
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            Due {format(new Date(task.dueDate), "MMM d")}
+                          </span>
+                        )}
+                        {task.estimatedHours && (
+                          <span className="flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                            <Clock className="h-3 w-3" />
+                            {Number(task.estimatedHours)}h est.
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

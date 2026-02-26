@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { FolderKanban, Clock, AlertCircle, CheckCircle, ArrowRight } from "lucide-react";
 
 interface ProjectsPageProps {
@@ -34,13 +34,13 @@ async function getProjects(domain: string, token: string | undefined) {
   if (!session) return null;
 
   const projects = await db.project.findMany({
-    where: { clientId: session.clientId },
+    where: { clientId: session.clientId, portalVisible: true },
     orderBy: { updatedAt: "desc" },
     include: {
       tasks: {
         select: {
           id: true,
-          completed: true,
+          status: true,
         },
       },
       _count: {
@@ -76,27 +76,27 @@ export default async function ProjectsPage({ params }: ProjectsPageProps) {
     NOT_STARTED: {
       icon: <Clock className="h-4 w-4" />,
       label: "Not Started",
-      color: "bg-zinc-100 text-zinc-700",
+      color: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400",
     },
     IN_PROGRESS: {
       icon: <AlertCircle className="h-4 w-4" />,
       label: "In Progress",
-      color: "bg-blue-100 text-blue-700",
+      color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
     },
     ON_HOLD: {
       icon: <AlertCircle className="h-4 w-4" />,
       label: "On Hold",
-      color: "bg-amber-100 text-amber-700",
+      color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     },
     COMPLETED: {
       icon: <CheckCircle className="h-4 w-4" />,
       label: "Completed",
-      color: "bg-green-100 text-green-700",
+      color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     },
     CANCELLED: {
       icon: <AlertCircle className="h-4 w-4" />,
       label: "Cancelled",
-      color: "bg-red-100 text-red-700",
+      color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     },
   };
 
@@ -104,18 +104,18 @@ export default async function ProjectsPage({ params }: ProjectsPageProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Projects</h1>
-        <p className="mt-1 text-zinc-600">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Projects</h1>
+        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
           View and track the progress of your projects.
         </p>
       </div>
 
       {/* Projects List */}
       {projects.length === 0 ? (
-        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-200">
-          <FolderKanban className="mx-auto h-12 w-12 text-zinc-300" />
-          <h3 className="mt-4 font-semibold text-zinc-900">No projects yet</h3>
-          <p className="mt-2 text-sm text-zinc-600">
+        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+          <FolderKanban className="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600" />
+          <h3 className="mt-4 font-semibold text-zinc-900 dark:text-zinc-100">No projects yet</h3>
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             Projects will appear here once they&apos;re created.
           </p>
         </div>
@@ -123,7 +123,7 @@ export default async function ProjectsPage({ params }: ProjectsPageProps) {
         <div className="grid gap-4">
           {projects.map((project) => {
             const status = statusConfig[project.status];
-            const completedTasks = project.tasks.filter((t) => t.completed).length;
+            const completedTasks = project.tasks.filter((t) => t.status === "DONE").length;
             const totalTasks = project.tasks.length;
             const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
@@ -131,12 +131,12 @@ export default async function ProjectsPage({ params }: ProjectsPageProps) {
               <Link
                 key={project.id}
                 href={`/portal/projects/${project.id}`}
-                className="group rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-200 transition-shadow hover:shadow-md"
+                className="group rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-200 transition-shadow hover:shadow-md dark:bg-zinc-900 dark:ring-zinc-800"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-zinc-900 group-hover:text-zinc-600">
+                      <h3 className="font-semibold text-zinc-900 group-hover:text-zinc-600 dark:text-zinc-100 dark:group-hover:text-zinc-300">
                         {project.name}
                       </h3>
                       <span
@@ -147,7 +147,7 @@ export default async function ProjectsPage({ params }: ProjectsPageProps) {
                       </span>
                     </div>
                     {project.description && (
-                      <p className="mt-2 line-clamp-2 text-sm text-zinc-600">
+                      <p className="mt-2 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-400">
                         {project.description}
                       </p>
                     )}
@@ -159,14 +159,14 @@ export default async function ProjectsPage({ params }: ProjectsPageProps) {
                 {totalTasks > 0 && (
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-zinc-600">
+                      <span className="text-zinc-600 dark:text-zinc-400">
                         {completedTasks} of {totalTasks} tasks completed
                       </span>
-                      <span className="font-medium text-zinc-900">
+                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
                         {Math.round(progress)}%
                       </span>
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                       <div
                         className="h-full rounded-full bg-green-500 transition-all"
                         style={{ width: `${progress}%` }}
@@ -176,7 +176,7 @@ export default async function ProjectsPage({ params }: ProjectsPageProps) {
                 )}
 
                 {/* Meta */}
-                <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500">
+                <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
                   {project._count.files > 0 && (
                     <span>{project._count.files} files</span>
                   )}

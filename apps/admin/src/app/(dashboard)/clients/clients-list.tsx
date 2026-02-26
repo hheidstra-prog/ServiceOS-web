@@ -2,16 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Search, MoreHorizontal, Users } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ClientForm } from "./client-form";
-import { ClientStatus } from "@serviceos/database";
+import { ClientStatus } from "@servible/database";
 
 interface Client {
   id: string;
@@ -42,36 +36,12 @@ const statusConfig: Record<
     label: "Lead",
     className: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
   },
-  QUOTE_SENT: {
-    label: "Quote Sent",
+  PROSPECT: {
+    label: "Prospect",
     className: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
   },
-  QUOTE_ACCEPTED: {
-    label: "Accepted",
-    className: "bg-lime-500/10 text-lime-700 dark:text-lime-400",
-  },
-  CONTRACT_SENT: {
-    label: "Contract Sent",
-    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  },
-  CONTRACT_SIGNED: {
-    label: "Signed",
-    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  },
-  ACTIVE: {
-    label: "Active",
-    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  },
-  COMPLETED: {
-    label: "Completed",
-    className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
-  },
-  INVOICED: {
-    label: "Invoiced",
-    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  },
-  PAID: {
-    label: "Paid",
+  CLIENT: {
+    label: "Client",
     className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   },
   ARCHIVED: {
@@ -229,9 +199,7 @@ export function ClientsList({ clients }: ClientsListProps) {
                 >
                   Status
                 </th>
-                <th scope="col" className="relative py-2.5 pl-3 pr-4 sm:pr-5">
-                  <span className="sr-only">Actions</span>
-                </th>
+                <th scope="col" className="relative py-2.5 pl-3 pr-4 sm:pr-5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-950/10 dark:divide-white/10">
@@ -265,26 +233,7 @@ export function ClientsList({ clients }: ClientsListProps) {
                   <td className="whitespace-nowrap px-3 py-3">
                     <StatusBadge status={client.status} />
                   </td>
-                  <td className="whitespace-nowrap py-3 pl-3 pr-4 text-right sm:pr-5">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-xs">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/clients/${client.id}`}>View</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/clients/${client.id}?tab=details`}>
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
+                  <td className="whitespace-nowrap py-3 pl-3 pr-4 sm:pr-5" />
                 </tr>
               ))}
             </tbody>

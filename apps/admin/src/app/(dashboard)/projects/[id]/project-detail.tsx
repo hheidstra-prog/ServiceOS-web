@@ -9,8 +9,6 @@ import {
   Calendar,
   Clock,
   CheckSquare,
-  MoreHorizontal,
-  Pencil,
   Trash2,
   Plus,
   X,
@@ -34,14 +32,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -49,17 +39,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { deleteProject, updateProject, createTask, toggleTask, deleteTask, deleteFile } from "../actions";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { deleteProject, updateProject, createTask, updateTaskStatus, updateTask, deleteTask, deleteFile, toggleProjectPortalVisibility } from "../actions";
+import { TaskStatus } from "@servible/database";
 
 interface Task {
   id: string;
   title: string;
   description: string | null;
-  completed: boolean;
-  completedAt: string | null;
+  status: "TODO" | "IN_PROGRESS" | "DONE";
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate: string | null;
+  estimatedHours: number | null;
   sortOrder: number;
+  assignedTo: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    imageUrl: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,6 +104,7 @@ interface Project {
   budgetHours: number | null;
   hourlyRate: number | null;
   currency: string;
+  portalVisible: boolean;
   client: {
     id: string;
     name: string;
@@ -238,28 +238,14 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
             </SelectContent>
           </Select>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon-sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Project
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleDelete}
-                disabled={isDeleting}
-                variant="destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -342,8 +328,9 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="tasks" className="space-y-4">
+      <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks" className="flex items-center gap-2">
             <CheckSquare className="h-4 w-4" />
             Tasks
@@ -371,8 +358,11 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview">
+          <OverviewTab project={project} />
+        </TabsContent>
 
         <TabsContent value="tasks">
           <TasksTab projectId={project.id} tasks={project.tasks} />
@@ -384,10 +374,6 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
 
         <TabsContent value="files">
           <FilesTab projectId={project.id} files={files} />
-        </TabsContent>
-
-        <TabsContent value="overview">
-          <OverviewTab project={project} />
         </TabsContent>
       </Tabs>
     </div>
@@ -416,9 +402,9 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
     }
   };
 
-  const handleToggle = async (taskId: string) => {
+  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
     try {
-      await toggleTask(taskId);
+      await updateTaskStatus(taskId, status);
       router.refresh();
     } catch {
       toast.error("Failed to update task");
@@ -435,8 +421,18 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
     }
   };
 
-  const pendingTasks = tasks.filter((t) => !t.completed);
-  const completedTasks = tasks.filter((t) => t.completed);
+  const handleUpdateTask = async (taskId: string, data: Record<string, unknown>) => {
+    try {
+      await updateTask(taskId, data);
+      router.refresh();
+    } catch {
+      toast.error("Failed to update task");
+    }
+  };
+
+  const todoTasks = tasks.filter((t) => t.status === "TODO");
+  const inProgressTasks = tasks.filter((t) => t.status === "IN_PROGRESS");
+  const doneTasks = tasks.filter((t) => t.status === "DONE");
 
   return (
     <Card>
@@ -460,31 +456,54 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
           </Button>
         </div>
 
-        {/* Pending Tasks */}
-        {pendingTasks.length > 0 && (
+        {/* To Do */}
+        {todoTasks.length > 0 && (
           <div className="space-y-2">
-            {pendingTasks.map((task) => (
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+              To Do ({todoTasks.length})
+            </p>
+            {todoTasks.map((task) => (
               <TaskItem
                 key={task.id}
                 task={task}
-                onToggle={() => handleToggle(task.id)}
+                onStatusChange={(status) => handleStatusChange(task.id, status)}
+                onUpdate={(data) => handleUpdateTask(task.id, data)}
                 onDelete={() => handleDelete(task.id)}
               />
             ))}
           </div>
         )}
 
-        {/* Completed Tasks */}
-        {completedTasks.length > 0 && (
+        {/* In Progress */}
+        {inProgressTasks.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              Completed ({completedTasks.length})
+            <p className="text-sm font-medium text-sky-600 dark:text-sky-400">
+              In Progress ({inProgressTasks.length})
             </p>
-            {completedTasks.map((task) => (
+            {inProgressTasks.map((task) => (
               <TaskItem
                 key={task.id}
                 task={task}
-                onToggle={() => handleToggle(task.id)}
+                onStatusChange={(status) => handleStatusChange(task.id, status)}
+                onUpdate={(data) => handleUpdateTask(task.id, data)}
+                onDelete={() => handleDelete(task.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Done */}
+        {doneTasks.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+              Done ({doneTasks.length})
+            </p>
+            {doneTasks.map((task) => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                onStatusChange={(status) => handleStatusChange(task.id, status)}
+                onUpdate={(data) => handleUpdateTask(task.id, data)}
                 onDelete={() => handleDelete(task.id)}
               />
             ))}
@@ -501,42 +520,120 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
   );
 }
 
+const TASK_STATUS_CONFIG = {
+  TODO: { label: "To Do", className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400", border: "border-zinc-200 dark:border-zinc-800" },
+  IN_PROGRESS: { label: "In Progress", className: "bg-sky-500/10 text-sky-700 dark:text-sky-400", border: "border-sky-200 dark:border-sky-800" },
+  DONE: { label: "Done", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800" },
+};
+
 function TaskItem({
   task,
-  onToggle,
+  onStatusChange,
+  onUpdate,
   onDelete,
 }: {
   task: Task;
-  onToggle: () => void;
+  onStatusChange: (status: TaskStatus) => void;
+  onUpdate: (data: Record<string, unknown>) => void;
   onDelete: () => void;
 }) {
-  const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+  const [isEditing, setIsEditing] = useState(false);
+  const isOverdue = task.dueDate && task.status !== "DONE" && new Date(task.dueDate) < new Date();
+  const isDone = task.status === "DONE";
+  const statusConfig = TASK_STATUS_CONFIG[task.status];
+
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    onUpdate({
+      title: formData.get("title") as string,
+      description: (formData.get("description") as string) || undefined,
+      priority: formData.get("priority") as string,
+      dueDate: formData.get("dueDate") ? new Date(formData.get("dueDate") as string) : null,
+      estimatedHours: formData.get("estimatedHours") ? Number(formData.get("estimatedHours")) : null,
+    });
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <form onSubmit={handleSave} className="rounded-lg border border-zinc-950/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-950">
+        <div className="space-y-3">
+          <Input name="title" defaultValue={task.title} required placeholder="Task title" />
+          <textarea
+            name="description"
+            rows={2}
+            defaultValue={task.description || ""}
+            placeholder="Description (optional)"
+            className="flex w-full rounded-md border border-zinc-950/10 bg-white px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950/20 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20"
+          />
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs text-zinc-500 dark:text-zinc-400">Priority</label>
+              <Select name="priority" defaultValue={task.priority}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 dark:text-zinc-400">Due date</label>
+              <Input
+                name="dueDate"
+                type="date"
+                className="h-8 text-xs"
+                defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 dark:text-zinc-400">Est. hours</label>
+              <Input
+                name="estimatedHours"
+                type="number"
+                step="0.5"
+                className="h-8 text-xs"
+                defaultValue={task.estimatedHours ?? ""}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm">
+              Save
+            </Button>
+          </div>
+        </div>
+      </form>
+    );
+  }
 
   return (
-    <div
-      className={`flex items-start gap-3 rounded-lg border p-3 ${
-        task.completed
-          ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
-          : "border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-950"
-      }`}
-    >
-      <Checkbox
-        checked={task.completed}
-        onCheckedChange={onToggle}
-        className="mt-0.5"
-      />
-      <div className="min-w-0 flex-1">
-        <p
-          className={`font-medium ${
-            task.completed
-              ? "text-zinc-500 line-through dark:text-zinc-400"
-              : "text-zinc-950 dark:text-white"
-          }`}
-        >
+    <div className={`flex items-start gap-3 rounded-lg border p-3 ${isDone ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" : "border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-950"}`}>
+      <Select value={task.status} onValueChange={(v) => onStatusChange(v as TaskStatus)}>
+        <SelectTrigger className={`h-6 w-[110px] shrink-0 border-0 px-1.5 text-xs font-medium ${statusConfig.className}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="TODO">To Do</SelectItem>
+          <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+          <SelectItem value="DONE">Done</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setIsEditing(true)}>
+        <p className={`font-medium ${isDone ? "text-zinc-500 line-through dark:text-zinc-400" : "text-zinc-950 dark:text-white"}`}>
           {task.title}
         </p>
         {task.description && (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">{task.description}</p>
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1">{task.description}</p>
         )}
         <div className="mt-1 flex items-center gap-2 text-xs">
           {task.priority !== "MEDIUM" && (
@@ -548,6 +645,12 @@ function TaskItem({
             <span className={isOverdue ? "text-red-600" : "text-zinc-500 dark:text-zinc-400"}>
               {isOverdue && <AlertCircle className="mr-0.5 inline h-3 w-3" />}
               Due {new Date(task.dueDate).toLocaleDateString("nl-NL")}
+            </span>
+          )}
+          {task.estimatedHours && (
+            <span className="flex items-center gap-0.5 text-zinc-500 dark:text-zinc-400">
+              <Clock className="h-3 w-3" />
+              {Number(task.estimatedHours)}h
             </span>
           )}
         </div>
@@ -627,97 +730,188 @@ function TimeTab({ projectId, timeEntries }: { projectId: string; timeEntries: T
 }
 
 function OverviewTab({ project }: { project: Project }) {
+  const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSaving(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data: Record<string, unknown> = {
+      name: formData.get("name") as string,
+      description: (formData.get("description") as string) || undefined,
+      startDate: formData.get("startDate") ? new Date(formData.get("startDate") as string) : undefined,
+      endDate: formData.get("endDate") ? new Date(formData.get("endDate") as string) : undefined,
+      budget: formData.get("budget") ? Number(formData.get("budget")) : undefined,
+      budgetHours: formData.get("budgetHours") ? Number(formData.get("budgetHours")) : undefined,
+      hourlyRate: formData.get("hourlyRate") ? Number(formData.get("hourlyRate")) : undefined,
+    };
+
+    try {
+      await updateProject(project.id, data);
+      toast.success("Project updated");
+      router.refresh();
+    } catch {
+      toast.error("Failed to update project");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const formatDateForInput = (date: Date | null) => {
+    if (!date) return "";
+    return new Date(date).toISOString().split("T")[0];
+  };
+
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {project.description && (
-            <div>
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Description</p>
-              <p className="mt-1 text-zinc-950 dark:text-white">{project.description}</p>
+    <form onSubmit={handleSubmit}>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="lg:col-span-2">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="portalVisible">Client Portal</Label>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Show this project on the client portal
+                </p>
+              </div>
+              <Switch
+                id="portalVisible"
+                checked={project.portalVisible}
+                onCheckedChange={async (checked) => {
+                  try {
+                    await toggleProjectPortalVisibility(project.id, checked);
+                    toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                  } catch {
+                    toast.error("Failed to update visibility");
+                  }
+                }}
+              />
             </div>
-          )}
+          </CardContent>
+        </Card>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {project.startDate && (
-              <div>
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Start Date</p>
-                <p className="mt-1 text-zinc-950 dark:text-white">
-                  {new Date(project.startDate).toLocaleDateString("nl-NL")}
-                </p>
-              </div>
-            )}
-            {project.endDate && (
-              <div>
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">End Date</p>
-                <p className="mt-1 text-zinc-950 dark:text-white">
-                  {new Date(project.endDate).toLocaleDateString("nl-NL")}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {project.budget && (
-              <div>
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Budget</p>
-                <p className="mt-1 text-zinc-950 dark:text-white">
-                  €{project.budget.toLocaleString("nl-NL")}
-                </p>
-              </div>
-            )}
-            {project.budgetHours && (
-              <div>
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Budget Hours</p>
-                <p className="mt-1 text-zinc-950 dark:text-white">{project.budgetHours}h</p>
-              </div>
-            )}
-            {project.hourlyRate && (
-              <div>
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Hourly Rate</p>
-                <p className="mt-1 text-zinc-950 dark:text-white">
-                  €{project.hourlyRate.toLocaleString("nl-NL")}/h
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Client</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href={`/clients/${project.client.id}`}
-            className="flex items-start gap-3 rounded-lg border border-zinc-950/10 p-4 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-zinc-800/50"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-              <Building2 className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
+        <Card>
+          <CardHeader>
+            <CardTitle>Details</CardTitle>
+            <CardDescription>Project name, description, and dates</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Project Name *</Label>
+              <Input id="name" name="name" defaultValue={project.name} required />
             </div>
-            <div>
-              <p className="font-medium text-zinc-950 dark:text-white">
-                {project.client.companyName || project.client.name}
-              </p>
-              {project.client.companyName && (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {project.client.name}
-                </p>
-              )}
-              {project.client.email && (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {project.client.email}
-                </p>
-              )}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <textarea
+                id="description"
+                name="description"
+                rows={3}
+                defaultValue={project.description || ""}
+                className="flex w-full rounded-md border border-zinc-950/10 bg-white px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950/20 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20"
+              />
             </div>
-          </Link>
-        </CardContent>
-      </Card>
-    </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  defaultValue={formatDateForInput(project.startDate)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  defaultValue={formatDateForInput(project.endDate)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Budget & Rates</CardTitle>
+            <CardDescription>Financial details and time budgets</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="budget">Budget ({project.currency})</Label>
+              <Input
+                id="budget"
+                name="budget"
+                type="number"
+                step="0.01"
+                defaultValue={project.budget ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="budgetHours">Budget Hours</Label>
+              <Input
+                id="budgetHours"
+                name="budgetHours"
+                type="number"
+                step="0.5"
+                defaultValue={project.budgetHours ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hourlyRate">Hourly Rate ({project.currency})</Label>
+              <Input
+                id="hourlyRate"
+                name="hourlyRate"
+                type="number"
+                step="0.01"
+                defaultValue={project.hourlyRate ?? ""}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Client</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href={`/clients/${project.client.id}`}
+              className="flex items-start gap-3 rounded-lg border border-zinc-950/10 p-4 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-zinc-800/50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <Building2 className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
+              </div>
+              <div>
+                <p className="font-medium text-zinc-950 dark:text-white">
+                  {project.client.companyName || project.client.name}
+                </p>
+                {project.client.companyName && (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {project.client.name}
+                  </p>
+                )}
+                {project.client.email && (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {project.client.email}
+                  </p>
+                )}
+              </div>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Button type="submit" disabled={isSaving}>
+          {isSaving ? "Saving..." : "Save Changes"}
+        </Button>
+      </div>
+    </form>
   );
 }
 

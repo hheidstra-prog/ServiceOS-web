@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
-  MoreHorizontal,
   FolderKanban,
-  Pencil,
   Trash2,
   Calendar,
   Building,
@@ -17,14 +15,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ProjectStatus } from "@serviceos/database";
+import { ProjectStatus } from "@servible/database";
 import { deleteProject } from "./actions";
 import { ProjectDialog } from "./project-dialog";
 
@@ -99,7 +90,6 @@ export function ProjectsList({ projects }: ProjectsListProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | "ALL">("ALL");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   const filteredProjects = projects.filter((project) => {
     const searchLower = search.toLowerCase();
@@ -123,13 +113,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
     {} as Record<ProjectStatus, number>
   );
 
-  const handleEdit = (project: Project) => {
-    setEditingProject(project);
-    setIsDialogOpen(true);
-  };
-
   const handleAdd = () => {
-    setEditingProject(null);
     setIsDialogOpen(true);
   };
 
@@ -264,53 +248,29 @@ export function ProjectsList({ projects }: ProjectsListProps) {
           {filteredProjects.map((project) => {
             const config = statusConfig[project.status];
             return (
-              <Card key={project.id} className={`border-l-4 ${config.borderColor}`}>
+              <Link key={project.id} href={`/projects/${project.id}`} className="block h-full">
+              <Card className={`h-full border-l-4 ${config.borderColor} transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025]`}>
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="group"
-                      >
-                        <h3 className="font-medium text-zinc-950 group-hover:text-zinc-600 dark:text-white dark:group-hover:text-zinc-300 truncate">
-                          {project.name}
-                        </h3>
-                      </Link>
-                      <Link
-                        href={`/clients/${project.client.id}`}
-                        className="mt-0.5 flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
-                      >
+                      <h3 className="font-medium text-zinc-950 dark:text-white truncate">
+                        {project.name}
+                      </h3>
+                      <p className="mt-0.5 flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400">
                         <Building className="h-3 w-3" />
                         {project.client.companyName || project.client.name}
-                      </Link>
+                      </p>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-xs">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/projects/${project.id}`}>
-                            <FolderKanban className="mr-2 h-4 w-4" />
-                            View
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEdit(project)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(project)}
-                          variant="destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDelete(project);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
 
                   {project.description && (
@@ -338,6 +298,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                   )}
                 </CardContent>
               </Card>
+              </Link>
             );
           })}
         </div>
@@ -347,7 +308,6 @@ export function ProjectsList({ projects }: ProjectsListProps) {
       <ProjectDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-        editingProject={editingProject}
       />
     </div>
     </>

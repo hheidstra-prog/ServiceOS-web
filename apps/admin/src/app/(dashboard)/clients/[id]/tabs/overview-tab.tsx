@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, Phone, Building, MapPin, Calendar, FileText, Receipt, FileSignature } from "lucide-react";
+import { Mail, Phone, Building, MapPin, Calendar, FileText, Receipt } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -19,7 +19,6 @@ interface OverviewTabProps {
     bookings: { id: string; startsAt: Date; status: string }[];
     quotes: { id: string; number: string; status: string; total: unknown }[];
     invoices: { id: string; number: string; status: string; total: unknown }[];
-    contracts: { id: string; number: string; status: string }[];
     notes: { id: string }[];
     projects: { id: string; name: string; status: string }[];
   };
@@ -99,10 +98,6 @@ export function OverviewTab({ client }: OverviewTabProps) {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Invoices</span>
             <span className="font-medium">{client.invoices.length}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Contracts</span>
-            <span className="font-medium">{client.contracts.length}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Client since</span>
@@ -197,33 +192,6 @@ export function OverviewTab({ client }: OverviewTabProps) {
         </CardContent>
       </Card>
 
-      {/* Contracts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Contracts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {client.contracts.length > 0 ? (
-            <ul className="space-y-2">
-              {client.contracts.slice(0, 3).map((contract) => (
-                <li key={contract.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <FileSignature className="h-4 w-4 text-muted-foreground" />
-                    <Link href={`/contracts/${contract.id}`} className="hover:underline">
-                      {contract.number}
-                    </Link>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {contract.status}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No contracts yet.</p>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -3,7 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
-import { ProjectStatus, TaskPriority } from "@serviceos/database";
+import { ProjectStatus, TaskPriority, TaskStatus } from "@servible/database";
+
+// Toggle portal visibility
+export async function toggleProjectPortalVisibility(id: string, portalVisible: boolean) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) throw new Error("Not authorized");
+
+  await db.project.update({
+    where: { id, organizationId: organization.id },
+    data: { portalVisible },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
+}
 
 // Get all projects for the organization
 export async function getProjects(filters?: {
@@ -61,7 +75,12 @@ export async function getProject(id: string) {
         },
       },
       tasks: {
-        orderBy: [{ completed: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+        orderBy: [{ status: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+        include: {
+          assignedTo: {
+            select: { id: true, firstName: true, lastName: true, imageUrl: true },
+          },
+        },
       },
       _count: {
         select: {
@@ -91,7 +110,7 @@ export async function getProjectStats(id: string) {
       _sum: { duration: true },
     }),
     db.projectTask.groupBy({
-      by: ["completed"],
+      by: ["status"],
       where: { projectId: id },
       _count: true,
     }),
@@ -100,8 +119,8 @@ export async function getProjectStats(id: string) {
   const totalMinutes = timeStats._sum.duration || 0;
   const totalHours = totalMinutes / 60;
 
-  const completedTasks = taskStats.find((t) => t.completed)?._count || 0;
-  const pendingTasks = taskStats.find((t) => !t.completed)?._count || 0;
+  const completedTasks = taskStats.find((t) => t.status === "DONE")?._count || 0;
+  const pendingTasks = taskStats.filter((t) => t.status !== "DONE").reduce((sum, t) => sum + t._count, 0);
   const totalTasks = completedTasks + pendingTasks;
 
   return {
@@ -238,7 +257,12 @@ export async function getProjectTasks(projectId: string) {
 
   return db.projectTask.findMany({
     where: { projectId },
-    orderBy: [{ completed: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ status: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    include: {
+      assignedTo: {
+        select: { id: true, firstName: true, lastName: true, imageUrl: true },
+      },
+    },
   });
 }
 
@@ -247,8 +271,11 @@ export async function createTask(data: {
   projectId: string;
   title: string;
   description?: string;
+  status?: TaskStatus;
   priority?: TaskPriority;
   dueDate?: Date;
+  estimatedHours?: number;
+  assignedToId?: string;
 }) {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
@@ -271,8 +298,11 @@ export async function createTask(data: {
       projectId: data.projectId,
       title: data.title,
       description: data.description,
+      status: data.status || "TODO",
       priority: data.priority || "MEDIUM",
       dueDate: data.dueDate,
+      estimatedHours: data.estimatedHours,
+      assignedToId: data.assignedToId,
       sortOrder,
     },
   });
@@ -287,9 +317,11 @@ export async function updateTask(
   data: {
     title?: string;
     description?: string;
-    completed?: boolean;
+    status?: TaskStatus;
     priority?: TaskPriority;
     dueDate?: Date | null;
+    estimatedHours?: number | null;
+    assignedToId?: string | null;
   }
 ) {
   const { organization } = await getCurrentUserAndOrg();
@@ -309,10 +341,11 @@ export async function updateTask(
     data: {
       title: data.title,
       description: data.description,
-      completed: data.completed,
-      completedAt: data.completed === true ? new Date() : data.completed === false ? null : undefined,
+      status: data.status,
       priority: data.priority,
       dueDate: data.dueDate,
+      estimatedHours: data.estimatedHours,
+      assignedToId: data.assignedToId,
     },
   });
 
@@ -320,8 +353,8 @@ export async function updateTask(
   return updatedTask;
 }
 
-// Toggle task completion
-export async function toggleTask(id: string) {
+// Update task status
+export async function updateTaskStatus(id: string, status: TaskStatus) {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
 
@@ -336,10 +369,7 @@ export async function toggleTask(id: string) {
 
   const updatedTask = await db.projectTask.update({
     where: { id },
-    data: {
-      completed: !task.completed,
-      completedAt: !task.completed ? new Date() : null,
-    },
+    data: { status },
   });
 
   revalidatePath(`/projects/${task.project.id}`);

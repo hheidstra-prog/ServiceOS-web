@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getClient } from "../actions";
-import { ClientStatus } from "@serviceos/database";
+import { ClientStatus } from "@servible/database";
 import { ClientActions } from "./client-actions";
 import { OverviewTab } from "./tabs/overview-tab";
 import { DetailsTab } from "./tabs/details-tab";
@@ -13,6 +13,7 @@ import { ContactsTab } from "./tabs/contacts-tab";
 import { ProjectsTab } from "./tabs/projects-tab";
 import { NotesTab } from "./tabs/notes-tab";
 import { ActivityTab } from "./tabs/activity-tab";
+import { BookingsTab } from "./tabs/bookings-tab";
 import { QuotesTab } from "./tabs/quotes-tab";
 import { InvoicesTab } from "./tabs/invoices-tab";
 
@@ -31,39 +32,31 @@ function serializeClient(client: NonNullable<Awaited<ReturnType<typeof getClient
     })),
     quotes: client.quotes.map((quote) => ({
       ...quote,
-      total: quote.total ? Number(quote.total) : null,
+      subtotal: Number(quote.subtotal),
+      taxAmount: Number(quote.taxAmount),
+      total: Number(quote.total),
     })),
     invoices: client.invoices.map((invoice) => ({
       ...invoice,
-      total: invoice.total ? Number(invoice.total) : null,
-      paidAmount: invoice.paidAmount ? Number(invoice.paidAmount) : null,
+      subtotal: Number(invoice.subtotal),
+      taxAmount: Number(invoice.taxAmount),
+      total: Number(invoice.total),
+      paidAmount: Number(invoice.paidAmount),
     })),
   };
 }
 
 const statusColors: Record<ClientStatus, string> = {
-  LEAD: "bg-gray-100 text-gray-800",
-  QUOTE_SENT: "bg-blue-100 text-blue-800",
-  QUOTE_ACCEPTED: "bg-green-100 text-green-800",
-  CONTRACT_SENT: "bg-yellow-100 text-yellow-800",
-  CONTRACT_SIGNED: "bg-green-100 text-green-800",
-  ACTIVE: "bg-emerald-100 text-emerald-800",
-  COMPLETED: "bg-purple-100 text-purple-800",
-  INVOICED: "bg-orange-100 text-orange-800",
-  PAID: "bg-green-100 text-green-800",
-  ARCHIVED: "bg-gray-100 text-gray-500",
+  LEAD: "bg-sky-100 text-sky-800",
+  PROSPECT: "bg-violet-100 text-violet-800",
+  CLIENT: "bg-emerald-100 text-emerald-800",
+  ARCHIVED: "bg-zinc-100 text-zinc-500",
 };
 
 const statusLabels: Record<ClientStatus, string> = {
   LEAD: "Lead",
-  QUOTE_SENT: "Quote Sent",
-  QUOTE_ACCEPTED: "Quote Accepted",
-  CONTRACT_SENT: "Contract Sent",
-  CONTRACT_SIGNED: "Contract Signed",
-  ACTIVE: "Active",
-  COMPLETED: "Completed",
-  INVOICED: "Invoiced",
-  PAID: "Paid",
+  PROSPECT: "Prospect",
+  CLIENT: "Client",
   ARCHIVED: "Archived",
 };
 
@@ -114,6 +107,9 @@ export default async function ClientDetailPage({ params, searchParams }: ClientD
           <TabsTrigger value="projects">
             Projects ({client.projects.length})
           </TabsTrigger>
+          <TabsTrigger value="bookings">
+            Bookings ({client.bookings.length})
+          </TabsTrigger>
           <TabsTrigger value="notes">
             Notes ({client.notes.length})
           </TabsTrigger>
@@ -140,6 +136,10 @@ export default async function ClientDetailPage({ params, searchParams }: ClientD
 
         <TabsContent value="projects">
           <ProjectsTab client={client} />
+        </TabsContent>
+
+        <TabsContent value="bookings">
+          <BookingsTab client={client} />
         </TabsContent>
 
         <TabsContent value="notes">

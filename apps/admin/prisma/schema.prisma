@@ -1,4 +1,4 @@
-// ServiceOS - Prisma Schema
+// Servible - Prisma Schema
 // Multi-tenant architecture with Clerk integration
 
 generator client {
@@ -101,6 +101,7 @@ model User {
   notes             Note[]
   files             File[]
   events            Event[]
+  assignedTasks     ProjectTask[]
 
   @@index([clerkUserId])
 }
@@ -189,16 +190,10 @@ model Client {
 }
 
 enum ClientStatus {
-  LEAD
-  QUOTE_SENT
-  QUOTE_ACCEPTED
-  CONTRACT_SENT
-  CONTRACT_SIGNED
-  ACTIVE
-  COMPLETED
-  INVOICED
-  PAID
-  ARCHIVED
+  LEAD       // New inquiry, not yet engaged
+  PROSPECT   // In discussion (quote/contract in progress)
+  CLIENT     // Active business relationship
+  ARCHIVED   // No longer relevant
 }
 
 model Contact {
@@ -337,15 +332,19 @@ model ProjectTask {
 
   title          String
   description    String?  @db.Text
-  completed      Boolean  @default(false)
-  completedAt    DateTime?
+  status         TaskStatus @default(TODO)
 
   // Priority and ordering
   priority       TaskPriority @default(MEDIUM)
   sortOrder      Int      @default(0)
 
-  // Due date (optional)
+  // Due date and time estimate
   dueDate        DateTime?
+  estimatedHours Decimal? @db.Decimal(6, 2)
+
+  // Assignment (prepared for multi-user)
+  assignedToId   String?
+  assignedTo     User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -353,6 +352,13 @@ model ProjectTask {
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([assignedToId])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
 }
 
 enum TaskPriority {

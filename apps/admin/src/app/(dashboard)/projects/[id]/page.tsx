@@ -28,7 +28,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     tasks: project.tasks.map((task) => ({
       ...task,
       dueDate: task.dueDate?.toISOString() || null,
-      completedAt: task.completedAt?.toISOString() || null,
+      estimatedHours: task.estimatedHours ? Number(task.estimatedHours) : null,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
     })),

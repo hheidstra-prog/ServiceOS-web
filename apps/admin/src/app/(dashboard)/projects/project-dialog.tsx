@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createProject, updateProject, getClientsForSelect } from "./actions";
-import { ProjectStatus } from "@serviceos/database";
+import { ProjectStatus } from "@servible/database";
 
 interface Client {
   id: string;
@@ -50,7 +50,7 @@ interface Project {
 interface ProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingProject: Project | null;
+  editingProject?: Project | null;
   preselectedClientId?: string;
 }
 

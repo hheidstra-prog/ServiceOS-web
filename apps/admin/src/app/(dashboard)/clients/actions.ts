@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { requireAuthWithOrg, getCurrentUser } from "@/lib/auth";
-import { ClientStatus, EventType, ProjectStatus, Prisma } from "@serviceos/database";
+import { ClientStatus, EventType, ProjectStatus, Prisma } from "@servible/database";
+import { sendPortalMagicLink } from "@/lib/email";
 
 // ===========================================
 // CLIENT ACTIONS
@@ -136,7 +138,7 @@ export async function unarchiveClient(id: string) {
     where: { id },
     data: {
       archivedAt: null,
-      status: "ACTIVE",
+      status: "CLIENT",
     },
   });
 
@@ -186,17 +188,14 @@ export async function getClient(id: string) {
       },
       bookings: {
         orderBy: { startsAt: "desc" },
-        take: 10,
+        take: 20,
+        include: { bookingType: { select: { name: true } } },
       },
       quotes: {
         orderBy: { createdAt: "desc" },
         take: 10,
       },
       invoices: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      },
-      contracts: {
         orderBy: { createdAt: "desc" },
         take: 10,
       },
@@ -540,4 +539,96 @@ export async function deleteEvent(id: string, clientId: string) {
 
   await db.event.delete({ where: { id } });
   revalidatePath(`/clients/${clientId}`);
+}
+
+// ===========================================
+// PORTAL INVITE ACTIONS
+// ===========================================
+
+export async function sendPortalInvite(clientId: string, contactId: string) {
+  const { organization } = await requireAuthWithOrg();
+
+  const client = await db.client.findFirst({
+    where: { id: clientId, organizationId: organization.id },
+    select: { id: true, status: true },
+  });
+
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  if (client.status !== "CLIENT") {
+    throw new Error("Portal invites can only be sent for clients with status CLIENT");
+  }
+
+  const contact = await db.contact.findFirst({
+    where: { id: contactId, clientId },
+    select: { id: true, firstName: true, lastName: true, email: true },
+  });
+
+  if (!contact) {
+    throw new Error("Contact not found");
+  }
+
+  if (!contact.email) {
+    throw new Error("Contact does not have an email address");
+  }
+
+  // Find a published site with portal enabled
+  const site = await db.site.findFirst({
+    where: {
+      organizationId: organization.id,
+      status: "PUBLISHED",
+      portalEnabled: true,
+    },
+    select: {
+      subdomain: true,
+      customDomain: true,
+    },
+  });
+
+  if (!site) {
+    throw new Error("No published site with portal enabled found");
+  }
+
+  // Generate a secure token
+  const token = randomBytes(32).toString("hex");
+
+  // Create expiration (24 hours from now)
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+
+  // Delete any existing sessions for this contact
+  await db.portalSession.deleteMany({
+    where: { clientId: client.id, contactId: contact.id },
+  });
+
+  // Create new session
+  await db.portalSession.create({
+    data: {
+      clientId: client.id,
+      contactId: contact.id,
+      token,
+      expiresAt,
+    },
+  });
+
+  // Build the magic link URL
+  let magicLink: string;
+  if (process.env.NODE_ENV === "production") {
+    const domain = site.customDomain || `${site.subdomain}.servible.app`;
+    magicLink = `https://${domain}/portal/login?token=${token}`;
+  } else {
+    magicLink = `http://${site.subdomain}.localhost:3002/portal/login?token=${token}`;
+  }
+
+  const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
+
+  await sendPortalMagicLink({
+    to: contact.email,
+    clientName: contactName,
+    organizationName: organization.name,
+    magicLink,
+    locale: organization.locale,
+  });
 }
