@@ -1,6 +1,6 @@
 import type { DesignerState, DesignerAction } from "./types";
 
-const STORAGE_KEY = "serviceos-designer-session";
+const STORAGE_KEY = "servible-designer-session";
 
 export const initialDesignerState: DesignerState = {
   messages: [],

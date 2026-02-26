@@ -14,8 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { InvoiceStatus } from "@serviceos/database";
-import { deleteInvoice, duplicateInvoice, sendInvoice } from "./actions";
+import { InvoiceStatus } from "@servible/database";
+import { deleteInvoice, duplicateInvoice, finalizeInvoice } from "./actions";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 
@@ -133,12 +133,12 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
     return matchesSearch && matchesStatus;
   });
 
-  const handleSend = async (id: string) => {
+  const handleFinalize = async (id: string) => {
     try {
-      await sendInvoice(id);
-      toast.success("Invoice sent");
+      await finalizeInvoice(id);
+      toast.success("Invoice finalized");
     } catch {
-      toast.error("Failed to send invoice");
+      toast.error("Failed to finalize invoice");
     }
   };
 
@@ -370,9 +370,9 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                           <Link href={`/invoices/${invoice.id}`}>View</Link>
                         </DropdownMenuItem>
                         {invoice.status === "DRAFT" && (
-                          <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
+                          <DropdownMenuItem onClick={() => handleFinalize(invoice.id)}>
                             <Send className="mr-2 h-4 w-4" />
-                            Send to client
+                            Finalize
                           </DropdownMenuItem>
                         )}
                         {["SENT", "VIEWED", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.status) && (

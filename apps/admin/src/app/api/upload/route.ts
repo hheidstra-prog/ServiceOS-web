@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Upload to Vercel Blob (in ServiceOS subfolder for shared blob)
-    const blob = await put(`ServiceOS/${organization.id}/${projectId}/${file.name}`, file, {
+    // Upload to Vercel Blob (in Servible subfolder for shared blob)
+    const blob = await put(`Servible/${organization.id}/${projectId}/${file.name}`, file, {
       access: "public",
       addRandomSuffix: true, // Prevents overwriting
     });

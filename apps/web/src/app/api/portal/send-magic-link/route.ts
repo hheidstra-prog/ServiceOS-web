@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { randomBytes } from "crypto";
+import { sendPortalMagicLink } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,10 +14,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the client
+    // Find the client (case-insensitive email match)
     const client = await db.client.findFirst({
       where: {
-        email: email.toLowerCase(),
+        email: { equals: email, mode: "insensitive" },
         organizationId,
       },
       select: {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
           select: {
             name: true,
             email: true,
+            locale: true,
           },
         },
       },
@@ -68,26 +70,29 @@ export async function POST(request: NextRequest) {
     });
 
     if (site) {
-      // Build the magic link URL
-      const domain = site.customDomain || `${site.subdomain}.serviceos.app`;
-      const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-      const magicLink = `${protocol}://${domain}/portal/login?token=${token}`;
-
-      // TODO: Send email with magic link
-      // For now, log it in development
-      if (process.env.NODE_ENV === "development") {
-        console.log("=== Magic Link ===");
-        console.log(`Email: ${client.email}`);
-        console.log(`Link: ${magicLink}`);
-        console.log("==================");
+      // Build the magic link URL — goes to login page which redirects to verify route
+      const domain = site.subdomain;
+      let magicLink: string;
+      if (process.env.NODE_ENV === "production") {
+        const host = site.customDomain || `${domain}.servible.app`;
+        magicLink = `https://${host}/portal/login?token=${token}`;
+      } else {
+        magicLink = `http://${domain}.localhost:3002/portal/login?token=${token}`;
       }
 
-      // In production, you would send an email here
-      // await sendEmail({
-      //   to: client.email,
-      //   subject: `Sign in to ${client.organization.name}`,
-      //   html: `Click here to sign in: ${magicLink}`,
-      // });
+      try {
+        await sendPortalMagicLink({
+          to: client.email!,
+          clientName: client.name,
+          organizationName: client.organization.name,
+          magicLink,
+          locale: client.organization.locale,
+        });
+      } catch (emailError) {
+        // Log but don't fail the request — preserves enumeration protection
+        // and avoids exposing infrastructure issues to the user
+        console.error("Email delivery failed:", emailError);
+      }
     }
 
     return NextResponse.json({ success: true });

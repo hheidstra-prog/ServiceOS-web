@@ -1,7 +1,7 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { db, PostStatus } from "@serviceos/database";
+import { db, PostStatus } from "@servible/database";
 import { requireAuthWithOrg } from "@/lib/auth";
 import { getBusinessContext } from "@/lib/ai";
 import { revalidatePath } from "next/cache";

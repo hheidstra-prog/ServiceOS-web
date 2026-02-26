@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db, MediaType, Prisma } from "@serviceos/database";
+import { db, MediaType, Prisma } from "@servible/database";
 import { requireAuthWithOrg } from "@/lib/auth";
 import { deleteFromCloudinary, getCloudinaryResourceType } from "@/lib/cloudinary";
 import { del } from "@vercel/blob";
@@ -204,6 +204,18 @@ export async function updateFile(
 
   revalidatePath("/files");
   return file;
+}
+
+// Toggle portal visibility
+export async function toggleFilePortalVisibility(id: string, portalVisible: boolean) {
+  const { organization } = await requireAuthWithOrg();
+
+  await db.file.update({
+    where: { id, organizationId: organization.id },
+    data: { portalVisible },
+  });
+
+  revalidatePath("/files");
 }
 
 export async function getFolders() {

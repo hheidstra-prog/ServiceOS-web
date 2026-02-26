@@ -7,7 +7,7 @@ import {
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
-import { MediaType } from "@serviceos/database";
+import { MediaType } from "@servible/database";
 
 export function getFileIcon(mimeType: string | null): LucideIcon {
   if (!mimeType) return FileIcon;

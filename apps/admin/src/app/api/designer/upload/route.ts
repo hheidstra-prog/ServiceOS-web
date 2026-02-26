@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const blob = await put(
-      `ServiceOS/${organization.id}/designer/${file.name}`,
+      `Servible/${organization.id}/designer/${file.name}`,
       file,
       {
         access: "public",

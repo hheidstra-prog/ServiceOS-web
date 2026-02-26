@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { SiteProvider } from "@/lib/site-context";
 import { generateOklchPalette, getPrimaryContrastColor } from "@/lib/color-utils";
 import { isPreviewMode } from "@/lib/preview";

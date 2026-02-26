@@ -1,4 +1,4 @@
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { requireAuthWithOrg } from "@/lib/auth";
 import { BlogManager } from "./blog-manager";
 

@@ -9,7 +9,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -72,9 +71,6 @@ export function ClientActions({ client }: ClientActionsProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem>Create Quote</DropdownMenuItem>
-        <DropdownMenuItem>Create Invoice</DropdownMenuItem>
-        <DropdownMenuSeparator />
         {isArchived ? (
           <DropdownMenuItem
             onClick={handleUnarchive}

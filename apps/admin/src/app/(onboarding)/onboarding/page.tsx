@@ -23,7 +23,7 @@ export default async function OnboardingPage() {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold">Welcome to ServiceOS</h1>
+        <h1 className="text-3xl font-bold">Welcome to Servible</h1>
         <p className="mt-2 text-muted-foreground">
           Let&apos;s set up your business in a few simple steps
         </p>

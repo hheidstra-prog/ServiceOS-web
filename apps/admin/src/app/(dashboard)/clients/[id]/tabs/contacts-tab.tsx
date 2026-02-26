@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Star } from "lucide-react";
+import { Plus, Pencil, Trash2, Star, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { createContact, updateContact, deleteContact } from "../../actions";
+import { createContact, updateContact, deleteContact, sendPortalInvite } from "../../actions";
 
 interface Contact {
   id: string;
@@ -33,6 +33,7 @@ interface Contact {
 interface ContactsTabProps {
   client: {
     id: string;
+    status: string;
     contacts: Contact[];
   };
 }
@@ -42,6 +43,22 @@ export function ContactsTab({ client }: ContactsTabProps) {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
+
+  const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
+  const canInvite = client.status === "CLIENT";
+
+  const handleSendInvite = async (contact: Contact) => {
+    setSendingInviteId(contact.id);
+    try {
+      await sendPortalInvite(client.id, contact.id);
+      toast.success(`Portal invite sent to ${contact.firstName}`);
+    } catch (error) {
+      console.error("Error sending portal invite:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to send portal invite");
+    } finally {
+      setSendingInviteId(null);
+    }
+  };
 
   const handleAdd = () => {
     setEditingContact(null);
@@ -149,6 +166,17 @@ export function ContactsTab({ client }: ContactsTabProps) {
                     )}
                   </div>
                   <div className="flex gap-1 shrink-0">
+                    {canInvite && contact.email && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSendInvite(contact)}
+                        disabled={sendingInviteId === contact.id}
+                        title="Send portal invite"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

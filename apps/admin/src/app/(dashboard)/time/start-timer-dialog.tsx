@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Play } from "lucide-react";
+import { Play, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { startTimer, getTasksForSelect, getProjectsForSelect } from "./actions";
 
 interface ServiceOption {
@@ -92,6 +106,8 @@ export function StartTimerDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState(initialProjects);
   const [tasks, setTasks] = useState<TaskOption[]>([]);
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
 
   const [clientId, setClientId] = useState(initialClientId || "");
   const [projectId, setProjectId] = useState(initialProjectId || "");
@@ -183,52 +199,115 @@ export function StartTimerDialog({
             <div className="grid gap-4 grid-cols-2">
               <div className="space-y-2">
                 <Label>Client</Label>
-                <Select value={clientId || "none"} onValueChange={(v) => {
-                  setClientId(v === "none" ? "" : v);
-                  setProjectId("");
-                  setTaskId("");
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No client</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.companyName || client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      <span className="truncate">
+                        {clientId
+                          ? clients.find((c) => c.id === clientId)?.companyName || clients.find((c) => c.id === clientId)?.name || "Select client"
+                          : "Select client"}
+                      </span>
+                      <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search clients..." />
+                      <CommandList>
+                        <CommandEmpty>No client found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="__none__"
+                            onSelect={() => {
+                              setClientId("");
+                              setProjectId("");
+                              setTaskId("");
+                              setClientPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", !clientId ? "opacity-100" : "opacity-0")} />
+                            No client
+                          </CommandItem>
+                          {clients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={client.companyName || client.name}
+                              onSelect={() => {
+                                setClientId(client.id);
+                                setProjectId("");
+                                setTaskId("");
+                                setClientPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", clientId === client.id ? "opacity-100" : "opacity-0")} />
+                              {client.companyName || client.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>Project</Label>
-                <Select value={projectId || "none"} onValueChange={(v) => {
-                  const newProjectId = v === "none" ? "" : v;
-                  setProjectId(newProjectId);
-                  setTaskId("");
-                  if (newProjectId && !clientId) {
-                    const proj = projects.find((p) => p.id === newProjectId);
-                    if (proj) setClientId(proj.client.id);
-                  }
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    {filteredProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                        {!clientId && (
-                          <span className="ml-1 text-zinc-500">
-                            ({project.client.companyName || project.client.name})
-                          </span>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      <span className="truncate">
+                        {projectId
+                          ? projects.find((p) => p.id === projectId)?.name || "Select project"
+                          : "Select project"}
+                      </span>
+                      <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search projects..." />
+                      <CommandList>
+                        <CommandEmpty>No project found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="__none__"
+                            onSelect={() => {
+                              setProjectId("");
+                              setTaskId("");
+                              setProjectPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", !projectId ? "opacity-100" : "opacity-0")} />
+                            No project
+                          </CommandItem>
+                          {filteredProjects.map((project) => (
+                            <CommandItem
+                              key={project.id}
+                              value={`${project.name} ${project.client.companyName || project.client.name}`}
+                              onSelect={() => {
+                                setProjectId(project.id);
+                                setTaskId("");
+                                if (!clientId) {
+                                  setClientId(project.client.id);
+                                }
+                                setProjectPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", projectId === project.id ? "opacity-100" : "opacity-0")} />
+                              <span>
+                                {project.name}
+                                {!clientId && (
+                                  <span className="ml-1 text-zinc-500">
+                                    ({project.client.companyName || project.client.name})
+                                  </span>
+                                )}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           )}

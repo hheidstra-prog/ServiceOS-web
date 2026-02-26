@@ -3,7 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
-import { db, SiteStatus } from "@serviceos/database";
+import { db, SiteStatus } from "@servible/database";
 import { requireAuthWithOrg } from "@/lib/auth";
 import { getBusinessContext, type BusinessContext } from "@/lib/ai";
 import { generateSiteFromDescription, generateBlogPost } from "@/lib/ai-site-generator";
@@ -40,7 +40,7 @@ async function persistLogoUrl(url: string, organizationId: string): Promise<stri
     const buffer = await response.arrayBuffer();
 
     const blob = await put(
-      `ServiceOS/${organizationId}/logos/logo.${ext}`,
+      `Servible/${organizationId}/logos/logo.${ext}`,
       Buffer.from(buffer),
       { access: "public", addRandomSuffix: true, contentType }
     );

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Enable transpilation of shared packages
-  transpilePackages: ["@serviceos/database", "@serviceos/ui"],
+  transpilePackages: ["@servible/database", "@servible/ui"],
 
   // Image optimization
   images: {

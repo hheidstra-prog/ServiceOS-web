@@ -13,7 +13,7 @@ export function getSiteUrl(site: { subdomain: string; customDomain?: string | nu
     return `https://${site.customDomain}`;
   }
   if (process.env.NODE_ENV === "development") {
-    return `http://${site.subdomain}.localhost:3001`;
+    return `http://${site.subdomain}.localhost:3002`;
   }
-  return `https://${site.subdomain}.serviceos.app`;
+  return `https://${site.subdomain}.servible.app`;
 }

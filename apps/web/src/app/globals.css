@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 /*
- * ServiceOS Public Sites
+ * Servible Public Sites
  * Comprehensive design token system.
  * Three layers: globals.css (defaults) → SiteTheme.designTokens (per-site JSON) → layout.tsx (inline injection)
  */

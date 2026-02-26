@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,8 @@ import {
 } from "@/components/ui/select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { createProject, updateProject, deleteProject } from "../../actions";
-import { ProjectStatus } from "@serviceos/database";
+import { toggleProjectPortalVisibility } from "@/app/(dashboard)/projects/actions";
+import { ProjectStatus } from "@servible/database";
 
 interface Project {
   id: string;
@@ -37,6 +39,7 @@ interface Project {
   endDate: Date | null;
   budget: number | null;
   currency: string;
+  portalVisible: boolean;
 }
 
 interface ProjectsTabProps {
@@ -196,6 +199,23 @@ export function ProjectsTab({ client }: ProjectsTabProps) {
                     {project.currency} {project.budget.toLocaleString()}
                   </p>
                 )}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-950/5 dark:border-white/5">
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    <Globe className="h-3 w-3" />
+                    Client portal
+                  </div>
+                  <Switch
+                    checked={project.portalVisible}
+                    onCheckedChange={async (checked) => {
+                      try {
+                        await toggleProjectPortalVisibility(project.id, checked);
+                        toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                      } catch {
+                        toast.error("Failed to update visibility");
+                      }
+                    }}
+                  />
+                </div>
               </CardContent>
             </Card>
             );

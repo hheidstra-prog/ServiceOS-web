@@ -1,5 +1,5 @@
 {
-  "name": "@serviceos/ui",
+  "name": "@servible/ui",
   "version": "0.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -28,7 +28,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@serviceos/typescript-config": "*",
+    "@servible/typescript-config": "*",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"

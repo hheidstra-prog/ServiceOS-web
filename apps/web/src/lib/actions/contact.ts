@@ -1,6 +1,6 @@
 "use server";
 
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 
 interface ContactFormData {
   organizationId: string;

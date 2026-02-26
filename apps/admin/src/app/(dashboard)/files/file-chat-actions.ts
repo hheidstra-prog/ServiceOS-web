@@ -1,7 +1,7 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { db, MediaType, Prisma } from "@serviceos/database";
+import { db, MediaType, Prisma } from "@servible/database";
 import { requireAuthWithOrg } from "@/lib/auth";
 import { analyzeFile } from "@/lib/ai-file-analyzer";
 import {

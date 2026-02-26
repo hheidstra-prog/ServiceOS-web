@@ -1,5 +1,5 @@
 {
-  "name": "@serviceos/database",
+  "name": "@servible/database",
   "version": "0.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -27,6 +27,6 @@
   "devDependencies": {
     "prisma": "^6.2.1",
     "tsx": "^4.7.0",
-    "@serviceos/typescript-config": "*"
+    "@servible/typescript-config": "*"
   }
 }

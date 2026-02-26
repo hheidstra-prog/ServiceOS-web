@@ -77,7 +77,7 @@ export default async function SiteDetailPage({ params, searchParams }: SiteDetai
               </span>
             </div>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              {site.subdomain}.serviceos.app
+              {site.subdomain}.servible.app
               {site.customDomain && ` • ${site.customDomain}`}
             </p>
           </div>

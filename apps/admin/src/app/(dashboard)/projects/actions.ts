@@ -172,7 +172,7 @@ export async function createProject(data: {
 
   revalidatePath("/projects");
   revalidatePath(`/clients/${data.clientId}`);
-  return project;
+  return { id: project.id };
 }
 
 // Update a project
@@ -209,7 +209,7 @@ export async function updateProject(
   revalidatePath("/projects");
   revalidatePath(`/projects/${id}`);
   revalidatePath(`/clients/${project.clientId}`);
-  return project;
+  return { id: project.id };
 }
 
 // Delete a project
@@ -312,7 +312,7 @@ export async function createTask(data: {
   });
 
   revalidatePath(`/projects/${data.projectId}`);
-  return task;
+  return { id: task.id };
 }
 
 // Update a task
@@ -354,7 +354,7 @@ export async function updateTask(
   });
 
   revalidatePath(`/projects/${task.projectId}`);
-  return updatedTask;
+  return { id: updatedTask.id };
 }
 
 // Update task status
@@ -377,7 +377,7 @@ export async function updateTaskStatus(id: string, status: TaskStatus) {
   });
 
   revalidatePath(`/projects/${task.project.id}`);
-  return updatedTask;
+  return { id: updatedTask.id };
 }
 
 // Delete a task

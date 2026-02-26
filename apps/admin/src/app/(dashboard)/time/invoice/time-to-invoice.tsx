@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -87,6 +87,16 @@ export function TimeToInvoice({
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(
     new Set(entries.map((e) => e.id))
   );
+
+  // Sync step and selections when selectedClientId/entries change via navigation
+  useEffect(() => {
+    if (selectedClientId) {
+      setStep("entries");
+      setSelectedEntries(new Set(entries.map((e) => e.id)));
+    } else {
+      setStep("client");
+    }
+  }, [selectedClientId, entries]);
   const [groupBy, setGroupBy] = useState<"none" | "project" | "date">("project");
   const [hourlyRate, setHourlyRate] = useState(
     entries[0]?.hourlyRate?.toString() || "75"

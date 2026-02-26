@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus, FileText, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { QuoteStatus } from "@serviceos/database";
+import { QuoteStatus } from "@servible/database";
 import { NewQuoteDialog } from "../../../quotes/new-quote-dialog";
 
 interface Quote {

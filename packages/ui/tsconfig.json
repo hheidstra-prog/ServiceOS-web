@@ -1,5 +1,5 @@
 {
-  "extends": "@serviceos/typescript-config/react-library.json",
+  "extends": "@servible/typescript-config/react-library.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src"

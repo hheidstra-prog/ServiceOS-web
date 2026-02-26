@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
-import { BookingStatus, LocationType } from "@serviceos/database";
+import { BookingStatus, LocationType } from "@servible/database";
 
 // Get all bookings for the organization
 export async function getBookings(filters?: {
@@ -346,7 +346,7 @@ export async function createBookingType(data: {
   });
 
   revalidatePath("/bookings");
-  return bookingType;
+  return { id: bookingType.id };
 }
 
 // Update a booking type
@@ -374,7 +374,7 @@ export async function updateBookingType(
   });
 
   revalidatePath("/bookings");
-  return bookingType;
+  return { id: bookingType.id };
 }
 
 // Delete a booking type
@@ -455,4 +455,18 @@ export async function getClientsForSelect() {
     },
     orderBy: { name: "asc" },
   });
+}
+
+// Toggle portal visibility
+export async function toggleBookingPortalVisibility(id: string, portalVisible: boolean) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) throw new Error("Not authorized");
+
+  await db.booking.update({
+    where: { id, organizationId: organization.id },
+    data: { portalVisible },
+  });
+
+  revalidatePath("/bookings");
+  revalidatePath(`/bookings/${id}`);
 }

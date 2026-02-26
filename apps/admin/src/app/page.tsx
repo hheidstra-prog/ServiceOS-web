@@ -11,7 +11,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6">
-      <h1 className="text-4xl font-bold">ServiceOS</h1>
+      <h1 className="text-4xl font-bold">Servible</h1>
       <p className="text-muted-foreground text-lg">
         All-in-one platform for service providers
       </p>

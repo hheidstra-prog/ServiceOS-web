@@ -21,7 +21,7 @@ export default async function OnboardingLayout({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <span className="text-sm font-bold text-primary-foreground">S</span>
             </div>
-            <span className="text-xl font-semibold">ServiceOS</span>
+            <span className="text-xl font-semibold">Servible</span>
           </div>
         </div>
       </header>

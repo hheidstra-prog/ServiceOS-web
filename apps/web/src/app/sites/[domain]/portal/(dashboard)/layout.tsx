@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { PortalProvider } from "@/lib/portal/portal-context";
 import { PortalNav } from "@/components/portal/portal-nav";
 
@@ -31,6 +31,7 @@ async function getPortalSession(domain: string, token: string | undefined) {
           email: true,
           phone: true,
           logo: true,
+          locale: true,
         },
       },
     },
@@ -57,6 +58,14 @@ async function getPortalSession(domain: string, token: string | undefined) {
           companyName: true,
         },
       },
+      contact: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
     },
   });
 
@@ -64,6 +73,7 @@ async function getPortalSession(domain: string, token: string | undefined) {
 
   return {
     client: session.client,
+    contact: session.contact,
     organization: site.organization,
     siteName: site.name,
     siteLogo: site.logo || site.organization.logo,
@@ -87,14 +97,17 @@ export default async function PortalDashboardLayout({
   return (
     <PortalProvider
       client={session.client}
+      contact={session.contact}
       organization={session.organization}
       siteName={session.siteName}
     >
-      <div className="min-h-screen bg-zinc-50">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <PortalNav
           siteName={session.siteName}
           siteLogo={session.siteLogo}
-          clientName={session.client.name}
+          clientName={session.contact
+            ? [session.contact.firstName, session.contact.lastName].filter(Boolean).join(" ")
+            : session.client.name}
         />
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {children}

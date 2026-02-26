@@ -201,7 +201,7 @@ export function SitesList({ sites }: SitesListProps) {
                         {site.name}
                       </Link>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        {site.subdomain}.serviceos.app
+                        {site.subdomain}.servible.app
                       </p>
                     </div>
                   </div>

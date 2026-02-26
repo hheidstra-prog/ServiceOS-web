@@ -1,5 +1,5 @@
 {
-  "extends": "@serviceos/typescript-config/nextjs.json",
+  "extends": "@servible/typescript-config/nextjs.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"]

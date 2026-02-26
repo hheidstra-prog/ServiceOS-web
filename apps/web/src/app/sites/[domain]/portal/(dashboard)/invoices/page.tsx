@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { FileText, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 
@@ -37,6 +37,7 @@ async function getInvoices(domain: string, token: string | undefined) {
   const invoices = await db.invoice.findMany({
     where: {
       clientId: session.clientId,
+      portalVisible: true,
       status: { not: "DRAFT" }, // Don't show draft invoices to clients
     },
     orderBy: { issueDate: "desc" },
@@ -71,13 +72,13 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
   }
 
   const statusConfig: Record<string, { label: string; color: string }> = {
-    SENT: { label: "Awaiting Payment", color: "bg-blue-100 text-blue-700" },
-    PAID: { label: "Paid", color: "bg-green-100 text-green-700" },
-    OVERDUE: { label: "Overdue", color: "bg-red-100 text-red-700" },
-    CANCELLED: { label: "Cancelled", color: "bg-zinc-100 text-zinc-700" },
+    SENT: { label: "Awaiting Payment", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+    PAID: { label: "Paid", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+    OVERDUE: { label: "Overdue", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+    CANCELLED: { label: "Cancelled", color: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400" },
     PARTIALLY_PAID: {
       label: "Partially Paid",
-      color: "bg-amber-100 text-amber-700",
+      color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     },
   };
 
@@ -91,17 +92,17 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Invoices</h1>
-        <p className="mt-1 text-zinc-600">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Invoices</h1>
+        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
           View and download your invoices.
         </p>
       </div>
 
       {invoices.length === 0 ? (
-        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-200">
-          <FileText className="mx-auto h-12 w-12 text-zinc-300" />
-          <h3 className="mt-4 font-semibold text-zinc-900">No invoices yet</h3>
-          <p className="mt-2 text-sm text-zinc-600">
+        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+          <FileText className="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600" />
+          <h3 className="mt-4 font-semibold text-zinc-900 dark:text-zinc-100">No invoices yet</h3>
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             Invoices will appear here once they&apos;re sent.
           </p>
         </div>
@@ -110,51 +111,51 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
           {/* Pending Invoices */}
           {pendingInvoices.length > 0 && (
             <div>
-              <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+              <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                 Pending Payment
               </h2>
-              <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
-                <table className="min-w-full divide-y divide-zinc-200">
-                  <thead className="bg-zinc-50">
+              <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+                <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
+                  <thead className="bg-zinc-50 dark:bg-zinc-800/50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Invoice
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Issue Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Due Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Amount
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         <span className="sr-only">Actions</span>
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200">
+                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                     {pendingInvoices.map((invoice) => {
                       const status = statusConfig[invoice.status];
                       return (
-                        <tr key={invoice.id} className="hover:bg-zinc-50">
+                        <tr key={invoice.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800">
                           <td className="whitespace-nowrap px-6 py-4">
-                            <span className="font-medium text-zinc-900">
+                            <span className="font-medium text-zinc-900 dark:text-zinc-100">
                               {invoice.number}
                             </span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600">
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">
                             {format(new Date(invoice.issueDate), "MMM d, yyyy")}
                           </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600">
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">
                             {format(new Date(invoice.dueDate), "MMM d, yyyy")}
                           </td>
                           <td className="whitespace-nowrap px-6 py-4">
-                            <span className="font-medium text-zinc-900">
+                            <span className="font-medium text-zinc-900 dark:text-zinc-100">
                               {invoice.currency}{" "}
                               {Number(invoice.total).toFixed(2)}
                             </span>
@@ -169,7 +170,7 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
                           <td className="whitespace-nowrap px-6 py-4 text-right">
                             <Link
                               href={`/portal/invoices/${invoice.id}`}
-                              className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 hover:text-zinc-900"
+                              className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
                             >
                               View
                               <ArrowRight className="h-4 w-4" />
@@ -187,40 +188,40 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
           {/* Paid Invoices */}
           {paidInvoices.length > 0 && (
             <div>
-              <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+              <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                 Paid Invoices
               </h2>
-              <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
-                <table className="min-w-full divide-y divide-zinc-200">
-                  <thead className="bg-zinc-50">
+              <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+                <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
+                  <thead className="bg-zinc-50 dark:bg-zinc-800/50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Invoice
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Issue Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Amount
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         <span className="sr-only">Actions</span>
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200">
+                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                     {paidInvoices.map((invoice) => (
-                      <tr key={invoice.id} className="hover:bg-zinc-50">
+                      <tr key={invoice.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800">
                         <td className="whitespace-nowrap px-6 py-4">
-                          <span className="font-medium text-zinc-900">
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">
                             {invoice.number}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600">
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">
                           {format(new Date(invoice.issueDate), "MMM d, yyyy")}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <span className="font-medium text-zinc-900">
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">
                             {invoice.currency}{" "}
                             {Number(invoice.total).toFixed(2)}
                           </span>
@@ -228,7 +229,7 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
                         <td className="whitespace-nowrap px-6 py-4 text-right">
                           <Link
                             href={`/portal/invoices/${invoice.id}`}
-                            className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 hover:text-zinc-900"
+                            className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
                           >
                             View
                             <ArrowRight className="h-4 w-4" />

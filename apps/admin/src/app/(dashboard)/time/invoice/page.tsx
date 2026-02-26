@@ -20,11 +20,15 @@ export default async function TimeInvoicePage({ searchParams }: TimeInvoicePageP
     ? await getUnbilledTimeEntries({ clientId })
     : [];
 
-  // Serialize for client component
+  // Serialize for client component (explicit fields to avoid Decimal leak)
   const serializedEntries = entries.map((entry) => ({
-    ...entry,
-    hourlyRate: entry.hourlyRate ? Number(entry.hourlyRate) : null,
+    id: entry.id,
+    description: entry.description,
     date: entry.date.toISOString(),
+    duration: entry.duration,
+    hourlyRate: entry.hourlyRate ? Number(entry.hourlyRate) : null,
+    client: entry.client,
+    project: entry.project,
   }));
 
   const serializedSummary = summary.map((s) => ({

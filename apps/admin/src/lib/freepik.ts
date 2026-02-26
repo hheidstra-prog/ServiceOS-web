@@ -194,7 +194,7 @@ export async function downloadAndStoreFreepikImage(
 
   // Upload to Cloudinary
   const cloudinaryResult = await uploadToCloudinary(buffer, {
-    folder: `serviceos/${organizationId}/media/stock`,
+    folder: `servible/${organizationId}/media/stock`,
     resourceType: "image",
   });
 

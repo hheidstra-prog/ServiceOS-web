@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { isPreviewMode } from "@/lib/preview";

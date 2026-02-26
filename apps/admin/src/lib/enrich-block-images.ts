@@ -1,4 +1,4 @@
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { revalidatePath } from "next/cache";
 import {
   searchFreepikImages,

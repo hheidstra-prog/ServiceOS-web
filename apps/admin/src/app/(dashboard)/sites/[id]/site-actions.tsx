@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { SiteStatus } from "@serviceos/database";
+import { SiteStatus } from "@servible/database";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { updateSite, deleteSite } from "../actions";
 

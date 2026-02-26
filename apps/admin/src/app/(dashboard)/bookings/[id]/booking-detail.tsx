@@ -36,7 +36,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BookingStatus, LocationType } from "@serviceos/database";
+import { Switch } from "@/components/ui/switch";
+import { BookingStatus, LocationType } from "@servible/database";
 import {
   cancelBooking,
   confirmBooking,
@@ -44,6 +45,7 @@ import {
   markNoShow,
   deleteBooking,
   updateBooking,
+  toggleBookingPortalVisibility,
 } from "../actions";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
@@ -71,6 +73,7 @@ interface Booking {
   guestPhone: string | null;
   createdAt: Date;
   cancelledAt: Date | null;
+  portalVisible: boolean;
   client: {
     id: string;
     name: string;
@@ -478,6 +481,32 @@ export function BookingDetail({ booking }: BookingDetailProps) {
                 )}
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Portal Visibility */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="portalVisible">Client Portal</Label>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Show this booking on the client portal
+                </p>
+              </div>
+              <Switch
+                id="portalVisible"
+                checked={booking.portalVisible}
+                onCheckedChange={async (checked) => {
+                  try {
+                    await toggleBookingPortalVisibility(booking.id, checked);
+                    toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                  } catch {
+                    toast.error("Failed to update visibility");
+                  }
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
 

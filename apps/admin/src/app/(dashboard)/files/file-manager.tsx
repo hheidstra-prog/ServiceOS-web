@@ -32,13 +32,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { getFileIcon, formatFileSize, cloudinaryThumb } from "@/lib/file-utils";
-import { deleteFile, updateFile, getRecentFiles } from "./actions";
+import { deleteFile, updateFile, getRecentFiles, toggleFilePortalVisibility } from "./actions";
 import { FileChat } from "./file-chat";
 import type { ChatResultPayload } from "./file-chat";
 import type { FileResultItem, StockImageResult, FolderResultItem } from "./file-chat-actions";
-import type { MediaType } from "@serviceos/database";
+import type { MediaType } from "@servible/database";
 
 interface FileRecord {
   id: string;
@@ -55,6 +56,7 @@ interface FileRecord {
   cloudinaryUrl: string | null;
   storageProvider: string;
   aiStatus: string | null;
+  portalVisible: boolean;
   createdAt: Date;
   client: { id: string; name: string } | null;
   project: { id: string; name: string } | null;
@@ -186,6 +188,7 @@ export function FileManager({ initialFileCount, locale }: FileManagerProps) {
       cloudinaryUrl: file.cloudinaryUrl,
       storageProvider: file.cloudinaryUrl ? "CLOUDINARY" : "VERCEL_BLOB",
       aiStatus: null,
+      portalVisible: false,
       createdAt: new Date(),
       client: null,
       project: null,
@@ -642,6 +645,29 @@ export function FileManager({ initialFileCount, locale }: FileManagerProps) {
                     value={editFolder}
                     onChange={(e) => setEditFolder(e.target.value)}
                     placeholder="e.g., logos, documents..."
+                  />
+                </div>
+
+                {/* Portal Visibility */}
+                <div className="flex items-center justify-between rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                  <div>
+                    <Label htmlFor="filePortalVisible">Client Portal</Label>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Show on client portal
+                    </p>
+                  </div>
+                  <Switch
+                    id="filePortalVisible"
+                    checked={selectedFile.portalVisible}
+                    onCheckedChange={async (checked) => {
+                      try {
+                        await toggleFilePortalVisibility(selectedFile.id, checked);
+                        setSelectedFile({ ...selectedFile, portalVisible: checked });
+                        toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                      } catch {
+                        toast.error("Failed to update visibility");
+                      }
+                    }}
                   />
                 </div>
 

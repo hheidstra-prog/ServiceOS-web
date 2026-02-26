@@ -95,12 +95,12 @@ export function SiteFooter() {
           <p className="text-xs text-[var(--color-on-surface-muted)]">
             Powered by{" "}
             <a
-              href="https://serviceos.app"
+              href="https://servible.app"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-[var(--color-on-surface-secondary)]"
             >
-              ServiceOS
+              Servible
             </a>
           </p>
         </div>

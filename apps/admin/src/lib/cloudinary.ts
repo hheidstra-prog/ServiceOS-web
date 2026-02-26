@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
-import { MediaType } from "@serviceos/database";
+import { MediaType } from "@servible/database";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

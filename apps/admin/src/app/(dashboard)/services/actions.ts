@@ -71,7 +71,7 @@ export async function createService(data: {
   });
 
   revalidatePath("/services");
-  return service;
+  return { id: service.id };
 }
 
 // Update a service
@@ -104,7 +104,7 @@ export async function updateService(
   });
 
   revalidatePath("/services");
-  return service;
+  return { id: service.id };
 }
 
 // Delete a service
@@ -168,5 +168,5 @@ export async function duplicateService(id: string) {
   });
 
   revalidatePath("/services");
-  return newService;
+  return { id: newService.id };
 }

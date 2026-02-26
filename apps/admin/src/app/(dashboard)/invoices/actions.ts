@@ -220,7 +220,7 @@ export async function addInvoiceItem(
   await recalculateInvoiceTotals(invoiceId);
 
   revalidatePath(`/invoices/${invoiceId}`);
-  return item;
+  return { id: item.id };
 }
 
 // Update a line item
@@ -275,7 +275,7 @@ export async function updateInvoiceItem(
   await recalculateInvoiceTotals(invoiceId);
 
   revalidatePath(`/invoices/${invoiceId}`);
-  return item;
+  return { id: item.id };
 }
 
 // Delete a line item
@@ -553,7 +553,7 @@ export async function getServicesForSelect() {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) return [];
 
-  return db.service.findMany({
+  const services = await db.service.findMany({
     where: {
       organizationId: organization.id,
       isActive: true,
@@ -568,4 +568,9 @@ export async function getServicesForSelect() {
     },
     orderBy: { name: "asc" },
   });
+
+  return services.map((s) => ({
+    ...s,
+    price: Number(s.price),
+  }));
 }

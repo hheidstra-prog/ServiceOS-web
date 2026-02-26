@@ -253,7 +253,7 @@ function EmptyState({
         How can I help you today?
       </h2>
       <p className="mt-2 max-w-md text-center text-zinc-500 dark:text-zinc-400">
-        I&apos;m your AI assistant for ServiceOS. Ask me about clients, invoices,
+        I&apos;m your AI assistant for Servible. Ask me about clients, invoices,
         bookings, or anything else related to your business.
       </p>
 

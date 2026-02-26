@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db, SiteStatus, Prisma } from "@serviceos/database";
+import { db, SiteStatus, Prisma } from "@servible/database";
 import { requireAuthWithOrg } from "@/lib/auth";
 
 export async function getSites() {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 
 export async function POST(request: NextRequest) {
   try {

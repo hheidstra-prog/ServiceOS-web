@@ -197,7 +197,7 @@ export async function* chatStream(
 // ===========================================
 
 function buildSystemPrompt(context?: OrganizationContext): string {
-  const basePrompt = `You are a helpful AI assistant for ServiceOS, a business management platform for European service providers.
+  const basePrompt = `You are a helpful AI assistant for Servible, a business management platform for European service providers.
 
 Your role is to help users manage their business efficiently. You have access to tools that allow you to:
 - Create and search clients

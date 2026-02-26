@@ -42,14 +42,14 @@ export function PortalLoginForm({ organizationId }: PortalLoginFormProps) {
   if (isSent) {
     return (
       <div className="mt-6 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-          <CheckCircle className="h-6 w-6 text-green-600" />
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+          <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
         </div>
-        <h3 className="mt-4 font-medium text-zinc-900">Check your email</h3>
-        <p className="mt-2 text-sm text-zinc-600">
-          We&apos;ve sent a magic link to{" "}
-          <span className="font-medium">{email}</span>. Click the link in the
-          email to sign in.
+        <h3 className="mt-4 font-medium text-zinc-900 dark:text-zinc-100">Check your email</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          If an account exists for{" "}
+          <span className="font-medium">{email}</span>, we&apos;ve sent a magic
+          link. Check your inbox and spam folder.
         </p>
         <button
           type="button"
@@ -57,7 +57,7 @@ export function PortalLoginForm({ organizationId }: PortalLoginFormProps) {
             setIsSent(false);
             setEmail("");
           }}
-          className="mt-4 text-sm text-zinc-600 hover:text-zinc-900"
+          className="mt-4 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
         >
           Use a different email
         </button>
@@ -83,13 +83,13 @@ export function PortalLoginForm({ organizationId }: PortalLoginFormProps) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email address"
             required
-            className="block w-full rounded-lg border border-zinc-300 py-3 pl-10 pr-4 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            className="block w-full rounded-lg border border-zinc-300 py-3 pl-10 pr-4 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-zinc-500 dark:focus:ring-zinc-500"
           />
         </div>
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
       )}
@@ -97,7 +97,7 @@ export function PortalLoginForm({ organizationId }: PortalLoginFormProps) {
       <button
         type="submit"
         disabled={isLoading || !email}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:focus:ring-offset-zinc-900"
       >
         {isLoading ? (
           <>

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { createEvent, updateEvent, deleteEvent } from "../../actions";
-import { EventType } from "@serviceos/database";
+import { EventType } from "@servible/database";
 import { formatDistanceToNow, format } from "date-fns";
 
 interface Event {
@@ -119,7 +119,7 @@ export function ActivityTab({ client }: ActivityTabProps) {
       type: formData.get("type") as EventType,
       title: formData.get("title") as string,
       description: formData.get("description") as string || undefined,
-      projectId: formData.get("projectId") as string || undefined,
+      projectId: (formData.get("projectId") as string) !== "none" ? (formData.get("projectId") as string) || undefined : undefined,
       scheduledAt: formData.get("scheduledAt") ? new Date(formData.get("scheduledAt") as string) : undefined,
       completedAt: formData.get("completedAt") ? new Date(formData.get("completedAt") as string) : undefined,
     };
@@ -316,13 +316,13 @@ export function ActivityTab({ client }: ActivityTabProps) {
                 <Label htmlFor="projectId">Related Project</Label>
                 <Select
                   name="projectId"
-                  defaultValue={editingEvent?.project?.id || ""}
+                  defaultValue={editingEvent?.project?.id || "none"}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a project (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No project</SelectItem>
+                    <SelectItem value="none">No project</SelectItem>
                     {client.projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}

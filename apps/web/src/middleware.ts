@@ -12,7 +12,7 @@ export function middleware(request: NextRequest) {
   if (previewToken) {
     url.searchParams.delete("preview");
     const response = NextResponse.redirect(url);
-    response.cookies.set("__serviceos_preview", previewToken, {
+    response.cookies.set("__servible_preview", previewToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Get the subdomain
-  // In production: acme.serviceos.app -> acme
+  // In production: acme.servible.app -> acme
   // In development: acme.localhost:3001 -> acme
   const parts = hostname.split(".");
   let subdomain: string | null = null;
@@ -31,8 +31,8 @@ export function middleware(request: NextRequest) {
   if (hostname.includes("localhost")) {
     // Development: acme.localhost:3001
     subdomain = parts.length > 1 ? parts[0] : null;
-  } else if (hostname.includes("serviceos.app")) {
-    // Production: acme.serviceos.app
+  } else if (hostname.includes("servible.app")) {
+    // Production: acme.servible.app
     subdomain = parts.length > 2 ? parts[0] : null;
   } else {
     // Custom domain: check if it's mapped to a site
@@ -52,7 +52,7 @@ export function middleware(request: NextRequest) {
   }
 
   // For custom domains, also rewrite (will look up domain in DB)
-  if (!hostname.includes("localhost") && !hostname.includes("serviceos.app")) {
+  if (!hostname.includes("localhost") && !hostname.includes("servible.app")) {
     url.pathname = `/_domains/${hostname}${url.pathname}`;
     return NextResponse.rewrite(url);
   }

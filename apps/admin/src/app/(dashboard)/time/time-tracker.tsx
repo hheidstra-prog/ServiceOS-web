@@ -137,7 +137,7 @@ export function TimeTracker({
 }: TimeTrackerProps) {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
-  const [entries] = useState(initialEntries);
+  const entries = initialEntries;
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);

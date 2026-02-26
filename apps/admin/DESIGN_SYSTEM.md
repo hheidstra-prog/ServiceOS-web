@@ -1,4 +1,4 @@
-# ServiceOS Design System
+# Servible Design System
 
 A Catalyst-inspired design system using Tailwind CSS v4 with a zinc-based color palette.
 

@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, FileText, ExternalLink } from "lucide-react";
+import { Plus, FileText, ExternalLink, Globe } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InvoiceStatus } from "@serviceos/database";
+import { Switch } from "@/components/ui/switch";
+import { InvoiceStatus } from "@servible/database";
+import { toggleInvoicePortalVisibility } from "@/app/(dashboard)/invoices/actions";
 import { NewInvoiceDialog } from "../../../invoices/new-invoice-dialog";
 
 interface Invoice {
@@ -17,6 +20,7 @@ interface Invoice {
   currency: string;
   dueDate: Date;
   createdAt: Date;
+  portalVisible: boolean;
 }
 
 interface InvoicesTabProps {
@@ -174,6 +178,23 @@ export function InvoicesTab({ client }: InvoicesTabProps) {
                     <span className={overdue ? "text-rose-600 dark:text-rose-400" : ""}>
                       {formatDate(invoice.dueDate)}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-zinc-950/5 dark:border-white/5">
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      <Globe className="h-3 w-3" />
+                      Client portal
+                    </div>
+                    <Switch
+                      checked={invoice.portalVisible}
+                      onCheckedChange={async (checked) => {
+                        try {
+                          await toggleInvoicePortalVisibility(invoice.id, checked);
+                          toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                        } catch {
+                          toast.error("Failed to update visibility");
+                        }
+                      }}
+                    />
                   </div>
                 </CardContent>
               </Card>

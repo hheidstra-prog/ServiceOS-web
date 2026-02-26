@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ServiceOS",
+  title: "Servible",
   description: "All-in-one platform for service providers",
 };
 

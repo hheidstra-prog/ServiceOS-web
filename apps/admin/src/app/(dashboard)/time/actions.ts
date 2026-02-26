@@ -324,7 +324,7 @@ export async function getServicesForSelect() {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) return [];
 
-  return db.service.findMany({
+  const services = await db.service.findMany({
     where: {
       organizationId: organization.id,
       isActive: true,
@@ -339,6 +339,11 @@ export async function getServicesForSelect() {
     },
     orderBy: { name: "asc" },
   });
+
+  return services.map((s) => ({
+    ...s,
+    price: Number(s.price),
+  }));
 }
 
 // Get tasks for dropdown (non-DONE tasks for a project)

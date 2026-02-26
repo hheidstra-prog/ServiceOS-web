@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createBooking, getClientsForSelect } from "./actions";
-import { LocationType } from "@serviceos/database";
+import { LocationType } from "@servible/database";
 
 interface BookingType {
   id: string;

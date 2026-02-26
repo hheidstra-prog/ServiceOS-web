@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateClient } from "../../actions";
-import { ClientStatus } from "@serviceos/database";
+import { ClientStatus } from "@servible/database";
 
 interface DetailsTabProps {
   client: {
@@ -36,14 +36,8 @@ interface DetailsTabProps {
 
 const statusOptions: { value: ClientStatus; label: string }[] = [
   { value: "LEAD", label: "Lead" },
-  { value: "QUOTE_SENT", label: "Quote Sent" },
-  { value: "QUOTE_ACCEPTED", label: "Quote Accepted" },
-  { value: "CONTRACT_SENT", label: "Contract Sent" },
-  { value: "CONTRACT_SIGNED", label: "Contract Signed" },
-  { value: "ACTIVE", label: "Active" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "INVOICED", label: "Invoiced" },
-  { value: "PAID", label: "Paid" },
+  { value: "PROSPECT", label: "Prospect" },
+  { value: "CLIENT", label: "Client" },
 ];
 
 export function DetailsTab({ client }: DetailsTabProps) {

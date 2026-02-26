@@ -3,7 +3,7 @@ import crypto from "crypto";
 export function generatePreviewToken(site: { id: string; createdAt: Date }): string {
   return crypto
     .createHash("sha256")
-    .update(`${site.id}:${site.createdAt.toISOString()}:serviceos-preview`)
+    .update(`${site.id}:${site.createdAt.toISOString()}:servible-preview`)
     .digest("hex")
     .slice(0, 32);
 }

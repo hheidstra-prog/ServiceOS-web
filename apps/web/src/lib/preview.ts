@@ -1,19 +1,19 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { cache } from "react";
 
 export function generatePreviewToken(site: { id: string; createdAt: Date }): string {
   return crypto
     .createHash("sha256")
-    .update(`${site.id}:${site.createdAt.toISOString()}:serviceos-preview`)
+    .update(`${site.id}:${site.createdAt.toISOString()}:servible-preview`)
     .digest("hex")
     .slice(0, 32);
 }
 
 export const isPreviewMode = cache(async (domain: string): Promise<boolean> => {
   const cookieStore = await cookies();
-  const token = cookieStore.get("__serviceos_preview")?.value;
+  const token = cookieStore.get("__servible_preview")?.value;
   if (!token) return false;
 
   const site = await db.site.findFirst({

@@ -38,7 +38,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { BookingStatus, LocationType } from "@serviceos/database";
+import { BookingStatus, LocationType } from "@servible/database";
 import { cancelBooking, confirmBooking, completeBooking, markNoShow } from "./actions";
 import { NewBookingDialog } from "./new-booking-dialog";
 import { BookingTypesDialog } from "./booking-types-dialog";

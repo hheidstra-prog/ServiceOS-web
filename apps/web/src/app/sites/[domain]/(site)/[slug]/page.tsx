@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { PageRenderer } from "@/components/renderer/page-renderer";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";

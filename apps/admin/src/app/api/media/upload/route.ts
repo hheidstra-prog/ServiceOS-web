@@ -9,7 +9,7 @@ import {
   getCloudinaryResourceType,
 } from "@/lib/cloudinary";
 import { analyzeFile } from "@/lib/ai-file-analyzer";
-import type { Prisma } from "@serviceos/database";
+import type { Prisma } from "@servible/database";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Build Cloudinary folder path
     const cloudinaryFolder = [
-      "serviceos",
+      "servible",
       organization.id,
       "media",
       folder,

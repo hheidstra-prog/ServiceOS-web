@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db, PostStatus, Prisma } from "@serviceos/database";
+import { db, PostStatus, Prisma } from "@servible/database";
 import { requireAuthWithOrg } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import {
