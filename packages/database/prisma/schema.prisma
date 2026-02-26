@@ -134,6 +134,18 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Timer (DB-stored for future PWA support)
+  timerStartedAt    DateTime?
+  timerProjectId    String?
+  timerTaskId       String?
+  timerServiceId    String?
+  timerBillable     Boolean?
+  timerNote         String?
+
+  timerProject      Project?      @relation("UserTimer", fields: [timerProjectId], references: [id], onDelete: SetNull)
+  timerTask         ProjectTask?  @relation("UserTimerTask", fields: [timerTaskId], references: [id], onDelete: SetNull)
+  timerService      Service?      @relation("UserTimerService", fields: [timerServiceId], references: [id], onDelete: SetNull)
+
   // Relations
   memberships       OrganizationMember[]
   conversations     Conversation[]
@@ -399,6 +411,7 @@ model Project {
   files          File[]
   events         Event[]
   timeEntries    TimeEntry[]
+  timerUsers     User[] @relation("UserTimer")
 
   @@index([organizationId])
   @@index([clientId])
@@ -428,6 +441,8 @@ model ProjectTask {
   updatedAt      DateTime @updatedAt
 
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeEntries    TimeEntry[]
+  timerUsers     User[] @relation("UserTimerTask")
 
   @@index([projectId])
   @@index([assignedToId])
@@ -464,6 +479,7 @@ model TimeEntry {
   clientId       String?
   projectId      String?
   serviceId      String?
+  taskId         String?
 
   // Description of work done
   description    String?
@@ -490,11 +506,13 @@ model TimeEntry {
   client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   service        Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  task           ProjectTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([organizationId, date])
   @@index([clientId])
   @@index([projectId])
+  @@index([taskId])
 }
 
 // ===========================================
@@ -585,6 +603,7 @@ model Service {
   quoteItems     QuoteItem[]
   invoiceItems   InvoiceItem[]
   timeEntries    TimeEntry[]
+  timerUsers     User[] @relation("UserTimerService")
 
   @@index([organizationId])
   @@index([organizationId, isActive])

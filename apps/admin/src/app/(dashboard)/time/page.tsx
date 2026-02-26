@@ -1,4 +1,4 @@
-import { getWeekTimeEntries, getTimeStats, getClientsForSelect, getProjectsForSelect } from "./actions";
+import { getWeekTimeEntries, getTimeStats, getClientsForSelect, getProjectsForSelect, getServicesForSelect } from "./actions";
 import { TimeTracker } from "./time-tracker";
 
 export default async function TimePage() {
@@ -10,7 +10,7 @@ export default async function TimePage() {
   weekStart.setDate(now.getDate() + diff);
   weekStart.setHours(0, 0, 0, 0);
 
-  const [entries, stats, clients, projects] = await Promise.all([
+  const [entries, stats, clients, projects, services] = await Promise.all([
     getWeekTimeEntries(weekStart),
     getTimeStats({
       startDate: weekStart,
@@ -18,6 +18,7 @@ export default async function TimePage() {
     }),
     getClientsForSelect(),
     getProjectsForSelect(),
+    getServicesForSelect(),
   ]);
 
   // Serialize for client components
@@ -30,12 +31,18 @@ export default async function TimePage() {
     ...project,
   }));
 
+  const serializedServices = services.map((s) => ({
+    ...s,
+    price: Number(s.price),
+  }));
+
   return (
     <TimeTracker
       initialEntries={serializedEntries}
       initialStats={stats}
       clients={clients}
       projects={serializedProjects}
+      services={serializedServices}
       weekStart={weekStart}
     />
   );

@@ -50,6 +50,10 @@ interface TimeEntry {
     id: string;
     name: string;
   } | null;
+  task: {
+    id: string;
+    title: string;
+  } | null;
 }
 
 interface TimeStats {
@@ -75,11 +79,21 @@ interface Project {
   };
 }
 
+interface ServiceOption {
+  id: string;
+  name: string;
+  pricingType: string;
+  price: unknown;
+  unit: string | null;
+  currency: string;
+}
+
 interface TimeTrackerProps {
   initialEntries: TimeEntry[];
   initialStats: TimeStats | null;
   clients: Client[];
   projects: Project[];
+  services: ServiceOption[];
   weekStart: Date;
 }
 
@@ -118,6 +132,7 @@ export function TimeTracker({
   initialStats,
   clients,
   projects,
+  services,
   weekStart: initialWeekStart,
 }: TimeTrackerProps) {
   const router = useRouter();
@@ -364,6 +379,11 @@ export function TimeTracker({
                               {entry.project.name}
                             </p>
                           )}
+                          {(entry.service || entry.task) && (
+                            <p className="text-zinc-500 dark:text-zinc-400 truncate">
+                              {[entry.service?.name, entry.task?.title].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
                           {entry.description && (
                             <p className="text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                               {entry.description}
@@ -418,6 +438,7 @@ export function TimeTracker({
         preselectedDate={selectedDate}
         clients={clients}
         projects={projects}
+        services={services}
       />
     </div>
     </>

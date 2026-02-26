@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createTimeEntry, updateTimeEntry, getProjectsForSelect } from "./actions";
+import { createTimeEntry, updateTimeEntry, getProjectsForSelect, getTasksForSelect } from "./actions";
 
 interface TimeEntry {
   id: string;
@@ -43,6 +43,14 @@ interface TimeEntry {
     id: string;
     name: string;
   } | null;
+  service: {
+    id: string;
+    name: string;
+  } | null;
+  task?: {
+    id: string;
+    title: string;
+  } | null;
 }
 
 interface Client {
@@ -61,6 +69,20 @@ interface Project {
   };
 }
 
+interface ServiceOption {
+  id: string;
+  name: string;
+  pricingType: string;
+  price: unknown; // Decimal from Prisma
+  unit: string | null;
+  currency: string;
+}
+
+interface TaskOption {
+  id: string;
+  title: string;
+}
+
 interface TimeEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -68,6 +90,19 @@ interface TimeEntryDialogProps {
   preselectedDate: Date | null;
   clients: Client[];
   projects: Project[];
+  services: ServiceOption[];
+  preselectedProjectId?: string;
+  preselectedClientId?: string;
+  /** Hide client/project selectors (used when opened from a project context) */
+  hideProjectFields?: boolean;
+}
+
+function formatServiceLabel(service: ServiceOption) {
+  const price = Number(service.price);
+  if (service.pricingType === "HOURLY") {
+    return `${service.name} — ${service.currency} ${price}/${service.unit || "h"}`;
+  }
+  return service.name;
 }
 
 export function TimeEntryDialog({
@@ -77,14 +112,21 @@ export function TimeEntryDialog({
   preselectedDate,
   clients,
   projects: initialProjects,
+  services,
+  preselectedProjectId,
+  preselectedClientId,
+  hideProjectFields,
 }: TimeEntryDialogProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState(initialProjects);
+  const [tasks, setTasks] = useState<TaskOption[]>([]);
 
   // Form state
   const [clientId, setClientId] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [taskId, setTaskId] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -103,11 +145,30 @@ export function TimeEntryDialog({
     }
   }, [clientId, initialProjects]);
 
-  // Populate form when editing
+  // Load tasks when project changes
+  useEffect(() => {
+    if (projectId) {
+      getTasksForSelect(projectId).then(setTasks);
+    } else {
+      setTasks([]);
+      setTaskId("");
+    }
+  }, [projectId]);
+
+  // Auto-select single service
+  useEffect(() => {
+    if (!editingEntry && services.length === 1 && !serviceId) {
+      setServiceId(services[0].id);
+    }
+  }, [services, editingEntry, serviceId]);
+
+  // Populate form when editing or opening
   useEffect(() => {
     if (editingEntry) {
-      setClientId(editingEntry.client?.id || "");
-      setProjectId(editingEntry.project?.id || "");
+      setClientId(editingEntry.client?.id || preselectedClientId || "");
+      setProjectId(editingEntry.project?.id || preselectedProjectId || "");
+      setServiceId(editingEntry.service?.id || "");
+      setTaskId(editingEntry.task?.id || "");
       setDescription(editingEntry.description || "");
       setDate(new Date(editingEntry.date).toISOString().split("T")[0]);
       setBillable(editingEntry.billable);
@@ -134,12 +195,25 @@ export function TimeEntryDialog({
       if (preselectedDate) {
         setDate(preselectedDate.toISOString().split("T")[0]);
       }
+      if (preselectedProjectId) {
+        setProjectId(preselectedProjectId);
+        // Find the client from the project
+        const proj = initialProjects.find((p) => p.id === preselectedProjectId);
+        if (proj) {
+          setClientId(proj.client.id);
+        }
+      }
+      if (preselectedClientId && !preselectedProjectId) {
+        setClientId(preselectedClientId);
+      }
     }
-  }, [editingEntry, open, preselectedDate]);
+  }, [editingEntry, open, preselectedDate, preselectedProjectId, preselectedClientId, initialProjects]);
 
   const resetForm = () => {
     setClientId("");
     setProjectId("");
+    setServiceId(services.length === 1 ? services[0].id : "");
+    setTaskId("");
     setDescription("");
     setDate(new Date().toISOString().split("T")[0]);
     setStartTime("");
@@ -198,6 +272,8 @@ export function TimeEntryDialog({
         await updateTimeEntry(editingEntry.id, {
           clientId: clientId || undefined,
           projectId: projectId || undefined,
+          serviceId: serviceId || undefined,
+          taskId: taskId || undefined,
           description: description || undefined,
           date: dateObj,
           startTime: startTimeObj,
@@ -210,6 +286,8 @@ export function TimeEntryDialog({
         await createTimeEntry({
           clientId: clientId || undefined,
           projectId: projectId || undefined,
+          serviceId: serviceId || undefined,
+          taskId: taskId || undefined,
           description: description || undefined,
           date: dateObj,
           startTime: startTimeObj,
@@ -252,45 +330,98 @@ export function TimeEntryDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Client & Project */}
-          <div className="grid gap-4 grid-cols-2">
+          {/* Client & Project (hidden when opened from project context) */}
+          {!hideProjectFields && (
+            <div className="grid gap-4 grid-cols-2">
+              <div className="space-y-2">
+                <Label>Client</Label>
+                <Select value={clientId || "none"} onValueChange={(v) => {
+                  setClientId(v === "none" ? "" : v);
+                  setProjectId("");
+                  setTaskId("");
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No client</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.companyName || client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Project</Label>
+                <Select value={projectId || "none"} onValueChange={(v) => {
+                  const newProjectId = v === "none" ? "" : v;
+                  setProjectId(newProjectId);
+                  setTaskId("");
+                  // Auto-set client when project is selected
+                  if (newProjectId && !clientId) {
+                    const proj = projects.find((p) => p.id === newProjectId);
+                    if (proj) setClientId(proj.client.id);
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No project</SelectItem>
+                    {filteredProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                        {!clientId && (
+                          <span className="ml-1 text-zinc-500">
+                            ({project.client.companyName || project.client.name})
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Task (only visible when project is selected) */}
+          {projectId && tasks.length > 0 && (
             <div className="space-y-2">
-              <Label>Client</Label>
-              <Select value={clientId} onValueChange={setClientId}>
+              <Label>Task</Label>
+              <Select value={taskId || "none"} onValueChange={(v) => setTaskId(v === "none" ? "" : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select client" />
+                  <SelectValue placeholder="Select task (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No client</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.companyName || client.name}
+                  <SelectItem value="none">No task</SelectItem>
+                  {tasks.map((task) => (
+                    <SelectItem key={task.id} value={task.id}>
+                      {task.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Project</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No project</SelectItem>
-                  {filteredProjects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                      {!clientId && (
-                        <span className="ml-1 text-zinc-500">
-                          ({project.client.companyName || project.client.name})
-                        </span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          )}
+
+          {/* Service */}
+          <div className="space-y-2">
+            <Label>Service</Label>
+            <Select value={serviceId || "none"} onValueChange={(v) => setServiceId(v === "none" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select service" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No service</SelectItem>
+                {services.map((service) => (
+                  <SelectItem key={service.id} value={service.id}>
+                    {formatServiceLabel(service)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Description */}

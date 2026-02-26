@@ -80,6 +80,10 @@ export async function getProject(id: string) {
           assignedTo: {
             select: { id: true, firstName: true, lastName: true, imageUrl: true },
           },
+          _count: { select: { timeEntries: true } },
+          timeEntries: {
+            select: { duration: true },
+          },
         },
       },
       _count: {
@@ -439,6 +443,24 @@ export async function getProjectTimeEntries(projectId: string) {
           id: true,
           name: true,
           companyName: true,
+        },
+      },
+      project: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      task: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+      service: {
+        select: {
+          id: true,
+          name: true,
         },
       },
     },

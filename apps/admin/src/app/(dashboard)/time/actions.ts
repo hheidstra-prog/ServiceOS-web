@@ -68,6 +68,12 @@ export async function getTimeEntries(filters?: {
           name: true,
         },
       },
+      task: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
     },
     orderBy: [{ date: "desc" }, { startTime: "desc" }],
   });
@@ -90,6 +96,7 @@ export async function createTimeEntry(data: {
   clientId?: string;
   projectId?: string;
   serviceId?: string;
+  taskId?: string;
   description?: string;
   date: Date;
   startTime?: Date;
@@ -101,25 +108,39 @@ export async function createTimeEntry(data: {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
 
+  // Auto-derive hourly rate from service if not explicitly set
+  let hourlyRate = data.hourlyRate;
+  if (hourlyRate === undefined && data.serviceId) {
+    const service = await db.service.findUnique({
+      where: { id: data.serviceId },
+      select: { pricingType: true, price: true },
+    });
+    if (service?.pricingType === "HOURLY") {
+      hourlyRate = Number(service.price);
+    }
+  }
+
   const timeEntry = await db.timeEntry.create({
     data: {
       organizationId: organization.id,
       clientId: data.clientId,
       projectId: data.projectId,
       serviceId: data.serviceId,
+      taskId: data.taskId,
       description: data.description,
       date: data.date,
       startTime: data.startTime,
       endTime: data.endTime,
       duration: data.duration,
       billable: data.billable ?? true,
-      hourlyRate: data.hourlyRate,
+      hourlyRate,
       currency: organization.defaultCurrency,
     },
   });
 
   revalidatePath("/time");
-  return timeEntry;
+  if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
+  return { id: timeEntry.id };
 }
 
 // Update a time entry
@@ -129,6 +150,7 @@ export async function updateTimeEntry(
     clientId?: string;
     projectId?: string;
     serviceId?: string;
+    taskId?: string;
     description?: string;
     date?: Date;
     startTime?: Date;
@@ -141,24 +163,38 @@ export async function updateTimeEntry(
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
 
+  // Auto-derive hourly rate from service if not explicitly set
+  let hourlyRate = data.hourlyRate;
+  if (hourlyRate === undefined && data.serviceId) {
+    const service = await db.service.findUnique({
+      where: { id: data.serviceId },
+      select: { pricingType: true, price: true },
+    });
+    if (service?.pricingType === "HOURLY") {
+      hourlyRate = Number(service.price);
+    }
+  }
+
   const timeEntry = await db.timeEntry.update({
     where: { id, organizationId: organization.id },
     data: {
       clientId: data.clientId,
       projectId: data.projectId,
       serviceId: data.serviceId,
+      taskId: data.taskId,
       description: data.description,
       date: data.date,
       startTime: data.startTime,
       endTime: data.endTime,
       duration: data.duration,
       billable: data.billable,
-      hourlyRate: data.hourlyRate,
+      hourlyRate,
     },
   });
 
   revalidatePath("/time");
-  return timeEntry;
+  if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
+  return { id: timeEntry.id };
 }
 
 // Delete a time entry
@@ -296,9 +332,219 @@ export async function getServicesForSelect() {
       name: true,
       pricingType: true,
       price: true,
+      unit: true,
+      currency: true,
     },
     orderBy: { name: "asc" },
   });
+}
+
+// Get tasks for dropdown (non-DONE tasks for a project)
+export async function getTasksForSelect(projectId: string) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) return [];
+
+  // Verify project belongs to org
+  const project = await db.project.findFirst({
+    where: { id: projectId, organizationId: organization.id },
+  });
+  if (!project) return [];
+
+  return db.projectTask.findMany({
+    where: {
+      projectId,
+      status: { not: "DONE" },
+    },
+    select: {
+      id: true,
+      title: true,
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+// ===========================================
+// TIMER
+// ===========================================
+
+// Start a timer
+export async function startTimer(data: {
+  projectId?: string;
+  taskId?: string;
+  serviceId?: string;
+  billable?: boolean;
+  note?: string;
+}) {
+  const { user } = await getCurrentUserAndOrg();
+  if (!user) throw new Error("Not authorized");
+
+  // Check if timer is already running
+  const currentUser = await db.user.findUnique({
+    where: { id: user.id },
+    select: { timerStartedAt: true },
+  });
+  if (currentUser?.timerStartedAt) {
+    throw new Error("Timer is already running. Stop it first.");
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      timerStartedAt: new Date(),
+      timerProjectId: data.projectId || null,
+      timerTaskId: data.taskId || null,
+      timerServiceId: data.serviceId || null,
+      timerBillable: data.billable ?? true,
+      timerNote: data.note || null,
+    },
+  });
+
+  revalidatePath("/");
+  return { success: true };
+}
+
+// Stop a timer and create time entry
+export async function stopTimer(data?: { note?: string }) {
+  const { user, organization } = await getCurrentUserAndOrg();
+  if (!user || !organization) throw new Error("Not authorized");
+
+  const result = await db.$transaction(async (tx) => {
+    const currentUser = await tx.user.findUnique({
+      where: { id: user.id },
+      select: {
+        timerStartedAt: true,
+        timerProjectId: true,
+        timerTaskId: true,
+        timerServiceId: true,
+        timerBillable: true,
+        timerNote: true,
+        timerProject: {
+          select: { clientId: true },
+        },
+        timerService: {
+          select: { pricingType: true, price: true },
+        },
+      },
+    });
+
+    if (!currentUser?.timerStartedAt) {
+      throw new Error("No timer running");
+    }
+
+    const startedAt = currentUser.timerStartedAt;
+    const now = new Date();
+    const durationMs = now.getTime() - startedAt.getTime();
+    const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
+
+    // Derive hourly rate from service
+    let hourlyRate: number | undefined;
+    if (currentUser.timerService?.pricingType === "HOURLY") {
+      hourlyRate = Number(currentUser.timerService.price);
+    }
+
+    const note = data?.note ?? currentUser.timerNote;
+
+    // Create time entry
+    const timeEntry = await tx.timeEntry.create({
+      data: {
+        organizationId: organization.id,
+        clientId: currentUser.timerProject?.clientId || null,
+        projectId: currentUser.timerProjectId,
+        serviceId: currentUser.timerServiceId,
+        taskId: currentUser.timerTaskId,
+        description: note || null,
+        date: startedAt,
+        startTime: startedAt,
+        endTime: now,
+        duration: durationMinutes,
+        billable: currentUser.timerBillable ?? true,
+        hourlyRate,
+        currency: organization.defaultCurrency,
+      },
+    });
+
+    // Clear timer fields
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        timerStartedAt: null,
+        timerProjectId: null,
+        timerTaskId: null,
+        timerServiceId: null,
+        timerBillable: null,
+        timerNote: null,
+      },
+    });
+
+    return timeEntry;
+  });
+
+  revalidatePath("/");
+  revalidatePath("/time");
+  if (result.projectId) revalidatePath(`/projects/${result.projectId}`);
+  return { success: true };
+}
+
+// Discard a timer without saving
+export async function discardTimer() {
+  const { user } = await getCurrentUserAndOrg();
+  if (!user) throw new Error("Not authorized");
+
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      timerStartedAt: null,
+      timerProjectId: null,
+      timerTaskId: null,
+      timerServiceId: null,
+      timerBillable: null,
+      timerNote: null,
+    },
+  });
+
+  revalidatePath("/");
+  return { success: true };
+}
+
+// Get the running timer state
+export async function getRunningTimer() {
+  const { user } = await getCurrentUserAndOrg();
+  if (!user) return null;
+
+  const currentUser = await db.user.findUnique({
+    where: { id: user.id },
+    select: {
+      timerStartedAt: true,
+      timerProjectId: true,
+      timerTaskId: true,
+      timerServiceId: true,
+      timerBillable: true,
+      timerNote: true,
+      timerProject: {
+        select: { id: true, name: true },
+      },
+      timerTask: {
+        select: { id: true, title: true },
+      },
+      timerService: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+
+  if (!currentUser?.timerStartedAt) return null;
+
+  return {
+    startedAt: currentUser.timerStartedAt,
+    projectId: currentUser.timerProjectId,
+    taskId: currentUser.timerTaskId,
+    serviceId: currentUser.timerServiceId,
+    billable: currentUser.timerBillable,
+    note: currentUser.timerNote,
+    project: currentUser.timerProject,
+    task: currentUser.timerTask,
+    service: currentUser.timerService,
+  };
 }
 
 // ===========================================

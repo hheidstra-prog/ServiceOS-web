@@ -23,6 +23,9 @@ import {
   FileArchive,
   File as FileDefault,
   Loader2,
+  Play,
+  Pencil,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,6 +36,13 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -41,7 +51,18 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { deleteProject, updateProject, createTask, updateTaskStatus, updateTask, deleteTask, deleteFile, toggleProjectPortalVisibility } from "../actions";
+import { deleteTimeEntry } from "../../time/actions";
+import { StartTimerDialog } from "../../time/start-timer-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TimeEntryDialog } from "../../time/time-entry-dialog";
 import { TaskStatus } from "@servible/database";
 
 interface Task {
@@ -52,6 +73,7 @@ interface Task {
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate: string | null;
   estimatedHours: number | null;
+  loggedMinutes: number;
   sortOrder: number;
   assignedTo: {
     id: string;
@@ -67,6 +89,8 @@ interface TimeEntry {
   id: string;
   description: string | null;
   date: string;
+  startTime: string | null;
+  endTime: string | null;
   duration: number;
   billable: boolean;
   billed: boolean;
@@ -76,6 +100,27 @@ interface TimeEntry {
     name: string;
     companyName: string | null;
   } | null;
+  project: {
+    id: string;
+    name: string;
+  } | null;
+  task: {
+    id: string;
+    title: string;
+  } | null;
+  service: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+interface ServiceOption {
+  id: string;
+  name: string;
+  pricingType: string;
+  price: unknown;
+  unit: string | null;
+  currency: string;
 }
 
 interface ProjectFile {
@@ -135,6 +180,7 @@ interface ProjectDetailProps {
   stats: ProjectStats | null;
   timeEntries: TimeEntry[];
   files: ProjectFile[];
+  services: ServiceOption[];
 }
 
 const STATUS_CONFIG = {
@@ -158,7 +204,7 @@ function formatDuration(minutes: number) {
   return `${hours}h ${mins}m`;
 }
 
-export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDetailProps) {
+export function ProjectDetail({ project, stats, timeEntries, files, services }: ProjectDetailProps) {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -369,7 +415,7 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
         </TabsContent>
 
         <TabsContent value="time">
-          <TimeTab projectId={project.id} timeEntries={timeEntries} />
+          <TimeTab projectId={project.id} clientId={project.client.id} timeEntries={timeEntries} services={services} tasks={project.tasks} />
         </TabsContent>
 
         <TabsContent value="files">
@@ -383,22 +429,49 @@ export function ProjectDetail({ project, stats, timeEntries, files }: ProjectDet
 
 function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
   const router = useRouter();
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
+  const { confirm, ConfirmDialog: TasksConfirmDialog } = useConfirm();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleAddTask = async () => {
-    if (!newTaskTitle.trim()) return;
+  const openNewTaskDialog = () => {
+    setEditingTask(null);
+    setDialogOpen(true);
+  };
 
-    setIsAdding(true);
+  const openEditTaskDialog = (task: Task) => {
+    setEditingTask(task);
+    setDialogOpen(true);
+  };
+
+  const handleSaveTask = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      title: (formData.get("title") as string).trim(),
+      description: (formData.get("description") as string) || undefined,
+      status: formData.get("status") as TaskStatus,
+      priority: formData.get("priority") as string,
+      dueDate: formData.get("dueDate") ? new Date(formData.get("dueDate") as string) : null,
+      estimatedHours: formData.get("estimatedHours") ? Number(formData.get("estimatedHours")) : null,
+    };
+    if (!data.title) return;
+
+    setIsSaving(true);
     try {
-      await createTask({ projectId, title: newTaskTitle.trim() });
-      setNewTaskTitle("");
-      toast.success("Task added");
+      if (editingTask) {
+        await updateTask(editingTask.id, data);
+        toast.success("Task updated");
+      } else {
+        await createTask({ projectId, ...data });
+        toast.success("Task added");
+      }
+      setDialogOpen(false);
       router.refresh();
     } catch {
-      toast.error("Failed to add task");
+      toast.error(editingTask ? "Failed to update task" : "Failed to add task");
     } finally {
-      setIsAdding(false);
+      setIsSaving(false);
     }
   };
 
@@ -412,6 +485,14 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
   };
 
   const handleDelete = async (taskId: string) => {
+    const ok = await confirm({
+      title: "Delete task",
+      description: "Are you sure you want to delete this task?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+
     try {
       await deleteTask(taskId);
       toast.success("Task deleted");
@@ -421,41 +502,26 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
     }
   };
 
-  const handleUpdateTask = async (taskId: string, data: Record<string, unknown>) => {
-    try {
-      await updateTask(taskId, data);
-      router.refresh();
-    } catch {
-      toast.error("Failed to update task");
-    }
-  };
-
   const todoTasks = tasks.filter((t) => t.status === "TODO");
   const inProgressTasks = tasks.filter((t) => t.status === "IN_PROGRESS");
   const doneTasks = tasks.filter((t) => t.status === "DONE");
 
   return (
+    <>{TasksConfirmDialog}
     <Card>
       <CardHeader>
-        <CardTitle>Tasks</CardTitle>
-        <CardDescription>Manage project tasks and track progress.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add Task */}
-        <div className="flex gap-2">
-          <Input
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
-            placeholder="Add a new task..."
-            disabled={isAdding}
-          />
-          <Button onClick={handleAddTask} disabled={isAdding || !newTaskTitle.trim()}>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Tasks</CardTitle>
+            <CardDescription>Manage project tasks and track progress.</CardDescription>
+          </div>
+          <Button onClick={openNewTaskDialog} size="sm">
             <Plus className="mr-1.5 h-4 w-4" />
-            Add
+            Add Task
           </Button>
         </div>
-
+      </CardHeader>
+      <CardContent className="space-y-4">
         {/* To Do */}
         {todoTasks.length > 0 && (
           <div className="space-y-2">
@@ -467,7 +533,7 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
                 key={task.id}
                 task={task}
                 onStatusChange={(status) => handleStatusChange(task.id, status)}
-                onUpdate={(data) => handleUpdateTask(task.id, data)}
+                onEdit={() => openEditTaskDialog(task)}
                 onDelete={() => handleDelete(task.id)}
               />
             ))}
@@ -485,7 +551,7 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
                 key={task.id}
                 task={task}
                 onStatusChange={(status) => handleStatusChange(task.id, status)}
-                onUpdate={(data) => handleUpdateTask(task.id, data)}
+                onEdit={() => openEditTaskDialog(task)}
                 onDelete={() => handleDelete(task.id)}
               />
             ))}
@@ -503,7 +569,7 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
                 key={task.id}
                 task={task}
                 onStatusChange={(status) => handleStatusChange(task.id, status)}
-                onUpdate={(data) => handleUpdateTask(task.id, data)}
+                onEdit={() => openEditTaskDialog(task)}
                 onDelete={() => handleDelete(task.id)}
               />
             ))}
@@ -512,66 +578,62 @@ function TasksTab({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
 
         {tasks.length === 0 && (
           <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            No tasks yet. Add your first task above.
+            No tasks yet. Click &quot;Add Task&quot; to create your first task.
           </p>
         )}
       </CardContent>
     </Card>
-  );
-}
 
-const TASK_STATUS_CONFIG = {
-  TODO: { label: "To Do", className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400", border: "border-zinc-200 dark:border-zinc-800" },
-  IN_PROGRESS: { label: "In Progress", className: "bg-sky-500/10 text-sky-700 dark:text-sky-400", border: "border-sky-200 dark:border-sky-800" },
-  DONE: { label: "Done", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800" },
-};
-
-function TaskItem({
-  task,
-  onStatusChange,
-  onUpdate,
-  onDelete,
-}: {
-  task: Task;
-  onStatusChange: (status: TaskStatus) => void;
-  onUpdate: (data: Record<string, unknown>) => void;
-  onDelete: () => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const isOverdue = task.dueDate && task.status !== "DONE" && new Date(task.dueDate) < new Date();
-  const isDone = task.status === "DONE";
-  const statusConfig = TASK_STATUS_CONFIG[task.status];
-
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    onUpdate({
-      title: formData.get("title") as string,
-      description: (formData.get("description") as string) || undefined,
-      priority: formData.get("priority") as string,
-      dueDate: formData.get("dueDate") ? new Date(formData.get("dueDate") as string) : null,
-      estimatedHours: formData.get("estimatedHours") ? Number(formData.get("estimatedHours")) : null,
-    });
-    setIsEditing(false);
-  };
-
-  if (isEditing) {
-    return (
-      <form onSubmit={handleSave} className="rounded-lg border border-zinc-950/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-950">
-        <div className="space-y-3">
-          <Input name="title" defaultValue={task.title} required placeholder="Task title" />
-          <textarea
-            name="description"
-            rows={2}
-            defaultValue={task.description || ""}
-            placeholder="Description (optional)"
-            className="flex w-full rounded-md border border-zinc-950/10 bg-white px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950/20 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20"
-          />
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-xs text-zinc-500 dark:text-zinc-400">Priority</label>
-              <Select name="priority" defaultValue={task.priority}>
-                <SelectTrigger className="h-8 text-xs">
+    {/* Task Dialog (create / edit) */}
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editingTask ? "Edit Task" : "New Task"}</DialogTitle>
+          <DialogDescription>
+            {editingTask ? "Update the task details below." : "Fill in the task details below."}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSaveTask} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="task-title">Title *</Label>
+            <Input
+              id="task-title"
+              name="title"
+              required
+              defaultValue={editingTask?.title ?? ""}
+              placeholder="Task title"
+              key={editingTask?.id ?? "new"}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="task-description">Description</Label>
+            <Textarea
+              id="task-description"
+              name="description"
+              rows={3}
+              defaultValue={editingTask?.description ?? ""}
+              placeholder="Optional description..."
+              key={`desc-${editingTask?.id ?? "new"}`}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select name="status" defaultValue={editingTask?.status ?? "TODO"} key={`status-${editingTask?.id ?? "new"}`}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TODO">To Do</SelectItem>
+                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                  <SelectItem value="DONE">Done</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select name="priority" defaultValue={editingTask?.priority ?? "MEDIUM"} key={`prio-${editingTask?.id ?? "new"}`}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -582,39 +644,67 @@ function TaskItem({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-xs text-zinc-500 dark:text-zinc-400">Due date</label>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="task-dueDate">Due Date</Label>
               <Input
+                id="task-dueDate"
                 name="dueDate"
                 type="date"
-                className="h-8 text-xs"
-                defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""}
+                defaultValue={editingTask?.dueDate ? new Date(editingTask.dueDate).toISOString().split("T")[0] : ""}
+                key={`due-${editingTask?.id ?? "new"}`}
               />
             </div>
-            <div>
-              <label className="text-xs text-zinc-500 dark:text-zinc-400">Est. hours</label>
+            <div className="space-y-2">
+              <Label htmlFor="task-estimatedHours">Estimated Hours</Label>
               <Input
+                id="task-estimatedHours"
                 name="estimatedHours"
                 type="number"
                 step="0.5"
-                className="h-8 text-xs"
-                defaultValue={task.estimatedHours ?? ""}
+                min="0"
+                defaultValue={editingTask?.estimatedHours ?? ""}
                 placeholder="0"
+                key={`hours-${editingTask?.id ?? "new"}`}
               />
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm">
-              Save
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving..." : editingTask ? "Save Changes" : "Create Task"}
             </Button>
           </div>
-        </div>
-      </form>
-    );
-  }
+        </form>
+      </DialogContent>
+    </Dialog>
+    </>
+  );
+}
+
+const TASK_STATUS_CONFIG = {
+  TODO: { label: "To Do", className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400" },
+  IN_PROGRESS: { label: "In Progress", className: "bg-sky-500/10 text-sky-700 dark:text-sky-400" },
+  DONE: { label: "Done", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+};
+
+function TaskItem({
+  task,
+  onStatusChange,
+  onEdit,
+  onDelete,
+}: {
+  task: Task;
+  onStatusChange: (status: TaskStatus) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const isOverdue = task.dueDate && task.status !== "DONE" && new Date(task.dueDate) < new Date();
+  const isDone = task.status === "DONE";
+  const statusConfig = TASK_STATUS_CONFIG[task.status];
 
   return (
     <div className={`flex items-start gap-3 rounded-lg border p-3 ${isDone ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" : "border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-950"}`}>
@@ -628,7 +718,7 @@ function TaskItem({
           <SelectItem value="DONE">Done</SelectItem>
         </SelectContent>
       </Select>
-      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setIsEditing(true)}>
+      <div className="min-w-0 flex-1 cursor-pointer" onClick={onEdit}>
         <p className={`font-medium ${isDone ? "text-zinc-500 line-through dark:text-zinc-400" : "text-zinc-950 dark:text-white"}`}>
           {task.title}
         </p>
@@ -647,10 +737,19 @@ function TaskItem({
               Due {new Date(task.dueDate).toLocaleDateString("nl-NL")}
             </span>
           )}
-          {task.estimatedHours && (
+          {(task.estimatedHours || task.loggedMinutes > 0) && (
             <span className="flex items-center gap-0.5 text-zinc-500 dark:text-zinc-400">
               <Clock className="h-3 w-3" />
-              {Number(task.estimatedHours)}h
+              {task.loggedMinutes > 0 && (
+                <span className={task.estimatedHours && task.loggedMinutes > task.estimatedHours * 60 ? "text-red-600 dark:text-red-400" : ""}>
+                  {Math.floor(task.loggedMinutes / 60)}h{task.loggedMinutes % 60 > 0 ? ` ${task.loggedMinutes % 60}m` : ""}
+                </span>
+              )}
+              {task.estimatedHours && (
+                <span>
+                  {task.loggedMinutes > 0 ? " / " : ""}{task.estimatedHours}h
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -662,70 +761,176 @@ function TaskItem({
   );
 }
 
-function TimeTab({ projectId, timeEntries }: { projectId: string; timeEntries: TimeEntry[] }) {
+function TimeTab({ projectId, clientId, timeEntries, services, tasks }: { projectId: string; clientId: string; timeEntries: TimeEntry[]; services: ServiceOption[]; tasks: Task[] }) {
+  const router = useRouter();
+  const { confirm, ConfirmDialog: TimeConfirmDialog } = useConfirm();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isTimerDialogOpen, setIsTimerDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const totalMinutes = timeEntries.reduce((sum, e) => sum + e.duration, 0);
   const billableMinutes = timeEntries.filter((e) => e.billable).reduce((sum, e) => sum + e.duration, 0);
 
+  // Build project list with client info for the dialog
+  const projectsForDialog = [
+    {
+      id: projectId,
+      name: "Current project",
+      client: { id: clientId, name: "", companyName: null },
+    },
+  ];
+
+  const handleEdit = (entry: TimeEntry) => {
+    setEditingEntry(entry);
+    setIsDialogOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingEntry(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      title: "Delete time entry",
+      description: "Are you sure you want to delete this time entry? This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteTimeEntry(id);
+      toast.success("Time entry deleted");
+      router.refresh();
+    } catch {
+      toast.error("Failed to delete time entry");
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Time Entries</CardTitle>
-            <CardDescription>
-              {formatDuration(totalMinutes)} total · {formatDuration(billableMinutes)} billable
-            </CardDescription>
+    <>{TimeConfirmDialog}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Time Entries</CardTitle>
+              <CardDescription>
+                {formatDuration(totalMinutes)} total · {formatDuration(billableMinutes)} billable
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsTimerDialogOpen(true)}>
+                <Play className="mr-1.5 h-4 w-4" />
+                Start Timer
+              </Button>
+              <Button size="sm" onClick={handleAdd}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Log Time
+              </Button>
+            </div>
           </div>
-          <Link href={`/time?projectId=${projectId}`}>
-            <Button variant="outline" size="sm">
-              <Plus className="mr-1.5 h-4 w-4" />
-              Log Time
-            </Button>
-          </Link>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {timeEntries.length === 0 ? (
-          <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            No time entries yet.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {timeEntries.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex items-center justify-between rounded-lg border border-zinc-950/10 p-3 dark:border-white/10"
-              >
-                <div>
-                  <p className="font-medium text-zinc-950 dark:text-white">
-                    {new Date(entry.date).toLocaleDateString("nl-NL", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </p>
-                  {entry.description && (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {entry.description}
+        </CardHeader>
+        <CardContent>
+          {timeEntries.length === 0 ? (
+            <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+              No time entries yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {timeEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between rounded-lg border border-zinc-950/10 p-3 dark:border-white/10"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-zinc-950 dark:text-white">
+                      {new Date(entry.date).toLocaleDateString("nl-NL", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      })}
                     </p>
-                  )}
+                    <div className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                      {entry.task && (
+                        <span className="text-zinc-700 dark:text-zinc-300">{entry.task.title}</span>
+                      )}
+                      {entry.task && entry.service && (
+                        <span>·</span>
+                      )}
+                      {entry.service && (
+                        <span>{entry.service.name}</span>
+                      )}
+                    </div>
+                    {entry.description && (
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 truncate">
+                        {entry.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {entry.billable && (
+                      <Badge variant="secondary" className="text-xs">
+                        {entry.billed ? "Billed" : "Billable"}
+                      </Badge>
+                    )}
+                    <span className="font-medium text-zinc-950 dark:text-white">
+                      {formatDuration(entry.duration)}
+                    </span>
+                    {!entry.billed && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-xs">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(entry)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(entry.id)}
+                            variant="destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {entry.billable && (
-                    <Badge variant="secondary" className="text-xs">
-                      {entry.billed ? "Billed" : "Billable"}
-                    </Badge>
-                  )}
-                  <span className="font-medium text-zinc-950 dark:text-white">
-                    {formatDuration(entry.duration)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <TimeEntryDialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingEntry(null);
+        }}
+        editingEntry={editingEntry}
+        preselectedDate={null}
+        clients={[]}
+        projects={projectsForDialog}
+        services={services}
+        preselectedProjectId={projectId}
+        preselectedClientId={clientId}
+        hideProjectFields
+      />
+
+      <StartTimerDialog
+        open={isTimerDialogOpen}
+        onOpenChange={setIsTimerDialogOpen}
+        services={services}
+        projectId={projectId}
+        clientId={clientId}
+        hideProjectFields
+      />
+    </>
   );
 }
 
