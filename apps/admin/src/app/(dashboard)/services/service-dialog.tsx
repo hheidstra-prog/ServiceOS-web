@@ -24,7 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createService, updateService } from "./actions";
-import { PricingType } from "@serviceos/database";
+import { PricingType, TaxType } from "@servible/database";
+import { TAX_TYPE_OPTIONS } from "@/lib/tax-utils";
 
 interface Service {
   id: string;
@@ -34,8 +35,7 @@ interface Service {
   price: number;
   currency: string;
   unit: string | null;
-  taxRate: number | null;
-  taxExempt: boolean;
+  taxType: TaxType;
   isActive: boolean;
 }
 
@@ -63,8 +63,7 @@ export function ServiceDialog({ open, onOpenChange, editingService }: ServiceDia
   const [pricingType, setPricingType] = useState<PricingType>("FIXED");
   const [price, setPrice] = useState("");
   const [unit, setUnit] = useState("");
-  const [taxRate, setTaxRate] = useState("");
-  const [taxExempt, setTaxExempt] = useState(false);
+  const [taxType, setTaxType] = useState<TaxType>("STANDARD");
   const [isActive, setIsActive] = useState(true);
 
   // Populate form when editing
@@ -75,8 +74,7 @@ export function ServiceDialog({ open, onOpenChange, editingService }: ServiceDia
       setPricingType(editingService.pricingType);
       setPrice(editingService.price.toString());
       setUnit(editingService.unit || "");
-      setTaxRate(editingService.taxRate?.toString() || "");
-      setTaxExempt(editingService.taxExempt);
+      setTaxType(editingService.taxType);
       setIsActive(editingService.isActive);
     } else {
       resetForm();
@@ -89,8 +87,7 @@ export function ServiceDialog({ open, onOpenChange, editingService }: ServiceDia
     setPricingType("FIXED");
     setPrice("");
     setUnit("");
-    setTaxRate("");
-    setTaxExempt(false);
+    setTaxType("STANDARD");
     setIsActive(true);
   };
 
@@ -118,8 +115,7 @@ export function ServiceDialog({ open, onOpenChange, editingService }: ServiceDia
           pricingType,
           price: priceNum,
           unit: unit || undefined,
-          taxRate: taxRate ? parseFloat(taxRate) : undefined,
-          taxExempt,
+          taxType,
           isActive,
         });
         toast.success("Service updated");
@@ -130,8 +126,7 @@ export function ServiceDialog({ open, onOpenChange, editingService }: ServiceDia
           pricingType,
           price: priceNum,
           unit: unit || undefined,
-          taxRate: taxRate ? parseFloat(taxRate) : undefined,
-          taxExempt,
+          taxType,
         });
         toast.success("Service created");
       }
@@ -248,35 +243,20 @@ export function ServiceDialog({ open, onOpenChange, editingService }: ServiceDia
             </div>
           </div>
 
-          <div className="space-y-4 rounded-lg border border-zinc-950/10 p-4 dark:border-white/10">
-            <h4 className="text-sm font-medium text-zinc-950 dark:text-white">Tax Settings</h4>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="taxExempt">Tax Exempt</Label>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  This service is exempt from VAT
-                </p>
-              </div>
-              <Switch id="taxExempt" checked={taxExempt} onCheckedChange={setTaxExempt} />
-            </div>
-
-            {!taxExempt && (
-              <div className="space-y-2">
-                <Label htmlFor="taxRate">Custom Tax Rate (%)</Label>
-                <Select value={taxRate} onValueChange={setTaxRate}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Use default rate" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Use default rate</SelectItem>
-                    <SelectItem value="21">21% (Standard)</SelectItem>
-                    <SelectItem value="9">9% (Reduced)</SelectItem>
-                    <SelectItem value="0">0% (Zero)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          <div className="space-y-2">
+            <Label htmlFor="taxType">VAT Rate</Label>
+            <Select value={taxType} onValueChange={(v) => setTaxType(v as TaxType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TAX_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {editingService && (

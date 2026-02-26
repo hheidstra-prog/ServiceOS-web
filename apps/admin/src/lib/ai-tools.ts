@@ -726,7 +726,7 @@ async function createInvoice(
     select: { defaultTaxRate: true, defaultPaymentTermDays: true, defaultCurrency: true },
   });
 
-  const taxRate = Number(org?.defaultTaxRate || 21);
+  const defaultTaxRate = Number(org?.defaultTaxRate || 21);
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + (org?.defaultPaymentTermDays || 30));
 
@@ -739,7 +739,7 @@ async function createInvoice(
 
   const invoiceItems = items.map((item, index) => {
     const itemSubtotal = item.quantity * item.unitPrice;
-    const itemTax = itemSubtotal * (taxRate / 100);
+    const itemTax = itemSubtotal * (defaultTaxRate / 100);
     const itemTotal = itemSubtotal + itemTax;
 
     subtotal += itemSubtotal;
@@ -750,7 +750,8 @@ async function createInvoice(
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
-      taxRate,
+      taxRate: defaultTaxRate,
+      taxType: "STANDARD" as const,
       subtotal: itemSubtotal,
       taxAmount: itemTax,
       total: itemTotal,
@@ -893,7 +894,7 @@ async function createQuote(
     select: { defaultTaxRate: true, defaultCurrency: true },
   });
 
-  const taxRate = Number(org?.defaultTaxRate || 21);
+  const defaultTaxRate = Number(org?.defaultTaxRate || 21);
 
   // Create quote
   const items = (input.items as Array<{ description: string; quantity: number; unitPrice: number }>) || [];
@@ -904,7 +905,7 @@ async function createQuote(
 
   const quoteItems = items.map((item, index) => {
     const itemSubtotal = item.quantity * item.unitPrice;
-    const itemTax = itemSubtotal * (taxRate / 100);
+    const itemTax = itemSubtotal * (defaultTaxRate / 100);
     const itemTotal = itemSubtotal + itemTax;
 
     subtotal += itemSubtotal;
@@ -915,7 +916,8 @@ async function createQuote(
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
-      taxRate,
+      taxRate: defaultTaxRate,
+      taxType: "STANDARD" as const,
       subtotal: itemSubtotal,
       taxAmount: itemTax,
       total: itemTotal,

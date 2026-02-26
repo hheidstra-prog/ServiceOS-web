@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { addQuoteItem, updateQuoteItem, getServicesForSelect } from "../actions";
-import { PricingType } from "@serviceos/database";
+import { PricingType, TaxType } from "@servible/database";
+import { TAX_TYPE_OPTIONS, taxRateFromType } from "@/lib/tax-utils";
 
 interface Service {
   id: string;
@@ -31,6 +32,7 @@ interface Service {
   price: { toNumber(): number } | number;
   pricingType: PricingType;
   unit: string | null;
+  taxType: TaxType;
 }
 
 interface QuoteItem {
@@ -39,6 +41,7 @@ interface QuoteItem {
   quantity: number;
   unitPrice: number;
   taxRate: number;
+  taxType: TaxType;
   isOptional: boolean;
   isSelected: boolean;
   service: { id: string; name: string } | null;
@@ -74,7 +77,7 @@ export function QuoteItemDialog({
   const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unitPrice, setUnitPrice] = useState("");
-  const [taxRate, setTaxRate] = useState("21");
+  const [taxType, setTaxType] = useState<TaxType>("STANDARD");
   const [isOptional, setIsOptional] = useState(false);
 
   // Load services
@@ -92,7 +95,7 @@ export function QuoteItemDialog({
       setDescription(editingItem.description);
       setQuantity(editingItem.quantity.toString());
       setUnitPrice(editingItem.unitPrice.toString());
-      setTaxRate(editingItem.taxRate.toString());
+      setTaxType(editingItem.taxType);
       setIsOptional(editingItem.isOptional);
       setSelectedServiceId(editingItem.service?.id || "");
     } else {
@@ -100,7 +103,7 @@ export function QuoteItemDialog({
       setDescription("");
       setQuantity("1");
       setUnitPrice("");
-      setTaxRate("21");
+      setTaxType("STANDARD");
       setIsOptional(false);
       setSelectedServiceId("");
     }
@@ -115,6 +118,7 @@ export function QuoteItemDialog({
         setDescription(service.name);
         const price = typeof service.price === 'number' ? service.price : service.price.toNumber();
         setUnitPrice(price.toString());
+        setTaxType(service.taxType);
       }
     }
   };
@@ -129,7 +133,6 @@ export function QuoteItemDialog({
 
     const qty = parseFloat(quantity);
     const price = parseFloat(unitPrice);
-    const tax = parseFloat(taxRate);
 
     if (isNaN(qty) || qty <= 0) {
       toast.error("Quantity must be greater than 0");
@@ -149,7 +152,7 @@ export function QuoteItemDialog({
           description,
           quantity: qty,
           unitPrice: price,
-          taxRate: tax,
+          taxType,
           isOptional,
         });
         toast.success("Item updated");
@@ -158,7 +161,7 @@ export function QuoteItemDialog({
           description,
           quantity: qty,
           unitPrice: price,
-          taxRate: tax,
+          taxType,
           isOptional,
           serviceId: selectedServiceId && selectedServiceId !== "custom" ? selectedServiceId : undefined,
         });
@@ -175,9 +178,9 @@ export function QuoteItemDialog({
   // Calculate preview
   const qty = parseFloat(quantity) || 0;
   const price = parseFloat(unitPrice) || 0;
-  const tax = parseFloat(taxRate) || 0;
+  const taxRate = taxRateFromType(taxType);
   const subtotal = qty * price;
-  const taxAmount = subtotal * (tax / 100);
+  const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
 
   return (
@@ -252,17 +255,19 @@ export function QuoteItemDialog({
             </div>
           </div>
 
-          {/* Tax Rate */}
+          {/* VAT Rate */}
           <div className="space-y-2">
-            <Label htmlFor="taxRate">Tax Rate (%)</Label>
-            <Select value={taxRate} onValueChange={setTaxRate}>
+            <Label htmlFor="taxType">VAT Rate</Label>
+            <Select value={taxType} onValueChange={(v) => setTaxType(v as TaxType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="21">21% (Standard)</SelectItem>
-                <SelectItem value="9">9% (Reduced)</SelectItem>
-                <SelectItem value="0">0% (Zero/Exempt)</SelectItem>
+                {TAX_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -290,7 +295,7 @@ export function QuoteItemDialog({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500 dark:text-zinc-400">Tax ({tax}%)</span>
+                  <span className="text-zinc-500 dark:text-zinc-400">VAT ({taxRate}%)</span>
                   <span className="text-zinc-950 dark:text-white">
                     {formatCurrency(taxAmount, currency)}
                   </span>

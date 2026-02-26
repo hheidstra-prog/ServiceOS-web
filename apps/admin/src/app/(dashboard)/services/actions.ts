@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
-import { PricingType } from "@serviceos/database";
+import { PricingType, TaxType } from "@servible/database";
 
 // Get all services for the organization
 export async function getServices() {
@@ -52,8 +52,7 @@ export async function createService(data: {
   pricingType: PricingType;
   price: number;
   unit?: string;
-  taxRate?: number;
-  taxExempt?: boolean;
+  taxType?: TaxType;
 }) {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
@@ -67,8 +66,7 @@ export async function createService(data: {
       price: data.price,
       currency: organization.defaultCurrency,
       unit: data.unit,
-      taxRate: data.taxRate,
-      taxExempt: data.taxExempt ?? false,
+      taxType: data.taxType ?? "STANDARD",
     },
   });
 
@@ -85,8 +83,7 @@ export async function updateService(
     pricingType?: PricingType;
     price?: number;
     unit?: string;
-    taxRate?: number;
-    taxExempt?: boolean;
+    taxType?: TaxType;
     isActive?: boolean;
   }
 ) {
@@ -101,8 +98,7 @@ export async function updateService(
       pricingType: data.pricingType,
       price: data.price,
       unit: data.unit,
-      taxRate: data.taxRate,
-      taxExempt: data.taxExempt,
+      taxType: data.taxType,
       isActive: data.isActive,
     },
   });
@@ -167,8 +163,7 @@ export async function duplicateService(id: string) {
       price: original.price,
       currency: original.currency,
       unit: original.unit,
-      taxRate: original.taxRate,
-      taxExempt: original.taxExempt,
+      taxType: original.taxType,
     },
   });
 

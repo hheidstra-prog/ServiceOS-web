@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
-import { InvoiceStatus } from "@serviceos/database";
+import { InvoiceStatus, TaxType } from "@servible/database";
+import { taxRateFromType } from "@/lib/tax-utils";
 
 // Get all invoices for the organization
 export async function getInvoices() {
@@ -123,7 +124,7 @@ export async function createInvoice(data: {
   });
 
   revalidatePath("/invoices");
-  return invoice;
+  return { id: invoice.id };
 }
 
 // Update invoice details
@@ -151,7 +152,6 @@ export async function updateInvoice(
 
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
-  return invoice;
 }
 
 // Delete an invoice
@@ -173,6 +173,7 @@ export async function addInvoiceItem(
     description: string;
     quantity: number;
     unitPrice: number;
+    taxType?: TaxType;
     taxRate?: number;
     serviceId?: string;
   }
@@ -186,7 +187,8 @@ export async function addInvoiceItem(
   });
   if (!invoice) throw new Error("Invoice not found");
 
-  const taxRate = data.taxRate ?? Number(organization.defaultTaxRate);
+  const taxType = data.taxType ?? "STANDARD";
+  const taxRate = data.taxRate ?? taxRateFromType(taxType);
   const subtotal = data.quantity * data.unitPrice;
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
@@ -206,6 +208,7 @@ export async function addInvoiceItem(
       quantity: data.quantity,
       unitPrice: data.unitPrice,
       taxRate,
+      taxType,
       subtotal,
       taxAmount,
       total,
@@ -228,6 +231,7 @@ export async function updateInvoiceItem(
     description?: string;
     quantity?: number;
     unitPrice?: number;
+    taxType?: TaxType;
     taxRate?: number;
   }
 ) {
@@ -244,9 +248,10 @@ export async function updateInvoiceItem(
   const currentItem = await db.invoiceItem.findUnique({ where: { id: itemId } });
   if (!currentItem) throw new Error("Item not found");
 
+  const taxType = data.taxType ?? currentItem.taxType;
   const quantity = data.quantity ?? Number(currentItem.quantity);
   const unitPrice = data.unitPrice ?? Number(currentItem.unitPrice);
-  const taxRate = data.taxRate ?? Number(currentItem.taxRate);
+  const taxRate = data.taxRate ?? taxRateFromType(taxType);
 
   const subtotal = quantity * unitPrice;
   const taxAmount = subtotal * (taxRate / 100);
@@ -258,6 +263,7 @@ export async function updateInvoiceItem(
       description: data.description,
       quantity,
       unitPrice,
+      taxType,
       taxRate,
       subtotal,
       taxAmount,
@@ -308,7 +314,7 @@ async function recalculateInvoiceTotals(invoiceId: string) {
 }
 
 // Send invoice to client
-export async function sendInvoice(id: string) {
+export async function finalizeInvoice(id: string) {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
 
@@ -323,11 +329,11 @@ export async function sendInvoice(id: string) {
     },
   });
 
-  // Update client status
-  if (invoice.client.status === "ACTIVE" || invoice.client.status === "COMPLETED") {
+  // Promote to CLIENT status if not already
+  if (invoice.client.status !== "CLIENT" && invoice.client.status !== "ARCHIVED") {
     await db.client.update({
       where: { id: invoice.clientId },
-      data: { status: "INVOICED" },
+      data: { status: "CLIENT" },
     });
   }
 
@@ -336,7 +342,6 @@ export async function sendInvoice(id: string) {
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
   revalidatePath("/clients");
-  return invoice;
 }
 
 // Record payment
@@ -367,30 +372,20 @@ export async function recordPayment(
     newStatus = invoice.status;
   }
 
-  const updated = await db.invoice.update({
+  await db.invoice.update({
     where: { id, organizationId: organization.id },
     data: {
       paidAmount: newPaidAmount,
       paidAt: newPaidAmount >= total ? (data.paidAt || new Date()) : null,
       status: newStatus,
     },
-    include: {
-      client: true,
-    },
   });
 
-  // Update client status if fully paid
-  if (newStatus === "PAID") {
-    await db.client.update({
-      where: { id: invoice.clientId },
-      data: { status: "PAID" },
-    });
-  }
+  // Payment status is tracked on the invoice itself — no client status change needed
 
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
   revalidatePath("/clients");
-  return updated;
 }
 
 // Duplicate an invoice
@@ -430,6 +425,7 @@ export async function duplicateInvoice(id: string) {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           taxRate: item.taxRate,
+          taxType: item.taxType,
           subtotal: item.subtotal,
           taxAmount: item.taxAmount,
           total: item.total,
@@ -440,7 +436,7 @@ export async function duplicateInvoice(id: string) {
   });
 
   revalidatePath("/invoices");
-  return newInvoice;
+  return { id: newInvoice.id };
 }
 
 // Create invoice from quote
@@ -483,6 +479,7 @@ export async function createInvoiceFromQuote(quoteId: string) {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           taxRate: item.taxRate,
+          taxType: item.taxType,
           subtotal: item.subtotal,
           taxAmount: item.taxAmount,
           total: item.total,
@@ -494,7 +491,7 @@ export async function createInvoiceFromQuote(quoteId: string) {
 
   revalidatePath("/invoices");
   revalidatePath("/quotes");
-  return invoice;
+  return { id: invoice.id };
 }
 
 // Mark invoice as overdue (typically called by a cron job)
@@ -516,6 +513,20 @@ export async function markOverdueInvoices() {
   });
 
   revalidatePath("/invoices");
+}
+
+// Toggle portal visibility
+export async function toggleInvoicePortalVisibility(id: string, portalVisible: boolean) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) throw new Error("Not authorized");
+
+  await db.invoice.update({
+    where: { id, organizationId: organization.id },
+    data: { portalVisible },
+  });
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${id}`);
 }
 
 // Get clients for dropdown
@@ -553,6 +564,7 @@ export async function getServicesForSelect() {
       price: true,
       pricingType: true,
       unit: true,
+      taxType: true,
     },
     orderBy: { name: "asc" },
   });

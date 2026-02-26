@@ -8,7 +8,6 @@ export default async function ServicesPage() {
   const serializedServices = services.map((service) => ({
     ...service,
     price: Number(service.price),
-    taxRate: service.taxRate ? Number(service.taxRate) : null,
   }));
 
   return <ServicesList services={serializedServices} />;

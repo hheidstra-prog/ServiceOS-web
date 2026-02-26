@@ -739,7 +739,7 @@ async function executeAssistantTool(
         },
       });
 
-      const taxRate = Number(org?.defaultTaxRate || 21);
+      const defaultTaxRate = Number(org?.defaultTaxRate || 21);
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + (org?.defaultPaymentTermDays || 30));
 
@@ -756,7 +756,7 @@ async function executeAssistantTool(
 
       const invoiceItems = items.map((item, index) => {
         const itemSubtotal = item.quantity * item.unitPrice;
-        const itemTax = itemSubtotal * (taxRate / 100);
+        const itemTax = itemSubtotal * (defaultTaxRate / 100);
         const itemTotal = itemSubtotal + itemTax;
         subtotal += itemSubtotal;
         taxAmount += itemTax;
@@ -765,7 +765,8 @@ async function executeAssistantTool(
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          taxRate,
+          taxRate: defaultTaxRate,
+          taxType: "STANDARD" as const,
           subtotal: itemSubtotal,
           taxAmount: itemTax,
           total: itemTotal,
@@ -1153,7 +1154,7 @@ async function executeAssistantTool(
         select: { defaultTaxRate: true, defaultCurrency: true },
       });
 
-      const taxRate = Number(org?.defaultTaxRate || 21);
+      const defaultTaxRate = Number(org?.defaultTaxRate || 21);
       const items =
         (input.items as Array<{
           description: string;
@@ -1167,7 +1168,7 @@ async function executeAssistantTool(
 
       const quoteItems = items.map((item, index) => {
         const itemSubtotal = item.quantity * item.unitPrice;
-        const itemTax = itemSubtotal * (taxRate / 100);
+        const itemTax = itemSubtotal * (defaultTaxRate / 100);
         const itemTotal = itemSubtotal + itemTax;
         subtotal += itemSubtotal;
         taxAmount += itemTax;
@@ -1176,7 +1177,8 @@ async function executeAssistantTool(
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          taxRate,
+          taxRate: defaultTaxRate,
+          taxType: "STANDARD" as const,
           subtotal: itemSubtotal,
           taxAmount: itemTax,
           total: itemTotal,

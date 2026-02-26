@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getInvoice } from "../actions";
 import { InvoiceDetail } from "./invoice-detail";
+import { getCurrentUserAndOrg } from "@/lib/auth";
 
 interface InvoicePageProps {
   params: Promise<{ id: string }>;
@@ -11,7 +12,10 @@ interface InvoicePageProps {
 
 export default async function InvoicePage({ params }: InvoicePageProps) {
   const { id } = await params;
-  const invoice = await getInvoice(id);
+  const [invoice, { organization }] = await Promise.all([
+    getInvoice(id),
+    getCurrentUserAndOrg(),
+  ]);
 
   if (!invoice) {
     notFound();
@@ -54,7 +58,7 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
         </div>
       </div>
 
-      <InvoiceDetail invoice={serializedInvoice} />
+      <InvoiceDetail invoice={serializedInvoice} orgVatNumber={organization?.vatNumber} />
     </div>
   );
 }

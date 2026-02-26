@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
-import { QuoteStatus } from "@serviceos/database";
+import { QuoteStatus, TaxType } from "@servible/database";
+import { taxRateFromType } from "@/lib/tax-utils";
 
 // Get all quotes for the organization
 export async function getQuotes() {
@@ -167,6 +168,7 @@ export async function addQuoteItem(
     description: string;
     quantity: number;
     unitPrice: number;
+    taxType?: TaxType;
     taxRate?: number;
     isOptional?: boolean;
     serviceId?: string;
@@ -181,7 +183,8 @@ export async function addQuoteItem(
   });
   if (!quote) throw new Error("Quote not found");
 
-  const taxRate = data.taxRate ?? Number(organization.defaultTaxRate);
+  const taxType = data.taxType ?? "STANDARD";
+  const taxRate = data.taxRate ?? taxRateFromType(taxType);
   const subtotal = data.quantity * data.unitPrice;
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
@@ -201,6 +204,7 @@ export async function addQuoteItem(
       quantity: data.quantity,
       unitPrice: data.unitPrice,
       taxRate,
+      taxType,
       subtotal,
       taxAmount,
       total,
@@ -224,6 +228,7 @@ export async function updateQuoteItem(
     description?: string;
     quantity?: number;
     unitPrice?: number;
+    taxType?: TaxType;
     taxRate?: number;
     isOptional?: boolean;
     isSelected?: boolean;
@@ -242,9 +247,10 @@ export async function updateQuoteItem(
   const currentItem = await db.quoteItem.findUnique({ where: { id: itemId } });
   if (!currentItem) throw new Error("Item not found");
 
+  const taxType = data.taxType ?? currentItem.taxType;
   const quantity = data.quantity ?? Number(currentItem.quantity);
   const unitPrice = data.unitPrice ?? Number(currentItem.unitPrice);
-  const taxRate = data.taxRate ?? Number(currentItem.taxRate);
+  const taxRate = data.taxRate ?? taxRateFromType(taxType);
 
   const subtotal = quantity * unitPrice;
   const taxAmount = subtotal * (taxRate / 100);
@@ -256,6 +262,7 @@ export async function updateQuoteItem(
       description: data.description,
       quantity,
       unitPrice,
+      taxType,
       taxRate,
       subtotal,
       taxAmount,
@@ -327,11 +334,11 @@ export async function sendQuote(id: string) {
     },
   });
 
-  // Update client status if they're a lead
+  // Promote lead to prospect when sending a quote
   if (quote.client.status === "LEAD") {
     await db.client.update({
       where: { id: quote.clientId },
-      data: { status: "QUOTE_SENT" },
+      data: { status: "PROSPECT" },
     });
   }
 
@@ -376,6 +383,7 @@ export async function duplicateQuote(id: string) {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           taxRate: item.taxRate,
+          taxType: item.taxType,
           subtotal: item.subtotal,
           taxAmount: item.taxAmount,
           total: item.total,
@@ -426,6 +434,7 @@ export async function getServicesForSelect() {
       price: true,
       pricingType: true,
       unit: true,
+      taxType: true,
     },
     orderBy: { name: "asc" },
   });

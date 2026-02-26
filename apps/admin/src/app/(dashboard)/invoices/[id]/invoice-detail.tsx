@@ -14,9 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { InvoiceStatus } from "@serviceos/database";
-import { deleteInvoice, deleteInvoiceItem, duplicateInvoice, sendInvoice } from "../actions";
+import { InvoiceStatus, TaxType } from "@servible/database";
+import { TAX_TYPE_CONFIG } from "@/lib/tax-utils";
+import { deleteInvoice, deleteInvoiceItem, duplicateInvoice, finalizeInvoice, toggleInvoicePortalVisibility } from "../actions";
 import { InvoiceItemDialog } from "./invoice-item-dialog";
 import { RecordPaymentDialog } from "../record-payment-dialog";
 
@@ -26,6 +29,7 @@ interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   taxRate: number;
+  taxType: TaxType;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -47,6 +51,7 @@ interface Invoice {
   currency: string;
   sentAt: Date | null;
   paidAt: Date | null;
+  portalVisible: boolean;
   client: {
     id: string;
     name: string;
@@ -65,6 +70,7 @@ interface Invoice {
 
 interface InvoiceDetailProps {
   invoice: Invoice;
+  orgVatNumber?: string | null;
 }
 
 const statusConfig: Record<InvoiceStatus, { label: string; className: string; borderColor: string }> = {
@@ -126,7 +132,7 @@ function formatDate(date: Date | null) {
   });
 }
 
-export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
+export function InvoiceDetail({ invoice, orgVatNumber }: InvoiceDetailProps) {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
@@ -138,12 +144,12 @@ export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
   const canEdit = invoice.status === "DRAFT";
   const canRecordPayment = ["SENT", "VIEWED", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.status);
 
-  const handleSend = async () => {
+  const handleFinalize = async () => {
     try {
-      await sendInvoice(invoice.id);
-      toast.success("Invoice sent");
+      await finalizeInvoice(invoice.id);
+      toast.success("Invoice finalized");
     } catch {
-      toast.error("Failed to send invoice");
+      toast.error("Failed to finalize invoice");
     }
   };
 
@@ -210,9 +216,9 @@ export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
             </div>
             <div className="flex gap-2">
               {invoice.status === "DRAFT" && (
-                <Button onClick={handleSend} size="sm">
+                <Button onClick={handleFinalize} size="sm">
                   <Send className="mr-1.5 h-4 w-4" />
-                  Send
+                  Finalize
                 </Button>
               )}
               {canRecordPayment && (
@@ -343,52 +349,102 @@ export function InvoiceDetail({ invoice }: InvoiceDetailProps) {
             )}
 
             {/* Totals */}
-            {invoice.items.length > 0 && (
-              <div className="mt-4 border-t border-zinc-950/10 pt-4 dark:border-white/10">
-                <div className="ml-auto max-w-xs space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
-                    <span className="text-zinc-950 dark:text-white">
-                      {formatCurrency(invoice.subtotal, invoice.currency)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-zinc-500 dark:text-zinc-400">Tax</span>
-                    <span className="text-zinc-950 dark:text-white">
-                      {formatCurrency(invoice.taxAmount, invoice.currency)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t border-zinc-950/10 pt-2 text-base font-medium dark:border-white/10">
-                    <span className="text-zinc-950 dark:text-white">Total</span>
-                    <span className="text-zinc-950 dark:text-white">
-                      {formatCurrency(invoice.total, invoice.currency)}
-                    </span>
-                  </div>
-                  {invoice.paidAmount > 0 && (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500 dark:text-zinc-400">Paid</span>
-                        <span className="text-emerald-600 dark:text-emerald-400">
-                          -{formatCurrency(invoice.paidAmount, invoice.currency)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-t border-zinc-950/10 pt-2 text-base font-medium dark:border-white/10">
-                        <span className="text-zinc-950 dark:text-white">Balance Due</span>
+            {invoice.items.length > 0 && (() => {
+              // Group tax amounts by taxType
+              const vatGroups = invoice.items.reduce<Record<string, { label: string; rate: number; amount: number }>>((acc, item) => {
+                const type = item.taxType || "STANDARD";
+                const config = TAX_TYPE_CONFIG[type as keyof typeof TAX_TYPE_CONFIG];
+                if (!acc[type]) {
+                  acc[type] = { label: config?.label || `${item.taxRate}%`, rate: item.taxRate, amount: 0 };
+                }
+                acc[type].amount += item.taxAmount;
+                return acc;
+              }, {});
+              const vatLines = Object.entries(vatGroups);
+              const hasReverseCharge = invoice.items.some((item) => item.taxType === "REVERSE_CHARGE");
+
+              return (
+                <div className="mt-4 border-t border-zinc-950/10 pt-4 dark:border-white/10">
+                  <div className="ml-auto max-w-xs space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
+                      <span className="text-zinc-950 dark:text-white">
+                        {formatCurrency(invoice.subtotal, invoice.currency)}
+                      </span>
+                    </div>
+                    {vatLines.map(([type, group]) => (
+                      <div key={type} className="flex justify-between text-sm">
+                        <span className="text-zinc-500 dark:text-zinc-400">VAT {group.label}</span>
                         <span className="text-zinc-950 dark:text-white">
-                          {formatCurrency(remaining, invoice.currency)}
+                          {formatCurrency(group.amount, invoice.currency)}
                         </span>
                       </div>
-                    </>
+                    ))}
+                    <div className="flex justify-between border-t border-zinc-950/10 pt-2 text-base font-medium dark:border-white/10">
+                      <span className="text-zinc-950 dark:text-white">Total</span>
+                      <span className="text-zinc-950 dark:text-white">
+                        {formatCurrency(invoice.total, invoice.currency)}
+                      </span>
+                    </div>
+                    {invoice.paidAmount > 0 && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-zinc-500 dark:text-zinc-400">Paid</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            -{formatCurrency(invoice.paidAmount, invoice.currency)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-zinc-950/10 pt-2 text-base font-medium dark:border-white/10">
+                          <span className="text-zinc-950 dark:text-white">Balance Due</span>
+                          <span className="text-zinc-950 dark:text-white">
+                            {formatCurrency(remaining, invoice.currency)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {hasReverseCharge && (
+                    <div className="mt-4 rounded-md border border-zinc-950/10 bg-zinc-50 p-3 text-xs text-zinc-500 dark:border-white/10 dark:bg-zinc-800/50 dark:text-zinc-400">
+                      <p className="font-medium">VAT reverse charged / BTW verlegd</p>
+                      {orgVatNumber && <p>Supplier VAT: {orgVatNumber}</p>}
+                      {invoice.client.vatNumber && <p>Client VAT: {invoice.client.vatNumber}</p>}
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
 
       {/* Sidebar */}
       <div className="space-y-6">
+        {/* Portal Visibility */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="portalVisible">Client Portal</Label>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Show this invoice on the client portal
+                </p>
+              </div>
+              <Switch
+                id="portalVisible"
+                checked={invoice.portalVisible}
+                onCheckedChange={async (checked) => {
+                  try {
+                    await toggleInvoicePortalVisibility(invoice.id, checked);
+                    toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                  } catch {
+                    toast.error("Failed to update visibility");
+                  }
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Invoice Info */}
         <Card>
           <CardHeader className="pb-2">

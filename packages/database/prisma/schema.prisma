@@ -591,8 +591,7 @@ model Service {
   unit           String?     // "hour", "day", "session", etc.
 
   // Tax
-  taxRate        Decimal?    @db.Decimal(5, 2) // Override org default
-  taxExempt      Boolean     @default(false)
+  taxType        TaxType     @default(STANDARD)
 
   isActive       Boolean     @default(true)
 
@@ -812,6 +811,7 @@ model QuoteItem {
 
   // Tax
   taxRate     Decimal  @db.Decimal(5, 2) @default(21)
+  taxType     TaxType  @default(STANDARD)
 
   // Calculated
   subtotal    Decimal  @db.Decimal(10, 2)

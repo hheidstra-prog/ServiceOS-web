@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PricingType } from "@serviceos/database";
+import { PricingType, TaxType } from "@servible/database";
 import { deleteService, duplicateService, updateService } from "./actions";
 import { ServiceDialog } from "./service-dialog";
 
@@ -36,8 +36,7 @@ interface Service {
   price: number;
   currency: string;
   unit: string | null;
-  taxRate: number | null;
-  taxExempt: boolean;
+  taxType: TaxType;
   isActive: boolean;
   _count: {
     quoteItems: number;

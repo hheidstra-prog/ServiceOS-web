@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@serviceos/database";
+import { db } from "@servible/database";
 import { ArrowLeft, Download, Building2, User } from "lucide-react";
 import { format } from "date-fns";
 
@@ -76,6 +76,7 @@ async function getInvoice(
     where: {
       id: invoiceId,
       clientId: session.clientId,
+      portalVisible: true,
       status: { not: "DRAFT" },
     },
     include: {
@@ -291,44 +292,75 @@ export default async function InvoiceDetailPage({
         </div>
 
         {/* Totals */}
-        <div className="border-t border-zinc-200 bg-zinc-50 px-8 py-6">
-          <div className="ml-auto max-w-xs space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-zinc-600">Subtotal</span>
-              <span className="text-zinc-900">
-                {invoice.currency} {Number(invoice.subtotal).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-zinc-600">Tax</span>
-              <span className="text-zinc-900">
-                {invoice.currency} {Number(invoice.taxAmount).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between border-t border-zinc-200 pt-2 text-lg font-bold">
-              <span className="text-zinc-900">Total</span>
-              <span className="text-zinc-900">
-                {invoice.currency} {Number(invoice.total).toFixed(2)}
-              </span>
-            </div>
-            {Number(invoice.paidAmount) > 0 && (
-              <>
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Paid</span>
-                  <span>
-                    -{invoice.currency} {Number(invoice.paidAmount).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-lg font-bold">
-                  <span className="text-zinc-900">Amount Due</span>
+        {(() => {
+          const TAX_LABELS: Record<string, string> = {
+            STANDARD: "21% Standard",
+            REDUCED: "9% Low",
+            EXEMPT: "0% Exempt",
+            REVERSE_CHARGE: "0% Reverse Charge",
+            ZERO: "0%",
+          };
+          const vatGroups = invoice.items.reduce<Record<string, { label: string; amount: number }>>((acc, item) => {
+            const type = item.taxType || "STANDARD";
+            if (!acc[type]) {
+              acc[type] = { label: TAX_LABELS[type] || `${Number(item.taxRate)}%`, amount: 0 };
+            }
+            acc[type].amount += Number(item.taxAmount);
+            return acc;
+          }, {});
+          const vatLines = Object.entries(vatGroups);
+          const hasReverseCharge = invoice.items.some((item) => item.taxType === "REVERSE_CHARGE");
+
+          return (
+            <div className="border-t border-zinc-200 bg-zinc-50 px-8 py-6">
+              <div className="ml-auto max-w-xs space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-600">Subtotal</span>
                   <span className="text-zinc-900">
-                    {invoice.currency} {amountDue.toFixed(2)}
+                    {invoice.currency} {Number(invoice.subtotal).toFixed(2)}
                   </span>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
+                {vatLines.map(([type, group]) => (
+                  <div key={type} className="flex justify-between text-sm">
+                    <span className="text-zinc-600">VAT {group.label}</span>
+                    <span className="text-zinc-900">
+                      {invoice.currency} {group.amount.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex justify-between border-t border-zinc-200 pt-2 text-lg font-bold">
+                  <span className="text-zinc-900">Total</span>
+                  <span className="text-zinc-900">
+                    {invoice.currency} {Number(invoice.total).toFixed(2)}
+                  </span>
+                </div>
+                {Number(invoice.paidAmount) > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Paid</span>
+                      <span>
+                        -{invoice.currency} {Number(invoice.paidAmount).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold">
+                      <span className="text-zinc-900">Amount Due</span>
+                      <span className="text-zinc-900">
+                        {invoice.currency} {amountDue.toFixed(2)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+              {hasReverseCharge && (
+                <div className="mt-4 rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-500">
+                  <p className="font-medium">VAT reverse charged / BTW verlegd</p>
+                  {organization.vatNumber && <p>Supplier VAT: {organization.vatNumber}</p>}
+                  {client.vatNumber && <p>Client VAT: {client.vatNumber}</p>}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Notes & Actions */}
         <div className="border-t border-zinc-200 px-8 py-6">

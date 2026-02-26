@@ -37,7 +37,7 @@ async function main() {
         postalCode: "1015 CJ",
         country: "Netherlands",
         vatNumber: "NL123456789B01",
-        status: "ACTIVE",
+        status: "CLIENT",
       },
     }),
     prisma.client.upsert({
@@ -55,7 +55,7 @@ async function main() {
         postalCode: "1017 CA",
         country: "Netherlands",
         vatNumber: "NL987654321B01",
-        status: "QUOTE_SENT",
+        status: "PROSPECT",
       },
     }),
     prisma.client.upsert({
@@ -90,7 +90,7 @@ async function main() {
         postalCode: "10117",
         country: "Germany",
         vatNumber: "DE123456789",
-        status: "CONTRACT_SIGNED",
+        status: "PROSPECT",
       },
     }),
     prisma.client.upsert({
@@ -108,7 +108,7 @@ async function main() {
         postalCode: "3044 AE",
         country: "Netherlands",
         vatNumber: "NL111222333B01",
-        status: "INVOICED",
+        status: "CLIENT",
       },
     }),
     prisma.client.upsert({
@@ -125,7 +125,7 @@ async function main() {
         city: "Amsterdam",
         postalCode: "1071 AA",
         country: "Netherlands",
-        status: "PAID",
+        status: "CLIENT",
       },
     }),
     prisma.client.upsert({
@@ -143,7 +143,7 @@ async function main() {
         postalCode: "1082 MD",
         country: "Netherlands",
         vatNumber: "NL555666777B01",
-        status: "QUOTE_ACCEPTED",
+        status: "PROSPECT",
       },
     }),
     prisma.client.upsert({
@@ -160,7 +160,7 @@ async function main() {
         city: "Amsterdam",
         postalCode: "1017 JZ",
         country: "Netherlands",
-        status: "COMPLETED",
+        status: "CLIENT",
       },
     }),
   ]);
@@ -621,7 +621,7 @@ async function main() {
         pricingType: "FIXED",
         price: 2500,
         currency: "EUR",
-        taxRate: 21,
+        taxType: "STANDARD",
       },
     }),
     prisma.service.upsert({
@@ -636,7 +636,7 @@ async function main() {
         price: 150,
         currency: "EUR",
         unit: "hour",
-        taxRate: 21,
+        taxType: "STANDARD",
       },
     }),
     prisma.service.upsert({
@@ -650,7 +650,7 @@ async function main() {
         pricingType: "MONTHLY",
         price: 200,
         currency: "EUR",
-        taxRate: 21,
+        taxType: "STANDARD",
       },
     }),
     prisma.service.upsert({
@@ -664,7 +664,7 @@ async function main() {
         pricingType: "FIXED",
         price: 750,
         currency: "EUR",
-        taxRate: 21,
+        taxType: "STANDARD",
       },
     }),
     prisma.service.upsert({
@@ -679,7 +679,7 @@ async function main() {
         price: 125,
         currency: "EUR",
         unit: "hour",
-        taxRate: 21,
+        taxType: "STANDARD",
       },
     }),
   ]);

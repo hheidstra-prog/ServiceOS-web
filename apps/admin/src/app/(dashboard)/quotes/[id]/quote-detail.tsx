@@ -28,7 +28,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { QuoteStatus } from "@serviceos/database";
+import { QuoteStatus, TaxType } from "@servible/database";
+import { TAX_TYPE_CONFIG } from "@/lib/tax-utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   deleteQuote,
@@ -44,6 +45,7 @@ interface QuoteItem {
   quantity: number;
   unitPrice: number;
   taxRate: number;
+  taxType: TaxType;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -88,6 +90,7 @@ interface Quote {
 
 interface QuoteDetailProps {
   quote: Quote;
+  orgVatNumber?: string | null;
 }
 
 const statusConfig: Record<QuoteStatus, { label: string; className: string; borderClass: string }> = {
@@ -139,7 +142,7 @@ function formatDate(date: Date | null) {
   });
 }
 
-export function QuoteDetail({ quote }: QuoteDetailProps) {
+export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
@@ -363,32 +366,57 @@ export function QuoteDetail({ quote }: QuoteDetailProps) {
               )}
 
               {/* Totals */}
-              {quote.items.length > 0 && (
-                <div className="mt-4 border-t border-zinc-950/10 pt-4 dark:border-white/10">
-                  <div className="flex justify-end">
-                    <div className="w-64 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
-                        <span className="text-zinc-950 dark:text-white">
-                          {formatCurrency(quote.subtotal, quote.currency)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500 dark:text-zinc-400">Tax</span>
-                        <span className="text-zinc-950 dark:text-white">
-                          {formatCurrency(quote.taxAmount, quote.currency)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-t border-zinc-950/10 pt-2 dark:border-white/10">
-                        <span className="font-semibold text-zinc-950 dark:text-white">Total</span>
-                        <span className="font-semibold text-zinc-950 dark:text-white">
-                          {formatCurrency(quote.total, quote.currency)}
-                        </span>
+              {quote.items.length > 0 && (() => {
+                const vatGroups = quote.items
+                  .filter((item) => !item.isOptional || item.isSelected)
+                  .reduce<Record<string, { label: string; rate: number; amount: number }>>((acc, item) => {
+                    const type = item.taxType || "STANDARD";
+                    const config = TAX_TYPE_CONFIG[type as keyof typeof TAX_TYPE_CONFIG];
+                    if (!acc[type]) {
+                      acc[type] = { label: config?.label || `${item.taxRate}%`, rate: item.taxRate, amount: 0 };
+                    }
+                    acc[type].amount += item.taxAmount;
+                    return acc;
+                  }, {});
+                const vatLines = Object.entries(vatGroups);
+                const hasReverseCharge = quote.items.some((item) => item.taxType === "REVERSE_CHARGE");
+
+                return (
+                  <div className="mt-4 border-t border-zinc-950/10 pt-4 dark:border-white/10">
+                    <div className="flex justify-end">
+                      <div className="w-64 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
+                          <span className="text-zinc-950 dark:text-white">
+                            {formatCurrency(quote.subtotal, quote.currency)}
+                          </span>
+                        </div>
+                        {vatLines.map(([type, group]) => (
+                          <div key={type} className="flex justify-between text-sm">
+                            <span className="text-zinc-500 dark:text-zinc-400">VAT {group.label}</span>
+                            <span className="text-zinc-950 dark:text-white">
+                              {formatCurrency(group.amount, quote.currency)}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between border-t border-zinc-950/10 pt-2 dark:border-white/10">
+                          <span className="font-semibold text-zinc-950 dark:text-white">Total</span>
+                          <span className="font-semibold text-zinc-950 dark:text-white">
+                            {formatCurrency(quote.total, quote.currency)}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    {hasReverseCharge && (
+                      <div className="mt-4 rounded-md border border-zinc-950/10 bg-zinc-50 p-3 text-xs text-zinc-500 dark:border-white/10 dark:bg-zinc-800/50 dark:text-zinc-400">
+                        <p className="font-medium">VAT reverse charged / BTW verlegd</p>
+                        {orgVatNumber && <p>Supplier VAT: {orgVatNumber}</p>}
+                        {quote.client.vatNumber && <p>Client VAT: {quote.client.vatNumber}</p>}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </CardContent>
           </Card>
 

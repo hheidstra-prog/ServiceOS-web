@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
+import { taxRateFromType } from "@/lib/tax-utils";
+import type { TaxType } from "@servible/database";
 
 // Get time entries with filters
 export async function getTimeEntries(filters?: {
@@ -681,6 +683,12 @@ export async function createInvoiceFromTimeEntries(data: {
           name: true,
         },
       },
+      service: {
+        select: {
+          id: true,
+          taxType: true,
+        },
+      },
     },
     orderBy: { date: "asc" },
   });
@@ -691,7 +699,6 @@ export async function createInvoiceFromTimeEntries(data: {
 
   // Determine hourly rate
   const hourlyRate = data.hourlyRate || Number(timeEntries[0].hourlyRate) || 75;
-  const taxRate = Number(organization.defaultTaxRate);
 
   // Generate invoice number
   const year = new Date().getFullYear();
@@ -714,8 +721,15 @@ export async function createInvoiceFromTimeEntries(data: {
   type GroupedEntry = {
     description: string;
     hours: number;
+    taxType: TaxType;
     entries: typeof timeEntries;
   };
+
+  // Determine the dominant taxType for a set of entries
+  function dominantTaxType(entries: typeof timeEntries): TaxType {
+    const first = entries.find((e) => e.service?.taxType);
+    return first?.service?.taxType ?? "STANDARD";
+  }
 
   let groupedEntries: GroupedEntry[] = [];
 
@@ -740,6 +754,7 @@ export async function createInvoiceFromTimeEntries(data: {
       return {
         description: `${projectName}${descriptions.length > 0 ? ": " + descriptions.slice(0, 3).join(", ") : ""}${descriptions.length > 3 ? "..." : ""}`,
         hours: totalMinutes / 60,
+        taxType: dominantTaxType(entries),
         entries,
       };
     });
@@ -769,6 +784,7 @@ export async function createInvoiceFromTimeEntries(data: {
       return {
         description: `Work on ${dateStr}${descriptions.length > 0 ? ": " + descriptions.slice(0, 2).join(", ") : ""}${descriptions.length > 2 ? "..." : ""}`,
         hours: totalMinutes / 60,
+        taxType: dominantTaxType(entries),
         entries,
       };
     });
@@ -777,6 +793,7 @@ export async function createInvoiceFromTimeEntries(data: {
     groupedEntries = timeEntries.map((entry) => ({
       description: entry.description || `Work on ${new Date(entry.date).toLocaleDateString("nl-NL")}`,
       hours: entry.duration / 60,
+      taxType: (entry.service?.taxType ?? "STANDARD") as TaxType,
       entries: [entry],
     }));
   }
@@ -787,8 +804,10 @@ export async function createInvoiceFromTimeEntries(data: {
   let invoiceTotal = 0;
 
   const invoiceItems = groupedEntries.map((group, index) => {
+    const itemTaxType = group.taxType;
+    const itemTaxRate = taxRateFromType(itemTaxType);
     const subtotal = group.hours * hourlyRate;
-    const itemTaxAmount = subtotal * (taxRate / 100);
+    const itemTaxAmount = subtotal * (itemTaxRate / 100);
     const total = subtotal + itemTaxAmount;
 
     invoiceSubtotal += subtotal;
@@ -797,9 +816,10 @@ export async function createInvoiceFromTimeEntries(data: {
 
     return {
       description: group.description,
-      quantity: Math.round(group.hours * 100) / 100, // Round to 2 decimals
+      quantity: Math.round(group.hours * 100) / 100,
       unitPrice: hourlyRate,
-      taxRate,
+      taxType: itemTaxType,
+      taxRate: itemTaxRate,
       subtotal,
       taxAmount: itemTaxAmount,
       total,
@@ -851,5 +871,5 @@ export async function createInvoiceFromTimeEntries(data: {
 
   revalidatePath("/time");
   revalidatePath("/invoices");
-  return invoice;
+  return { id: invoice.id };
 }

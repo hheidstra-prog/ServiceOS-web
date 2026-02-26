@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getQuote } from "../actions";
 import { QuoteDetail } from "./quote-detail";
+import { getCurrentUserAndOrg } from "@/lib/auth";
 
 interface QuotePageProps {
   params: Promise<{ id: string }>;
@@ -11,7 +12,10 @@ interface QuotePageProps {
 
 export default async function QuotePage({ params }: QuotePageProps) {
   const { id } = await params;
-  const quote = await getQuote(id);
+  const [quote, { organization }] = await Promise.all([
+    getQuote(id),
+    getCurrentUserAndOrg(),
+  ]);
 
   if (!quote) {
     notFound();
@@ -53,7 +57,7 @@ export default async function QuotePage({ params }: QuotePageProps) {
         </div>
       </div>
 
-      <QuoteDetail quote={serializedQuote} />
+      <QuoteDetail quote={serializedQuote} orgVatNumber={organization?.vatNumber} />
     </div>
   );
 }
