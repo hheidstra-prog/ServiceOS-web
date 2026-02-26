@@ -13,20 +13,19 @@ import {
   Clock,
   Receipt,
   Settings,
-  MessageSquare,
   Briefcase,
   HelpCircle,
-  Sparkles,
   ChevronsUpDown,
   Globe,
   Newspaper,
   Inbox,
+  Sparkles,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Inbox", href: "/inbox", icon: Inbox },
-  { name: "Chat", href: "/chat", icon: MessageSquare },
+  { name: "Assistant", href: "/assistant", icon: Sparkles },
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Projects", href: "/projects", icon: FolderKanban },
   { name: "Bookings", href: "/bookings", icon: Calendar },
@@ -91,12 +90,8 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       {/* Logo / Brand */}
       <div className="flex h-14 items-center justify-between border-b border-zinc-950/5 px-3 dark:border-white/5">
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-950 dark:bg-white">
-            <Sparkles className="h-3.5 w-3.5 text-white dark:text-zinc-950" />
-          </div>
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            ServiceOS
-          </span>
+          <img src="/logo-dark.png" alt="Servible" className="h-6 dark:hidden" />
+          <img src="/logo-white.png" alt="Servible" className="h-6 hidden dark:block" />
         </div>
         <button className="rounded p-0.5 text-zinc-400 hover:bg-zinc-950/5 hover:text-zinc-600 dark:hover:bg-white/5 dark:hover:text-zinc-300">
           <ChevronsUpDown className="h-4 w-4" />
