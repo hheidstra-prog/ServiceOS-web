@@ -232,7 +232,7 @@ export function TimeTracker({
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl dark:text-white">
             Time Tracking
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -257,7 +257,7 @@ export function TimeTracker({
 
       {/* Stats */}
       {stats && (
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="py-4">
               <p className="text-sm text-zinc-500 dark:text-zinc-400">Total Hours</p>
@@ -294,7 +294,7 @@ export function TimeTracker({
       )}
 
       {/* Week Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon-sm" onClick={handlePrevWeek}>
             <ChevronLeft className="h-4 w-4" />
@@ -313,7 +313,7 @@ export function TimeTracker({
       </div>
 
       {/* Week Grid */}
-      <div className="grid gap-4 lg:grid-cols-7">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
         {weekDays.map((day) => {
           const dateKey = day.toDateString();
           const dayEntries = entriesByDate[dateKey] || [];

@@ -1,23 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 import { getAvailableSlots, createPublicBooking } from "@/lib/actions/booking";
-
-interface BookingType {
-  id: string;
-  name: string;
-  description: string | null;
-  durationMinutes: number;
-  price: number | null;
-  currency: string;
-  color: string | null;
-  requiresConfirmation: boolean;
-}
 
 interface BookingFormProps {
   organizationId: string;
-  bookingTypes: BookingType[];
+  durations: number[];
+  buffer: number;
+  requiresConfirmation: boolean;
   availableDays: number[]; // day-of-week numbers (0=Sun)
   locale?: string;
 }
@@ -27,15 +18,14 @@ interface TimeSlot {
   available: boolean;
 }
 
-type Step = "type" | "date" | "time" | "details" | "confirmed";
+type Step = "date" | "time" | "details" | "confirmed";
 
 const translations: Record<string, Record<string, string>> = {
   nl: {
-    stepService: "Dienst",
     stepDate: "Datum",
     stepTime: "Tijd",
     stepDetails: "Gegevens",
-    selectService: "Kies een dienst",
+    selectDuration: "Kies een duur",
     selectDate: "Kies een datum",
     selectTime: "Kies een tijd",
     yourDetails: "Uw gegevens",
@@ -55,21 +45,18 @@ const translations: Record<string, Record<string, string>> = {
     receivedTitle: "Afspraak ontvangen!",
     confirmedText: "Uw afspraak is bevestigd.",
     receivedText: "Uw aanvraag is ontvangen en wacht op bevestiging.",
-    service: "Dienst",
     date: "Datum",
     time: "Tijd",
     duration: "Duur",
-    price: "Prijs",
     confirmationEmail: "Een bevestiging wordt gestuurd naar",
     backToSite: "Terug naar site",
     mon: "Ma", tue: "Di", wed: "Wo", thu: "Do", fri: "Vr", sat: "Za", sun: "Zo",
   },
   en: {
-    stepService: "Service",
     stepDate: "Date",
     stepTime: "Time",
     stepDetails: "Details",
-    selectService: "Select a service",
+    selectDuration: "Select duration",
     selectDate: "Select a date",
     selectTime: "Select a time",
     yourDetails: "Your details",
@@ -89,21 +76,18 @@ const translations: Record<string, Record<string, string>> = {
     receivedTitle: "Booking Received!",
     confirmedText: "Your appointment has been confirmed.",
     receivedText: "Your booking request has been received and is pending confirmation.",
-    service: "Service",
     date: "Date",
     time: "Time",
     duration: "Duration",
-    price: "Price",
     confirmationEmail: "A confirmation will be sent to",
     backToSite: "Back to site",
     mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",
   },
   de: {
-    stepService: "Service",
     stepDate: "Datum",
     stepTime: "Uhrzeit",
     stepDetails: "Details",
-    selectService: "Service auswählen",
+    selectDuration: "Dauer auswählen",
     selectDate: "Datum auswählen",
     selectTime: "Uhrzeit auswählen",
     yourDetails: "Ihre Angaben",
@@ -123,21 +107,18 @@ const translations: Record<string, Record<string, string>> = {
     receivedTitle: "Termin eingegangen!",
     confirmedText: "Ihr Termin wurde bestätigt.",
     receivedText: "Ihre Buchungsanfrage wurde empfangen und wartet auf Bestätigung.",
-    service: "Service",
     date: "Datum",
     time: "Uhrzeit",
     duration: "Dauer",
-    price: "Preis",
     confirmationEmail: "Eine Bestätigung wird gesendet an",
     backToSite: "Zurück zur Seite",
     mon: "Mo", tue: "Di", wed: "Mi", thu: "Do", fri: "Fr", sat: "Sa", sun: "So",
   },
   fr: {
-    stepService: "Service",
     stepDate: "Date",
     stepTime: "Heure",
     stepDetails: "Coordonnées",
-    selectService: "Choisir un service",
+    selectDuration: "Choisir la durée",
     selectDate: "Choisir une date",
     selectTime: "Choisir une heure",
     yourDetails: "Vos coordonnées",
@@ -157,11 +138,9 @@ const translations: Record<string, Record<string, string>> = {
     receivedTitle: "Rendez-vous reçu !",
     confirmedText: "Votre rendez-vous a été confirmé.",
     receivedText: "Votre demande a été reçue et est en attente de confirmation.",
-    service: "Service",
     date: "Date",
     time: "Heure",
     duration: "Durée",
-    price: "Prix",
     confirmationEmail: "Une confirmation sera envoyée à",
     backToSite: "Retour au site",
     mon: "Lun", tue: "Mar", wed: "Mer", thu: "Jeu", fri: "Ven", sat: "Sam", sun: "Dim",
@@ -175,10 +154,6 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h} hour${h > 1 ? "s" : ""}`;
 }
 
-function formatPrice(price: number, currency: string): string {
-  return new Intl.NumberFormat("en", { style: "currency", currency }).format(price);
-}
-
 function formatDate(date: Date, locale: string): string {
   const loc = locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en";
   return date.toLocaleDateString(loc, {
@@ -189,7 +164,6 @@ function formatDate(date: Date, locale: string): string {
   });
 }
 
-// Generate calendar days for a month
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -203,17 +177,13 @@ function getCalendarDays(year: number, month: number) {
   return days;
 }
 
-const btnBase =
-  "rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 py-3 text-left transition-all hover:border-[var(--color-primary-500)] hover:shadow-sm";
-const btnSelected =
-  "rounded-xl border-2 border-[var(--color-primary-500)] bg-[var(--color-primary-500)]/5 px-4 py-3 text-left shadow-sm";
 const inputClass =
   "block w-full rounded-xl border border-[var(--color-input-border)] bg-[var(--color-surface-alt)] px-4 py-3 text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-muted)] focus:border-[var(--color-primary-500)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/25 transition-colors";
 
-export function BookingForm({ organizationId, bookingTypes, availableDays, locale = "en" }: BookingFormProps) {
+export function BookingForm({ organizationId, durations, buffer, requiresConfirmation, availableDays, locale = "en" }: BookingFormProps) {
   const i = translations[locale] || translations.en;
-  const [step, setStep] = useState<Step>("type");
-  const [selectedType, setSelectedType] = useState<BookingType | null>(null);
+  const [step, setStep] = useState<Step>("date");
+  const [selectedDuration, setSelectedDuration] = useState<number>(durations[0]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
@@ -233,21 +203,27 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
   const [error, setError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<string>("");
 
-  // Skip type selection if only one type
-  const handleTypeSelect = (type: BookingType) => {
-    setSelectedType(type);
-    setStep("date");
+  const handleDurationChange = (dur: number) => {
+    setSelectedDuration(dur);
+    // If we already had a date selected, re-fetch slots for new duration
+    if (selectedDate) {
+      setSelectedTime(null);
+      fetchSlots(selectedDate, dur);
+    }
+  };
+
+  const fetchSlots = async (date: Date, duration: number) => {
+    setLoadingSlots(true);
+    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+    const result = await getAvailableSlots(organizationId, duration, buffer, dateStr);
+    setSlots(result);
+    setLoadingSlots(false);
   };
 
   const handleDateSelect = async (date: Date) => {
     setSelectedDate(date);
     setSelectedTime(null);
-    setLoadingSlots(true);
-
-    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
-    const result = await getAvailableSlots(organizationId, selectedType!.id, dateStr);
-    setSlots(result);
-    setLoadingSlots(false);
+    await fetchSlots(date, selectedDuration);
     setStep("time");
   };
 
@@ -265,7 +241,7 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
 
     const result = await createPublicBooking({
       organizationId,
-      bookingTypeId: selectedType!.id,
+      durationMinutes: selectedDuration,
       date: dateStr,
       time: selectedTime!,
       name,
@@ -285,8 +261,7 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
   };
 
   const goBack = () => {
-    if (step === "date") setStep("type");
-    else if (step === "time") setStep("date");
+    if (step === "time") setStep("date");
     else if (step === "details") setStep("time");
   };
 
@@ -319,7 +294,6 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
 
   // Step indicators
   const steps: { key: Step; label: string }[] = [
-    { key: "type", label: i.stepService },
     { key: "date", label: i.stepDate },
     { key: "time", label: i.stepTime },
     { key: "details", label: i.stepDetails },
@@ -333,31 +307,31 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
       {step !== "confirmed" && (
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            {steps.map((s, i) => (
+            {steps.map((s, idx) => (
               <div key={s.key} className="flex items-center gap-2">
                 <div
                   className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-                    i <= stepIndex
+                    idx <= stepIndex
                       ? "text-white"
                       : "border border-[var(--color-border)] text-[var(--color-on-surface-muted)]"
                   }`}
-                  style={i <= stepIndex ? { background: "var(--color-primary-500)" } : undefined}
+                  style={idx <= stepIndex ? { background: "var(--color-primary-500)" } : undefined}
                 >
-                  {i + 1}
+                  {idx + 1}
                 </div>
                 <span
                   className={`text-sm font-medium hidden sm:inline ${
-                    i <= stepIndex
+                    idx <= stepIndex
                       ? "text-[var(--color-on-surface)]"
                       : "text-[var(--color-on-surface-muted)]"
                   }`}
                 >
                   {s.label}
                 </span>
-                {i < steps.length - 1 && (
+                {idx < steps.length - 1 && (
                   <div
                     className={`mx-2 h-px flex-1 min-w-[24px] ${
-                      i < stepIndex ? "bg-[var(--color-primary-500)]" : "bg-[var(--color-border)]"
+                      idx < stepIndex ? "bg-[var(--color-primary-500)]" : "bg-[var(--color-border)]"
                     }`}
                   />
                 )}
@@ -368,7 +342,7 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
       )}
 
       {/* Back button */}
-      {step !== "type" && step !== "confirmed" && (
+      {step !== "date" && step !== "confirmed" && (
         <button
           onClick={goBack}
           className="mb-4 flex items-center gap-1 text-sm font-medium text-[var(--color-on-surface-secondary)] hover:text-[var(--color-on-surface)] transition-colors"
@@ -378,48 +352,31 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
         </button>
       )}
 
-      {/* Step 1: Select booking type */}
-      {step === "type" && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-[var(--color-on-surface)]">
-            {i.selectService}
-          </h2>
-          {bookingTypes.map((type) => (
-            <button
-              key={type.id}
-              onClick={() => handleTypeSelect(type)}
-              className={`${btnBase} w-full`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-[var(--color-on-surface)]">{type.name}</p>
-                  {type.description && (
-                    <p className="mt-1 text-sm text-[var(--color-on-surface-secondary)]">
-                      {type.description}
-                    </p>
-                  )}
-                  <div className="mt-2 flex items-center gap-3 text-sm text-[var(--color-on-surface-muted)]">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      {formatDuration(type.durationMinutes)}
-                    </span>
-                    {type.price != null && type.price > 0 && (
-                      <span className="font-medium text-[var(--color-on-surface)]">
-                        {formatPrice(type.price, type.currency)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-[var(--color-on-surface-muted)]" />
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Step 2: Select date */}
+      {/* Step 1: Duration + Date */}
       {step === "date" && (
         <div>
+          {/* Duration toggle */}
+          {durations.length > 1 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-center gap-2">
+                {durations.map((dur) => (
+                  <button
+                    key={dur}
+                    onClick={() => handleDurationChange(dur)}
+                    className={`rounded-full px-5 py-2 text-sm font-semibold transition-all ${
+                      selectedDuration === dur
+                        ? "text-white shadow-sm"
+                        : "border border-[var(--color-border)] bg-[var(--color-surface-alt)] text-[var(--color-on-surface-secondary)] hover:border-[var(--color-primary-500)] hover:text-[var(--color-on-surface)]"
+                    }`}
+                    style={selectedDuration === dur ? { background: "var(--color-primary-500)" } : undefined}
+                  >
+                    {formatDuration(dur)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <h2 className="text-lg font-semibold text-[var(--color-on-surface)] mb-4">
             {i.selectDate}
           </h2>
@@ -461,9 +418,9 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
 
             {/* Calendar grid */}
             <div className="grid grid-cols-7 gap-1">
-              {calDays.map((day, i) => {
+              {calDays.map((day, idx) => {
                 if (!day) {
-                  return <div key={`empty-${i}`} />;
+                  return <div key={`empty-${idx}`} />;
                 }
                 const available = isDayAvailable(day);
                 const isSelected =
@@ -500,14 +457,14 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
         </div>
       )}
 
-      {/* Step 3: Select time */}
+      {/* Step 2: Select time */}
       {step === "time" && (
         <div>
           <h2 className="text-lg font-semibold text-[var(--color-on-surface)] mb-1">
             {i.selectTime}
           </h2>
           <p className="text-sm text-[var(--color-on-surface-secondary)] mb-4">
-            {selectedDate && formatDate(selectedDate, locale)}
+            {selectedDate && formatDate(selectedDate, locale)} — {formatDuration(selectedDuration)}
           </p>
 
           {loadingSlots ? (
@@ -538,9 +495,11 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
                   <button
                     key={slot.time}
                     onClick={() => handleTimeSelect(slot.time)}
-                    className={`${
-                      selectedTime === slot.time ? btnSelected : btnBase
-                    } text-center !px-3 !py-2.5`}
+                    className={`rounded-xl border text-center px-3 py-2.5 transition-all ${
+                      selectedTime === slot.time
+                        ? "border-2 border-[var(--color-primary-500)] bg-[var(--color-primary-500)]/5 shadow-sm"
+                        : "border-[var(--color-border)] bg-[var(--color-surface-alt)] hover:border-[var(--color-primary-500)] hover:shadow-sm"
+                    }`}
                   >
                     <span className="text-sm font-semibold text-[var(--color-on-surface)]">
                       {slot.time}
@@ -552,14 +511,14 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
         </div>
       )}
 
-      {/* Step 4: Enter details */}
+      {/* Step 3: Enter details */}
       {step === "details" && (
         <div>
           <h2 className="text-lg font-semibold text-[var(--color-on-surface)] mb-1">
             {i.yourDetails}
           </h2>
           <p className="text-sm text-[var(--color-on-surface-secondary)] mb-6">
-            {selectedType?.name} — {selectedDate && formatDate(selectedDate, locale)}, {selectedTime}
+            {selectedDate && formatDate(selectedDate, locale)}, {selectedTime} — {formatDuration(selectedDuration)}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -650,7 +609,7 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
         </div>
       )}
 
-      {/* Step 5: Confirmation */}
+      {/* Step 4: Confirmation */}
       {step === "confirmed" && (
         <div className="text-center py-8">
           <div
@@ -671,12 +630,6 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
           <div className="mt-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-alt)] p-6 text-left">
             <dl className="space-y-3">
               <div className="flex justify-between">
-                <dt className="text-sm text-[var(--color-on-surface-muted)]">{i.service}</dt>
-                <dd className="text-sm font-medium text-[var(--color-on-surface)]">
-                  {selectedType?.name}
-                </dd>
-              </div>
-              <div className="flex justify-between">
                 <dt className="text-sm text-[var(--color-on-surface-muted)]">{i.date}</dt>
                 <dd className="text-sm font-medium text-[var(--color-on-surface)]">
                   {selectedDate && formatDate(selectedDate, locale)}
@@ -691,17 +644,9 @@ export function BookingForm({ organizationId, bookingTypes, availableDays, local
               <div className="flex justify-between">
                 <dt className="text-sm text-[var(--color-on-surface-muted)]">{i.duration}</dt>
                 <dd className="text-sm font-medium text-[var(--color-on-surface)]">
-                  {selectedType && formatDuration(selectedType.durationMinutes)}
+                  {formatDuration(selectedDuration)}
                 </dd>
               </div>
-              {selectedType?.price != null && selectedType.price > 0 && (
-                <div className="flex justify-between">
-                  <dt className="text-sm text-[var(--color-on-surface-muted)]">{i.price}</dt>
-                  <dd className="text-sm font-medium text-[var(--color-on-surface)]">
-                    {formatPrice(selectedType.price, selectedType.currency)}
-                  </dd>
-                </div>
-              )}
             </dl>
           </div>
 

@@ -116,11 +116,11 @@ export function AvailabilityDialog({ open, onOpenChange }: AvailabilityDialogPro
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+        <div className="space-y-3 max-h-[60vh] sm:max-h-[400px] overflow-y-auto">
           {rules.map((rule) => (
             <div
               key={rule.dayOfWeek}
-              className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+              className={`flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 rounded-lg border p-2 sm:p-3 transition-colors ${
                 rule.isActive
                   ? "border-zinc-950/10 dark:border-white/10"
                   : "border-zinc-950/5 bg-zinc-50 dark:border-white/5 dark:bg-zinc-900"
@@ -130,7 +130,7 @@ export function AvailabilityDialog({ open, onOpenChange }: AvailabilityDialogPro
                 checked={rule.isActive}
                 onCheckedChange={(checked) => updateRule(rule.dayOfWeek, { isActive: checked })}
               />
-              <span className={`w-24 text-sm font-medium ${
+              <span className={`w-16 sm:w-24 text-sm font-medium ${
                 rule.isActive
                   ? "text-zinc-950 dark:text-white"
                   : "text-zinc-400 dark:text-zinc-500"

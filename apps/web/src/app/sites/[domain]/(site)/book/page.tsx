@@ -3,36 +3,32 @@ import { db } from "@servible/database";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { isPreviewMode } from "@/lib/preview";
-import { getBookingConfig, getAvailableDays } from "@/lib/actions/booking";
+import { getPublicBookingConfig, getAvailableDays } from "@/lib/actions/booking";
 import { BookingForm } from "./booking-form";
 
 export const dynamic = "force-dynamic";
 
 const t: Record<string, Record<string, string>> = {
   nl: {
-    title: "Maak een afspraak",
-    subtitle: "Kies een dienst en selecteer een geschikt moment.",
+    subtitle: "Kies een moment dat u het beste uitkomt.",
     notAvailableTitle: "Reserveren niet beschikbaar",
     notAvailableText: "Online reserveren is momenteel niet beschikbaar. Neem direct contact met ons op.",
     metaTitle: "Afspraak maken",
   },
   en: {
-    title: "Book an Appointment",
-    subtitle: "Choose a service and pick a time that works for you.",
+    subtitle: "Pick a time that works for you.",
     notAvailableTitle: "Booking not available",
     notAvailableText: "Online booking is not currently available. Please contact us directly.",
     metaTitle: "Book an Appointment",
   },
   de: {
-    title: "Termin buchen",
-    subtitle: "Wählen Sie einen Service und einen passenden Zeitpunkt.",
+    subtitle: "Wählen Sie einen passenden Zeitpunkt.",
     notAvailableTitle: "Buchung nicht verfügbar",
     notAvailableText: "Online-Buchung ist derzeit nicht verfügbar. Bitte kontaktieren Sie uns direkt.",
     metaTitle: "Termin buchen",
   },
   fr: {
-    title: "Prendre rendez-vous",
-    subtitle: "Choisissez un service et sélectionnez un créneau.",
+    subtitle: "Choisissez un créneau qui vous convient.",
     notAvailableTitle: "Réservation indisponible",
     notAvailableText: "La réservation en ligne n'est pas disponible actuellement. Veuillez nous contacter directement.",
     metaTitle: "Prendre rendez-vous",
@@ -76,7 +72,7 @@ export async function generateMetadata({ params }: BookPageProps) {
 
   return {
     title: i.metaTitle,
-    description: `${i.title} — ${site.organization.name}`,
+    description: `${i.metaTitle} — ${site.organization.name}`,
   };
 }
 
@@ -89,14 +85,14 @@ export default async function BookPage({ params }: BookPageProps) {
   }
 
   const [config, availableDays] = await Promise.all([
-    getBookingConfig(site.organizationId),
+    getPublicBookingConfig(site.organizationId),
     getAvailableDays(site.organizationId),
   ]);
 
   const locale = site.organization.locale || "en";
   const i = t[locale] || t.en;
 
-  if (!config || config.bookingTypes.length === 0) {
+  if (!config || availableDays.length === 0) {
     return (
       <>
         <SiteHeader />
@@ -123,7 +119,7 @@ export default async function BookPage({ params }: BookPageProps) {
           <div className="mx-auto max-w-2xl px-4 sm:px-6">
             <div className="text-center mb-10">
               <h1 className="text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">
-                {i.title}
+                {config.title}
               </h1>
               <p className="mt-3 text-lg text-on-surface-secondary">
                 {i.subtitle}
@@ -131,7 +127,9 @@ export default async function BookPage({ params }: BookPageProps) {
             </div>
             <BookingForm
               organizationId={site.organizationId}
-              bookingTypes={config.bookingTypes}
+              durations={config.durations}
+              buffer={config.buffer}
+              requiresConfirmation={config.requiresConfirmation}
               availableDays={availableDays}
               locale={locale}
             />

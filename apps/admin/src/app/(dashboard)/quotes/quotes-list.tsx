@@ -160,7 +160,7 @@ export function QuotesList({ quotes }: QuotesListProps) {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl dark:text-white">
             Quotes
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -185,7 +185,7 @@ export function QuotesList({ quotes }: QuotesListProps) {
             className="h-8 w-full rounded-md border border-zinc-950/10 bg-white pl-8 pr-3 text-sm text-zinc-950 placeholder:text-zinc-400 transition-colors focus:border-zinc-950/20 focus:bg-sky-50/50 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-sky-950/20"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {(["ALL", "DRAFT", "FINALIZED", "SENT", "VIEWED", "ACCEPTED", "REJECTED"] as const).map((status) => (
             <button
               key={status}
@@ -204,7 +204,7 @@ export function QuotesList({ quotes }: QuotesListProps) {
 
       {/* Quotes List */}
       {filteredQuotes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-950/10 bg-white p-10 text-center dark:border-white/10 dark:bg-zinc-900">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-950/10 bg-white p-6 text-center sm:p-10 dark:border-white/10 dark:bg-zinc-900">
           <div className="rounded-full bg-zinc-100 p-2.5 dark:bg-zinc-800">
             <FileText className="h-5 w-5 text-zinc-400" />
           </div>

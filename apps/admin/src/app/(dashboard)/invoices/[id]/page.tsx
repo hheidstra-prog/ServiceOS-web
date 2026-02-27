@@ -42,14 +42,14 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/invoices">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl dark:text-white">
             {invoice.number}
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">

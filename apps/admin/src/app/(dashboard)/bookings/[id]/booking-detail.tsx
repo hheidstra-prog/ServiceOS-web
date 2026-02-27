@@ -348,7 +348,7 @@ export function BookingDetail({ booking, bookingTypes, clients }: BookingDetailP
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Date & Time */}
-              <div className="grid gap-4 grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="editDate">Date</Label>
                   <Input
@@ -407,7 +407,7 @@ export function BookingDetail({ booking, bookingTypes, clients }: BookingDetailP
               </div>
 
               {/* Location */}
-              <div className="grid gap-4 grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>
                     <MapPin className="mr-1 inline h-3.5 w-3.5 text-zinc-400" />

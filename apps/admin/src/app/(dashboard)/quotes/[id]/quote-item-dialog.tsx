@@ -228,7 +228,7 @@ export function QuoteItemDialog({
           </div>
 
           {/* Quantity & Price */}
-          <div className="grid gap-4 grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="quantity">Quantity *</Label>
               <Input

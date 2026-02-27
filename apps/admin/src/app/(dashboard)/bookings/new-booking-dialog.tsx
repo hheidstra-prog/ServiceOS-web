@@ -258,7 +258,7 @@ export function NewBookingDialog({
                   placeholder="Guest name"
                 />
               </div>
-              <div className="grid gap-3 grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="guestEmail">Email</Label>
                   <Input
@@ -303,7 +303,7 @@ export function NewBookingDialog({
           )}
 
           {/* Date & Time */}
-          <div className="grid gap-4 grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="date">Date *</Label>
               <Input
@@ -346,7 +346,7 @@ export function NewBookingDialog({
           </div>
 
           {/* Location */}
-          <div className="grid gap-4 grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Location Type</Label>
               <Select value={locationType} onValueChange={(v) => setLocationType(v as LocationType)}>

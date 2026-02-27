@@ -196,7 +196,7 @@ export function StartTimerDialog({
         <div className="space-y-4">
           {/* Client & Project (only in timesheet context) */}
           {!hideProjectFields && (
-            <div className="grid gap-4 grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Client</Label>
                 <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>

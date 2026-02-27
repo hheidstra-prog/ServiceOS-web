@@ -1,24 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 import { getAvailableSlots, createPortalBooking } from "@/lib/actions/booking";
-
-interface BookingType {
-  id: string;
-  name: string;
-  description: string | null;
-  durationMinutes: number;
-  price: number | null;
-  currency: string;
-  color: string | null;
-  requiresConfirmation: boolean;
-}
 
 interface PortalBookingFormProps {
   organizationId: string;
   clientId: string;
-  bookingTypes: BookingType[];
+  durations: number[];
+  buffer: number;
+  requiresConfirmation: boolean;
   availableDays: number[];
   locale?: string;
 }
@@ -28,15 +19,13 @@ interface TimeSlot {
   available: boolean;
 }
 
-type Step = "type" | "date" | "time" | "notes" | "confirmed";
+type Step = "date" | "time" | "notes" | "confirmed";
 
 const translations: Record<string, Record<string, string>> = {
   nl: {
-    stepService: "Dienst",
     stepDate: "Datum",
     stepTime: "Tijd",
     stepNotes: "Notities",
-    selectService: "Kies een dienst",
     selectDate: "Kies een datum",
     selectTime: "Kies een tijd",
     addNotes: "Opmerkingen toevoegen",
@@ -45,26 +34,21 @@ const translations: Record<string, Record<string, string>> = {
     chooseAnother: "Kies een andere datum",
     confirmBooking: "Afspraak bevestigen",
     booking: "Bezig met boeken...",
-    skip: "Overslaan",
     back: "Terug",
     confirmedTitle: "Afspraak bevestigd!",
     receivedTitle: "Afspraak ontvangen!",
     confirmedText: "Uw afspraak is bevestigd.",
     receivedText: "Uw aanvraag is ontvangen en wacht op bevestiging.",
-    service: "Dienst",
     date: "Datum",
     time: "Tijd",
     duration: "Duur",
-    price: "Prijs",
     backToBookings: "Terug naar afspraken",
     mon: "Ma", tue: "Di", wed: "Wo", thu: "Do", fri: "Vr", sat: "Za", sun: "Zo",
   },
   en: {
-    stepService: "Service",
     stepDate: "Date",
     stepTime: "Time",
     stepNotes: "Notes",
-    selectService: "Select a service",
     selectDate: "Select a date",
     selectTime: "Select a time",
     addNotes: "Add notes",
@@ -73,26 +57,21 @@ const translations: Record<string, Record<string, string>> = {
     chooseAnother: "Choose another date",
     confirmBooking: "Confirm Booking",
     booking: "Booking...",
-    skip: "Skip",
     back: "Back",
     confirmedTitle: "Booking Confirmed!",
     receivedTitle: "Booking Received!",
     confirmedText: "Your appointment has been confirmed.",
     receivedText: "Your booking request has been received and is pending confirmation.",
-    service: "Service",
     date: "Date",
     time: "Time",
     duration: "Duration",
-    price: "Price",
     backToBookings: "Back to bookings",
     mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",
   },
   de: {
-    stepService: "Service",
     stepDate: "Datum",
     stepTime: "Uhrzeit",
     stepNotes: "Notizen",
-    selectService: "Service auswählen",
     selectDate: "Datum auswählen",
     selectTime: "Uhrzeit auswählen",
     addNotes: "Notizen hinzufügen",
@@ -101,26 +80,21 @@ const translations: Record<string, Record<string, string>> = {
     chooseAnother: "Anderes Datum wählen",
     confirmBooking: "Termin bestätigen",
     booking: "Wird gebucht...",
-    skip: "Überspringen",
     back: "Zurück",
     confirmedTitle: "Termin bestätigt!",
     receivedTitle: "Termin eingegangen!",
     confirmedText: "Ihr Termin wurde bestätigt.",
     receivedText: "Ihre Buchungsanfrage wurde empfangen und wartet auf Bestätigung.",
-    service: "Service",
     date: "Datum",
     time: "Uhrzeit",
     duration: "Dauer",
-    price: "Preis",
     backToBookings: "Zurück zu Terminen",
     mon: "Mo", tue: "Di", wed: "Mi", thu: "Do", fri: "Fr", sat: "Sa", sun: "So",
   },
   fr: {
-    stepService: "Service",
     stepDate: "Date",
     stepTime: "Heure",
     stepNotes: "Notes",
-    selectService: "Choisir un service",
     selectDate: "Choisir une date",
     selectTime: "Choisir une heure",
     addNotes: "Ajouter des notes",
@@ -129,17 +103,14 @@ const translations: Record<string, Record<string, string>> = {
     chooseAnother: "Choisir une autre date",
     confirmBooking: "Confirmer le rendez-vous",
     booking: "Réservation en cours...",
-    skip: "Passer",
     back: "Retour",
     confirmedTitle: "Rendez-vous confirmé !",
     receivedTitle: "Rendez-vous reçu !",
     confirmedText: "Votre rendez-vous a été confirmé.",
     receivedText: "Votre demande a été reçue et est en attente de confirmation.",
-    service: "Service",
     date: "Date",
     time: "Heure",
     duration: "Durée",
-    price: "Prix",
     backToBookings: "Retour aux rendez-vous",
     mon: "Lun", tue: "Mar", wed: "Mer", thu: "Jeu", fri: "Ven", sat: "Sam", sun: "Dim",
   },
@@ -150,10 +121,6 @@ function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}min` : `${h} hour${h > 1 ? "s" : ""}`;
-}
-
-function formatPrice(price: number, currency: string): string {
-  return new Intl.NumberFormat("en", { style: "currency", currency }).format(price);
 }
 
 function formatDate(date: Date, locale: string): string {
@@ -182,13 +149,15 @@ function getCalendarDays(year: number, month: number) {
 export function PortalBookingForm({
   organizationId,
   clientId,
-  bookingTypes,
+  durations,
+  buffer,
+  requiresConfirmation,
   availableDays,
   locale = "en",
 }: PortalBookingFormProps) {
   const t = translations[locale] || translations.en;
-  const [step, setStep] = useState<Step>("type");
-  const [selectedType, setSelectedType] = useState<BookingType | null>(null);
+  const [step, setStep] = useState<Step>("date");
+  const [selectedDuration, setSelectedDuration] = useState<number>(durations[0]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
@@ -203,20 +172,26 @@ export function PortalBookingForm({
   const [error, setError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<string>("");
 
-  const handleTypeSelect = (type: BookingType) => {
-    setSelectedType(type);
-    setStep("date");
+  const handleDurationChange = (dur: number) => {
+    setSelectedDuration(dur);
+    if (selectedDate) {
+      setSelectedTime(null);
+      fetchSlots(selectedDate, dur);
+    }
+  };
+
+  const fetchSlots = async (date: Date, duration: number) => {
+    setLoadingSlots(true);
+    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+    const result = await getAvailableSlots(organizationId, duration, buffer, dateStr);
+    setSlots(result);
+    setLoadingSlots(false);
   };
 
   const handleDateSelect = async (date: Date) => {
     setSelectedDate(date);
     setSelectedTime(null);
-    setLoadingSlots(true);
-
-    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
-    const result = await getAvailableSlots(organizationId, selectedType!.id, dateStr);
-    setSlots(result);
-    setLoadingSlots(false);
+    await fetchSlots(date, selectedDuration);
     setStep("time");
   };
 
@@ -234,7 +209,7 @@ export function PortalBookingForm({
     const result = await createPortalBooking({
       organizationId,
       clientId,
-      bookingTypeId: selectedType!.id,
+      durationMinutes: selectedDuration,
       date: dateStr,
       time: selectedTime!,
       notes: notes || undefined,
@@ -250,8 +225,7 @@ export function PortalBookingForm({
   };
 
   const goBack = () => {
-    if (step === "date") setStep("type");
-    else if (step === "time") setStep("date");
+    if (step === "time") setStep("date");
     else if (step === "notes") setStep("time");
   };
 
@@ -283,7 +257,6 @@ export function PortalBookingForm({
   const canGoPrev = calMonth.year > today.getFullYear() || calMonth.month > today.getMonth();
 
   const steps: { key: Step; label: string }[] = [
-    { key: "type", label: t.stepService },
     { key: "date", label: t.stepDate },
     { key: "time", label: t.stepTime },
     { key: "notes", label: t.stepNotes },
@@ -297,30 +270,30 @@ export function PortalBookingForm({
       {step !== "confirmed" && (
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            {steps.map((s, i) => (
+            {steps.map((s, idx) => (
               <div key={s.key} className="flex items-center gap-2">
                 <div
                   className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-                    i <= stepIndex
+                    idx <= stepIndex
                       ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                       : "border border-zinc-300 text-zinc-400 dark:border-zinc-700 dark:text-zinc-500"
                   }`}
                 >
-                  {i + 1}
+                  {idx + 1}
                 </div>
                 <span
                   className={`text-sm font-medium hidden sm:inline ${
-                    i <= stepIndex
+                    idx <= stepIndex
                       ? "text-zinc-900 dark:text-zinc-100"
                       : "text-zinc-400 dark:text-zinc-500"
                   }`}
                 >
                   {s.label}
                 </span>
-                {i < steps.length - 1 && (
+                {idx < steps.length - 1 && (
                   <div
                     className={`mx-2 h-px flex-1 min-w-[24px] ${
-                      i < stepIndex ? "bg-zinc-900 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-800"
+                      idx < stepIndex ? "bg-zinc-900 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-800"
                     }`}
                   />
                 )}
@@ -331,7 +304,7 @@ export function PortalBookingForm({
       )}
 
       {/* Back button */}
-      {step !== "type" && step !== "confirmed" && (
+      {step !== "date" && step !== "confirmed" && (
         <button
           onClick={goBack}
           className="mb-4 flex items-center gap-1 text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
@@ -341,48 +314,30 @@ export function PortalBookingForm({
         </button>
       )}
 
-      {/* Step 1: Select booking type */}
-      {step === "type" && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            {t.selectService}
-          </h2>
-          {bookingTypes.map((type) => (
-            <button
-              key={type.id}
-              onClick={() => handleTypeSelect(type)}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left transition-all hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">{type.name}</p>
-                  {type.description && (
-                    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                      {type.description}
-                    </p>
-                  )}
-                  <div className="mt-2 flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      {formatDuration(type.durationMinutes)}
-                    </span>
-                    {type.price != null && type.price > 0 && (
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                        {formatPrice(type.price, type.currency)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-zinc-400" />
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Step 2: Select date */}
+      {/* Step 1: Duration + Date */}
       {step === "date" && (
         <div>
+          {/* Duration toggle */}
+          {durations.length > 1 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-center gap-2">
+                {durations.map((dur) => (
+                  <button
+                    key={dur}
+                    onClick={() => handleDurationChange(dur)}
+                    className={`rounded-full px-5 py-2 text-sm font-semibold transition-all ${
+                      selectedDuration === dur
+                        ? "bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900"
+                        : "border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
+                    }`}
+                  >
+                    {formatDuration(dur)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
             {t.selectDate}
           </h2>
@@ -424,9 +379,9 @@ export function PortalBookingForm({
 
             {/* Calendar grid */}
             <div className="grid grid-cols-7 gap-1">
-              {calDays.map((day, i) => {
+              {calDays.map((day, idx) => {
                 if (!day) {
-                  return <div key={`empty-${i}`} />;
+                  return <div key={`empty-${idx}`} />;
                 }
                 const available = isDayAvailable(day);
                 const isSelected =
@@ -460,14 +415,14 @@ export function PortalBookingForm({
         </div>
       )}
 
-      {/* Step 3: Select time */}
+      {/* Step 2: Select time */}
       {step === "time" && (
         <div>
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
             {t.selectTime}
           </h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-            {selectedDate && formatDate(selectedDate, locale)}
+            {selectedDate && formatDate(selectedDate, locale)} — {formatDuration(selectedDuration)}
           </p>
 
           {loadingSlots ? (
@@ -508,14 +463,14 @@ export function PortalBookingForm({
         </div>
       )}
 
-      {/* Step 4: Notes */}
+      {/* Step 3: Notes */}
       {step === "notes" && (
         <div>
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
             {t.addNotes}
           </h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
-            {selectedType?.name} — {selectedDate && formatDate(selectedDate, locale)}, {selectedTime}
+            {selectedDate && formatDate(selectedDate, locale)}, {selectedTime} — {formatDuration(selectedDuration)}
           </p>
 
           <textarea
@@ -544,7 +499,7 @@ export function PortalBookingForm({
         </div>
       )}
 
-      {/* Step 5: Confirmation */}
+      {/* Step 4: Confirmation */}
       {step === "confirmed" && (
         <div className="text-center py-8">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
@@ -562,12 +517,6 @@ export function PortalBookingForm({
           <div className="mt-8 rounded-xl border border-zinc-200 bg-white p-6 text-left dark:border-zinc-800 dark:bg-zinc-900">
             <dl className="space-y-3">
               <div className="flex justify-between">
-                <dt className="text-sm text-zinc-500 dark:text-zinc-400">{t.service}</dt>
-                <dd className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  {selectedType?.name}
-                </dd>
-              </div>
-              <div className="flex justify-between">
                 <dt className="text-sm text-zinc-500 dark:text-zinc-400">{t.date}</dt>
                 <dd className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {selectedDate && formatDate(selectedDate, locale)}
@@ -582,17 +531,9 @@ export function PortalBookingForm({
               <div className="flex justify-between">
                 <dt className="text-sm text-zinc-500 dark:text-zinc-400">{t.duration}</dt>
                 <dd className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  {selectedType && formatDuration(selectedType.durationMinutes)}
+                  {formatDuration(selectedDuration)}
                 </dd>
               </div>
-              {selectedType?.price != null && selectedType.price > 0 && (
-                <div className="flex justify-between">
-                  <dt className="text-sm text-zinc-500 dark:text-zinc-400">{t.price}</dt>
-                  <dd className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    {formatPrice(selectedType.price, selectedType.currency)}
-                  </dd>
-                </div>
-              )}
             </dl>
           </div>
 

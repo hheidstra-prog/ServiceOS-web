@@ -338,7 +338,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl dark:text-white">
             Bookings
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -662,16 +662,16 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                         return (
                           <Card key={booking.id} className={`border-l-4 ${config.borderColor}`}>
                             <CardContent className="flex items-center justify-between py-3">
-                              <div className="flex items-center gap-4">
-                                <div className="text-center">
-                                  <p className="text-lg font-semibold text-zinc-950 dark:text-white">
+                              <div className="flex items-center gap-2 sm:gap-4">
+                                <div className="text-center shrink-0">
+                                  <p className="text-base font-semibold text-zinc-950 sm:text-lg dark:text-white">
                                     {formatTime(booking.startsAt)}
                                   </p>
                                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                                     {formatTime(booking.endsAt)}
                                   </p>
                                 </div>
-                                <div className="border-l border-zinc-200 pl-4 dark:border-zinc-700">
+                                <div className="min-w-0 border-l border-zinc-200 pl-2 sm:pl-4 dark:border-zinc-700">
                                   <div className="flex items-center gap-2">
                                     <Link
                                       href={`/bookings/${booking.id}`}
@@ -688,7 +688,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                                       {config.label}
                                     </span>
                                   </div>
-                                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+                                  <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                                     {booking.bookingType && (
                                       <span className="flex items-center gap-1">
                                         <Clock className="h-3 w-3" />

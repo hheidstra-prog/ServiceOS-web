@@ -33,7 +33,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+        <h1 className="text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl dark:text-white">
           Welcome back{user?.firstName ? `, ${user.firstName}` : ""}
         </h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -190,7 +190,7 @@ export default async function DashboardPage() {
                         {booking.client?.companyName || booking.client?.name || "No client"}
                       </p>
                     </div>
-                    <div className="text-right text-sm">
+                    <div className="flex-shrink-0 text-right text-sm">
                       <p className="font-medium text-zinc-950 dark:text-white">
                         {new Date(booking.startsAt).toLocaleDateString("nl-NL", {
                           weekday: "short",
@@ -254,7 +254,7 @@ export default async function DashboardPage() {
                       </p>
                     </div>
                     {activity.amount !== null && (
-                      <p className="text-sm font-medium text-zinc-950 dark:text-white">
+                      <p className="flex-shrink-0 text-sm font-medium text-zinc-950 dark:text-white">
                         €{activity.amount.toLocaleString("nl-NL", { minimumFractionDigits: 2 })}
                       </p>
                     )}
@@ -294,7 +294,7 @@ export default async function DashboardPage() {
                       {invoice.client.companyName || invoice.client.name}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="flex-shrink-0 text-right">
                     <p className="font-medium text-red-600 dark:text-red-400">
                       €{Number(invoice.total).toLocaleString("nl-NL", { minimumFractionDigits: 2 })}
                     </p>

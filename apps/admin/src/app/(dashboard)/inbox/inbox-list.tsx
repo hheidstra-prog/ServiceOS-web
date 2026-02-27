@@ -73,7 +73,7 @@ export function InboxList({ notifications }: InboxListProps) {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl dark:text-white">
             Inbox
           </h1>
           {unreadCount > 0 && (
@@ -122,7 +122,7 @@ export function InboxList({ notifications }: InboxListProps) {
 
       {/* Notification list */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-950/10 bg-white p-10 text-center dark:border-white/10 dark:bg-zinc-900">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-950/10 bg-white p-6 sm:p-10 text-center dark:border-white/10 dark:bg-zinc-900">
           <div className="rounded-full bg-zinc-100 p-2.5 dark:bg-zinc-800">
             <Inbox className="h-5 w-5 text-zinc-400" />
           </div>
@@ -147,7 +147,7 @@ export function InboxList({ notifications }: InboxListProps) {
                 <button
                   key={notification.id}
                   onClick={() => handleClick(notification)}
-                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025] ${
+                  className={`flex w-full items-start gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3 text-left transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025] ${
                     !notification.isRead ? "bg-sky-500/[0.03] dark:bg-sky-500/[0.05]" : ""
                   } ${href ? "cursor-pointer" : "cursor-default"}`}
                 >

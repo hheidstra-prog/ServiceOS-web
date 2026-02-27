@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@servible/database";
-import { getPortalBookingConfig, getAvailableDays } from "@/lib/actions/booking";
+import { getAvailableDays } from "@/lib/actions/booking";
 import { PortalBookingForm } from "@/components/portal/portal-booking-form";
 
 interface NewBookingPageProps {
@@ -21,7 +21,12 @@ async function getSessionData(domain: string, token: string | undefined) {
     select: {
       organizationId: true,
       organization: {
-        select: { locale: true },
+        select: {
+          locale: true,
+          portalBookingDurations: true,
+          portalBookingBuffer: true,
+          portalBookingConfirm: true,
+        },
       },
     },
   });
@@ -39,15 +44,51 @@ async function getSessionData(domain: string, token: string | undefined) {
 
   if (!session) return null;
 
+  const durations = (site.organization.portalBookingDurations as number[]) || [30, 60];
+
   return {
     organizationId: site.organizationId,
     clientId: session.clientId,
     locale: site.organization.locale || "en",
+    durations,
+    buffer: site.organization.portalBookingBuffer,
+    requiresConfirmation: site.organization.portalBookingConfirm,
   };
 }
 
 export const metadata: Metadata = {
   title: "Book Appointment",
+};
+
+const t: Record<string, Record<string, string>> = {
+  nl: {
+    title: "Afspraak inplannen",
+    subtitle: "Kies een moment dat u het beste uitkomt.",
+    notAvailableTitle: "Geen beschikbaarheid",
+    notAvailableText: "Neem contact met ons op om een afspraak te maken.",
+    backToBookings: "Terug naar afspraken",
+  },
+  en: {
+    title: "Book Appointment",
+    subtitle: "Pick a time that works for you.",
+    notAvailableTitle: "No availability",
+    notAvailableText: "Please contact us to schedule an appointment.",
+    backToBookings: "Back to bookings",
+  },
+  de: {
+    title: "Termin buchen",
+    subtitle: "Wählen Sie einen passenden Zeitpunkt.",
+    notAvailableTitle: "Keine Verfügbarkeit",
+    notAvailableText: "Bitte kontaktieren Sie uns, um einen Termin zu vereinbaren.",
+    backToBookings: "Zurück zu Terminen",
+  },
+  fr: {
+    title: "Prendre rendez-vous",
+    subtitle: "Choisissez un créneau qui vous convient.",
+    notAvailableTitle: "Pas de disponibilité",
+    notAvailableText: "Veuillez nous contacter pour planifier un rendez-vous.",
+    backToBookings: "Retour aux rendez-vous",
+  },
 };
 
 export default async function NewBookingPage({ params }: NewBookingPageProps) {
@@ -61,29 +102,28 @@ export default async function NewBookingPage({ params }: NewBookingPageProps) {
     redirect("/portal/login");
   }
 
-  const [config, availDays] = await Promise.all([
-    getPortalBookingConfig(sessionData.organizationId),
-    getAvailableDays(sessionData.organizationId),
-  ]);
+  const availDays = await getAvailableDays(sessionData.organizationId);
+  const locale = sessionData.locale;
+  const i = t[locale] || t.en;
 
-  if (!config || config.bookingTypes.length === 0) {
+  if (availDays.length === 0) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Book Appointment</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{i.title}</h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-            No booking types are currently available.
+            {i.notAvailableText}
           </p>
         </div>
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Please contact us to schedule an appointment.
+            {i.notAvailableTitle}
           </p>
           <a
             href="/portal/bookings"
             className="mt-4 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            Back to bookings
+            {i.backToBookings}
           </a>
         </div>
       </div>
@@ -93,9 +133,9 @@ export default async function NewBookingPage({ params }: NewBookingPageProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Book Appointment</h1>
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{i.title}</h1>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          Select a service and choose your preferred date and time.
+          {i.subtitle}
         </p>
       </div>
 
@@ -103,9 +143,11 @@ export default async function NewBookingPage({ params }: NewBookingPageProps) {
         <PortalBookingForm
           organizationId={sessionData.organizationId}
           clientId={sessionData.clientId}
-          bookingTypes={config.bookingTypes}
+          durations={sessionData.durations}
+          buffer={sessionData.buffer}
+          requiresConfirmation={sessionData.requiresConfirmation}
           availableDays={availDays}
-          locale={sessionData.locale}
+          locale={locale}
         />
       </div>
     </div>

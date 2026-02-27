@@ -117,7 +117,7 @@ export function TimerBar({ timer }: { timer: RunningTimer }) {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="What did you work on?"
-              className="h-7 w-48 text-xs"
+              className="h-7 w-32 sm:w-48 text-xs"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleStop();
                 if (e.key === "Escape") setShowNoteInput(false);

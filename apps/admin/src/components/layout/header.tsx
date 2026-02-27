@@ -5,7 +5,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Menu, Moon, Sun, Search } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { NotificationBell } from "./notification-bell";
 
@@ -28,6 +28,7 @@ export function Header({ organizationName }: HeaderProps) {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0 border-0">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Sidebar onNavigate={() => setMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>
@@ -47,7 +48,7 @@ export function Header({ organizationName }: HeaderProps) {
       {/* Mobile: show org name */}
       <div className="flex-1 md:hidden">
         {organizationName && (
-          <span className="text-sm font-medium text-zinc-950 dark:text-white">
+          <span className="truncate text-sm font-medium text-zinc-950 dark:text-white">
             {organizationName}
           </span>
         )}

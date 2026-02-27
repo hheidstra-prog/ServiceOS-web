@@ -203,7 +203,7 @@ export function InvoiceDetail({ invoice, orgVatNumber }: InvoiceDetailProps) {
       <div className="space-y-6 lg:col-span-2">
         {/* Status & Actions */}
         <Card className={config.borderColor}>
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
             <div className="flex items-center gap-3">
               <span className={`inline-flex items-center rounded-md px-2 py-1 text-sm font-medium ${config.className}`}>
                 {config.label}
@@ -365,7 +365,7 @@ export function InvoiceDetail({ invoice, orgVatNumber }: InvoiceDetailProps) {
 
               return (
                 <div className="mt-4 border-t border-zinc-950/10 pt-4 dark:border-white/10">
-                  <div className="ml-auto max-w-xs space-y-2">
+                  <div className="w-full space-y-2 sm:ml-auto sm:max-w-xs">
                     <div className="flex justify-between text-sm">
                       <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
                       <span className="text-zinc-950 dark:text-white">

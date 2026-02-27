@@ -456,11 +456,11 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
                   )}
                 </div>
               ) : (
-                <div className="overflow-x-auto -mx-6">
+                <div className="overflow-x-auto -mx-4 sm:-mx-6">
                   <table className="min-w-full">
                     <thead>
                       <tr className="border-b border-zinc-950/10 dark:border-white/10">
-                        <th className="py-2 pl-6 pr-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        <th className="py-2 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 sm:pl-6 dark:text-zinc-400">
                           Description
                         </th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -472,7 +472,7 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                           Tax
                         </th>
-                        <th className="py-2 pl-3 pr-6 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        <th className="py-2 pl-3 pr-4 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 sm:pr-6 dark:text-zinc-400">
                           Total
                         </th>
                         {isDraft && <th className="w-10"></th>}
@@ -481,7 +481,7 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
                     <tbody className="divide-y divide-zinc-950/5 dark:divide-white/5">
                       {quote.items.map((item) => (
                         <tr key={item.id}>
-                          <td className="py-3 pl-6 pr-3">
+                          <td className="py-3 pl-4 pr-3 sm:pl-6">
                             <div className="text-sm text-zinc-950 dark:text-white">
                               {item.description}
                             </div>
@@ -500,7 +500,7 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
                           <td className="px-3 py-3 text-right text-sm text-zinc-500 dark:text-zinc-400">
                             {item.taxRate}%
                           </td>
-                          <td className="py-3 pl-3 pr-6 text-right text-sm font-medium text-zinc-950 dark:text-white">
+                          <td className="py-3 pl-3 pr-4 text-right text-sm font-medium text-zinc-950 sm:pr-6 dark:text-white">
                             {formatCurrency(item.total, quote.currency)}
                           </td>
                           {isDraft && (
@@ -553,7 +553,7 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
                 return (
                   <div className="mt-4 border-t border-zinc-950/10 pt-4 dark:border-white/10">
                     <div className="flex justify-end">
-                      <div className="w-64 space-y-2">
+                      <div className="w-full space-y-2 sm:w-64">
                         <div className="flex justify-between text-sm">
                           <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
                           <span className="text-zinc-950 dark:text-white">

@@ -4,20 +4,18 @@ import { db } from "@servible/database";
 
 // ─── Types ───
 
-interface BookingTypeInfo {
-  id: string;
-  name: string;
-  description: string | null;
-  durationMinutes: number;
-  price: number | null;
-  currency: string;
-  color: string | null;
+interface PublicBookingConfig {
+  organizationName: string;
+  title: string;
+  durations: number[];
+  buffer: number;
   requiresConfirmation: boolean;
 }
 
-interface BookingConfig {
-  organizationName: string;
-  bookingTypes: BookingTypeInfo[];
+interface PortalBookingConfig {
+  durations: number[];
+  buffer: number;
+  requiresConfirmation: boolean;
 }
 
 interface TimeSlot {
@@ -27,7 +25,7 @@ interface TimeSlot {
 
 interface PublicBookingData {
   organizationId: string;
-  bookingTypeId: string;
+  durationMinutes: number;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   name: string;
@@ -37,41 +35,62 @@ interface PublicBookingData {
   _hp?: string; // honeypot
 }
 
-// ─── Get Booking Config ───
+interface PortalBookingData {
+  organizationId: string;
+  clientId: string;
+  durationMinutes: number;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  notes?: string;
+}
 
-export async function getBookingConfig(organizationId: string): Promise<BookingConfig | null> {
+// ─── Get Public Booking Config ───
+
+export async function getPublicBookingConfig(organizationId: string): Promise<PublicBookingConfig | null> {
   const organization = await db.organization.findUnique({
     where: { id: organizationId },
-    select: { name: true },
+    select: {
+      name: true,
+      publicBookingTitle: true,
+      publicBookingDurations: true,
+      publicBookingBuffer: true,
+      publicBookingConfirm: true,
+    },
   });
 
   if (!organization) return null;
 
-  const raw = await db.bookingType.findMany({
-    where: {
-      organizationId,
-      isActive: true,
-      isPublic: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      durationMinutes: true,
-      price: true,
-      currency: true,
-      color: true,
-      requiresConfirmation: true,
-    },
-    orderBy: { name: "asc" },
-  });
+  const durations = (organization.publicBookingDurations as number[]) || [15, 30];
 
   return {
     organizationName: organization.name,
-    bookingTypes: raw.map((t) => ({
-      ...t,
-      price: t.price ? Number(t.price) : null,
-    })),
+    title: organization.publicBookingTitle || "Intro Call",
+    durations,
+    buffer: organization.publicBookingBuffer,
+    requiresConfirmation: organization.publicBookingConfirm,
+  };
+}
+
+// ─── Get Portal Booking Config ───
+
+export async function getPortalBookingConfig(organizationId: string): Promise<PortalBookingConfig | null> {
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      portalBookingDurations: true,
+      portalBookingBuffer: true,
+      portalBookingConfirm: true,
+    },
+  });
+
+  if (!organization) return null;
+
+  const durations = (organization.portalBookingDurations as number[]) || [30, 60];
+
+  return {
+    durations,
+    buffer: organization.portalBookingBuffer,
+    requiresConfirmation: organization.portalBookingConfirm,
   };
 }
 
@@ -79,7 +98,8 @@ export async function getBookingConfig(organizationId: string): Promise<BookingC
 
 export async function getAvailableSlots(
   organizationId: string,
-  bookingTypeId: string,
+  durationMinutes: number,
+  bufferMinutes: number,
   date: string // YYYY-MM-DD
 ): Promise<TimeSlot[]> {
   const dateObj = new Date(date + "T00:00:00");
@@ -96,19 +116,7 @@ export async function getAvailableSlots(
 
   if (!availability) return [];
 
-  // 2. Get the booking type for duration/buffer info
-  const bookingType = await db.bookingType.findUnique({
-    where: { id: bookingTypeId },
-    select: {
-      durationMinutes: true,
-      bufferBefore: true,
-      bufferAfter: true,
-    },
-  });
-
-  if (!bookingType) return [];
-
-  // 3. Get existing bookings for that date (PENDING + CONFIRMED)
+  // 2. Get existing bookings for that date (PENDING + CONFIRMED)
   const dayStart = new Date(date + "T00:00:00");
   const dayEnd = new Date(date + "T23:59:59");
 
@@ -124,27 +132,24 @@ export async function getAvailableSlots(
     },
   });
 
-  // 4. Generate time slots
+  // 3. Generate time slots
   const [startHour, startMin] = availability.startTime.split(":").map(Number);
   const [endHour, endMin] = availability.endTime.split(":").map(Number);
 
   const availStart = startHour * 60 + startMin;
   const availEnd = endHour * 60 + endMin;
-  const slotDuration = bookingType.durationMinutes;
-  const bufferBefore = bookingType.bufferBefore;
-  const bufferAfter = bookingType.bufferAfter;
 
   const slots: TimeSlot[] = [];
 
-  for (let time = availStart; time + slotDuration <= availEnd; time += 30) {
+  for (let time = availStart; time + durationMinutes <= availEnd; time += 30) {
     const slotStartMinutes = time;
-    const slotEndMinutes = time + slotDuration;
+    const slotEndMinutes = time + durationMinutes;
 
     const timeStr = `${Math.floor(time / 60).toString().padStart(2, "0")}:${(time % 60).toString().padStart(2, "0")}`;
 
-    // Check overlap with existing bookings (including buffers)
-    const slotStartWithBuffer = slotStartMinutes - bufferBefore;
-    const slotEndWithBuffer = slotEndMinutes + bufferAfter;
+    // Check overlap with existing bookings (including buffer)
+    const slotStartWithBuffer = slotStartMinutes - bufferMinutes;
+    const slotEndWithBuffer = slotEndMinutes + bufferMinutes;
 
     const hasConflict = existingBookings.some((booking) => {
       const bookingStart = new Date(booking.startsAt).getHours() * 60 + new Date(booking.startsAt).getMinutes();
@@ -187,159 +192,10 @@ export async function getAvailableDays(organizationId: string): Promise<number[]
 
 // ─── Create Public Booking ───
 
-// ─── Get Portal Booking Config (all active types, not just public) ───
-
-export async function getPortalBookingConfig(organizationId: string): Promise<BookingConfig | null> {
-  const organization = await db.organization.findUnique({
-    where: { id: organizationId },
-    select: { name: true },
-  });
-
-  if (!organization) return null;
-
-  // Portal clients see non-public types only (paid sessions, reviews, etc.)
-  // Public types (free intro calls, lead magnets) are for the /book page
-  const raw = await db.bookingType.findMany({
-    where: {
-      organizationId,
-      isActive: true,
-      isPublic: false,
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      durationMinutes: true,
-      price: true,
-      currency: true,
-      color: true,
-      requiresConfirmation: true,
-    },
-    orderBy: { name: "asc" },
-  });
-
-  return {
-    organizationName: organization.name,
-    bookingTypes: raw.map((t) => ({
-      ...t,
-      price: t.price ? Number(t.price) : null,
-    })),
-  };
-}
-
-// ─── Create Portal Booking (authenticated client) ───
-
-interface PortalBookingData {
-  organizationId: string;
-  clientId: string;
-  bookingTypeId: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
-  notes?: string;
-}
-
-export async function createPortalBooking(
-  data: PortalBookingData
-): Promise<{ success: true; bookingId: string; status: string } | { success: false; error: string }> {
-  const { organizationId, clientId, bookingTypeId, date, time, notes } = data;
-
-  if (!date || !time || !bookingTypeId || !clientId) {
-    return { success: false, error: "Missing required fields." };
-  }
-
-  try {
-    // Get booking type
-    const bookingType = await db.bookingType.findUnique({
-      where: { id: bookingTypeId },
-    });
-
-    if (!bookingType || !bookingType.isActive) {
-      return { success: false, error: "This booking type is no longer available." };
-    }
-
-    // Verify slot is still available
-    const slots = await getAvailableSlots(organizationId, bookingTypeId, date);
-    const selectedSlot = slots.find((s) => s.time === time);
-    if (!selectedSlot?.available) {
-      return { success: false, error: "This time slot is no longer available. Please choose another." };
-    }
-
-    // Calculate start/end times
-    const [hour, minute] = time.split(":").map(Number);
-    const startsAt = new Date(date + "T00:00:00");
-    startsAt.setHours(hour, minute, 0, 0);
-
-    const endsAt = new Date(startsAt.getTime() + bookingType.durationMinutes * 60 * 1000);
-
-    const status = bookingType.requiresConfirmation ? "PENDING" : "CONFIRMED";
-
-    // Get client info for notification
-    const client = await db.client.findUnique({
-      where: { id: clientId },
-      select: { name: true, email: true },
-    });
-
-    if (!client) {
-      return { success: false, error: "Client not found." };
-    }
-
-    // Create booking
-    const booking = await db.booking.create({
-      data: {
-        organizationId,
-        clientId,
-        bookingTypeId,
-        guestName: client.name,
-        guestEmail: client.email || "",
-        startsAt,
-        endsAt,
-        status,
-        notes: notes?.trim() || null,
-        locationType: "ONLINE",
-      },
-    });
-
-    // Create notification + activity event
-    await Promise.all([
-      db.notification.create({
-        data: {
-          organizationId,
-          type: "new_booking",
-          title: `New booking: ${client.name} (via portal)`,
-          message: `${bookingType.name} — ${date} at ${time}`,
-          entityType: "booking",
-          entityId: booking.id,
-        },
-      }),
-      db.event.create({
-        data: {
-          clientId,
-          type: "APPOINTMENT",
-          title: `Booking: ${bookingType.name}`,
-          description: notes?.trim() || null,
-          scheduledAt: startsAt,
-          metadata: {
-            source: "portal_booking",
-            bookingId: booking.id,
-            bookingType: bookingType.name,
-          },
-        },
-      }),
-    ]);
-
-    return { success: true, bookingId: booking.id, status };
-  } catch (e) {
-    console.error("Portal booking creation failed:", e);
-    return { success: false, error: "Something went wrong. Please try again." };
-  }
-}
-
-// ─── Create Public Booking ───
-
 export async function createPublicBooking(
   data: PublicBookingData
 ): Promise<{ success: true; bookingId: string; status: string } | { success: false; error: string }> {
-  const { organizationId, bookingTypeId, date, time, name, email, phone, notes } = data;
+  const { organizationId, durationMinutes, date, time, name, email, phone, notes } = data;
 
   // Honeypot check
   if (data._hp) {
@@ -347,7 +203,7 @@ export async function createPublicBooking(
   }
 
   // Validate required fields
-  if (!name?.trim() || !email?.trim() || !date || !time || !bookingTypeId) {
+  if (!name?.trim() || !email?.trim() || !date || !time || !durationMinutes) {
     return { success: false, error: "Please fill in all required fields." };
   }
 
@@ -358,17 +214,22 @@ export async function createPublicBooking(
   }
 
   try {
-    // Get booking type
-    const bookingType = await db.bookingType.findUnique({
-      where: { id: bookingTypeId },
+    // Get org config for buffer/confirmation
+    const org = await db.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        publicBookingTitle: true,
+        publicBookingBuffer: true,
+        publicBookingConfirm: true,
+      },
     });
 
-    if (!bookingType || !bookingType.isActive) {
-      return { success: false, error: "This booking type is no longer available." };
+    if (!org) {
+      return { success: false, error: "Organization not found." };
     }
 
     // Verify slot is still available
-    const slots = await getAvailableSlots(organizationId, bookingTypeId, date);
+    const slots = await getAvailableSlots(organizationId, durationMinutes, org.publicBookingBuffer, date);
     const selectedSlot = slots.find((s) => s.time === time);
     if (!selectedSlot?.available) {
       return { success: false, error: "This time slot is no longer available. Please choose another." };
@@ -379,9 +240,10 @@ export async function createPublicBooking(
     const startsAt = new Date(date + "T00:00:00");
     startsAt.setHours(hour, minute, 0, 0);
 
-    const endsAt = new Date(startsAt.getTime() + bookingType.durationMinutes * 60 * 1000);
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
 
-    const status = bookingType.requiresConfirmation ? "PENDING" : "CONFIRMED";
+    const status = org.publicBookingConfirm ? "PENDING" : "CONFIRMED";
+    const title = org.publicBookingTitle || "Intro Call";
 
     // Find or create client
     let client = await db.client.findFirst({
@@ -411,7 +273,6 @@ export async function createPublicBooking(
         data: {
           organizationId,
           clientId: client.id,
-          bookingTypeId,
           guestName: name.trim(),
           guestEmail: normalizedEmail,
           guestPhone: phone?.trim() || null,
@@ -442,7 +303,7 @@ export async function createPublicBooking(
           organizationId,
           type: "new_booking",
           title: `New booking: ${name.trim()}`,
-          message: `${bookingType.name} — ${date} at ${time}`,
+          message: `${title} (${durationMinutes} min) — ${date} at ${time}`,
           entityType: "booking",
           entityId: booking.id,
         },
@@ -451,13 +312,13 @@ export async function createPublicBooking(
         data: {
           clientId: client.id,
           type: "APPOINTMENT",
-          title: `Booking: ${bookingType.name}`,
+          title: `Booking: ${title}`,
           description: notes?.trim() || null,
           scheduledAt: startsAt,
           metadata: {
             source: "public_booking",
             bookingId: booking.id,
-            bookingType: bookingType.name,
+            durationMinutes,
             phone: phone?.trim() || undefined,
           },
         },
@@ -467,6 +328,107 @@ export async function createPublicBooking(
     return { success: true, bookingId: booking.id, status };
   } catch (e) {
     console.error("Public booking creation failed:", e);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+// ─── Create Portal Booking (authenticated client) ───
+
+export async function createPortalBooking(
+  data: PortalBookingData
+): Promise<{ success: true; bookingId: string; status: string } | { success: false; error: string }> {
+  const { organizationId, clientId, durationMinutes, date, time, notes } = data;
+
+  if (!date || !time || !durationMinutes || !clientId) {
+    return { success: false, error: "Missing required fields." };
+  }
+
+  try {
+    // Get org config for buffer/confirmation
+    const org = await db.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        portalBookingBuffer: true,
+        portalBookingConfirm: true,
+      },
+    });
+
+    if (!org) {
+      return { success: false, error: "Organization not found." };
+    }
+
+    // Verify slot is still available
+    const slots = await getAvailableSlots(organizationId, durationMinutes, org.portalBookingBuffer, date);
+    const selectedSlot = slots.find((s) => s.time === time);
+    if (!selectedSlot?.available) {
+      return { success: false, error: "This time slot is no longer available. Please choose another." };
+    }
+
+    // Calculate start/end times
+    const [hour, minute] = time.split(":").map(Number);
+    const startsAt = new Date(date + "T00:00:00");
+    startsAt.setHours(hour, minute, 0, 0);
+
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
+
+    const status = org.portalBookingConfirm ? "PENDING" : "CONFIRMED";
+
+    // Get client info for notification
+    const client = await db.client.findUnique({
+      where: { id: clientId },
+      select: { name: true, email: true },
+    });
+
+    if (!client) {
+      return { success: false, error: "Client not found." };
+    }
+
+    // Create booking
+    const booking = await db.booking.create({
+      data: {
+        organizationId,
+        clientId,
+        guestName: client.name,
+        guestEmail: client.email || "",
+        startsAt,
+        endsAt,
+        status,
+        notes: notes?.trim() || null,
+        locationType: "ONLINE",
+      },
+    });
+
+    // Create notification + activity event
+    await Promise.all([
+      db.notification.create({
+        data: {
+          organizationId,
+          type: "new_booking",
+          title: `New booking: ${client.name} (via portal)`,
+          message: `Meeting (${durationMinutes} min) — ${date} at ${time}`,
+          entityType: "booking",
+          entityId: booking.id,
+        },
+      }),
+      db.event.create({
+        data: {
+          clientId,
+          type: "APPOINTMENT",
+          title: `Booking: Meeting (${durationMinutes} min)`,
+          description: notes?.trim() || null,
+          scheduledAt: startsAt,
+          metadata: {
+            source: "portal_booking",
+            bookingId: booking.id,
+            durationMinutes,
+          },
+        },
+      }),
+    ]);
+
+    return { success: true, bookingId: booking.id, status };
+  } catch (e) {
+    console.error("Portal booking creation failed:", e);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }

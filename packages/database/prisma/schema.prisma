@@ -61,6 +61,17 @@ model Organization {
   stripeCustomerId  String?
   stripeAccountId   String? // For connected accounts (receiving payments)
 
+  // Public booking config
+  publicBookingTitle     String?   @default("Intro Call")
+  publicBookingDurations Json      @default("[15, 30]")
+  publicBookingBuffer    Int       @default(0)
+  publicBookingConfirm   Boolean   @default(true)
+
+  // Portal booking config
+  portalBookingDurations Json      @default("[30, 60]")
+  portalBookingBuffer    Int       @default(0)
+  portalBookingConfirm   Boolean   @default(false)
+
   // Onboarding
   onboardingCompletedAt DateTime?
 

@@ -76,15 +76,15 @@ export default async function ClientDetailPage({ params, searchParams }: ClientD
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/clients">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{client.name}</h1>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h1 className="truncate text-xl font-bold sm:text-2xl">{client.name}</h1>
             <Badge variant="secondary" className={statusColors[client.status]}>
               {statusLabels[client.status]}
             </Badge>

@@ -24,7 +24,7 @@ export default async function DashboardLayout({
   const runningTimer = await getRunningTimer();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-zinc-950">
+    <div className="flex h-dvh overflow-hidden bg-white dark:bg-zinc-950">
       {/* Sidebar - hidden on mobile */}
       <aside className="hidden w-64 flex-shrink-0 lg:block">
         <Sidebar />

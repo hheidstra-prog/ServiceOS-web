@@ -187,7 +187,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl dark:text-white">
             Invoices
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -253,7 +253,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
 
       {/* Invoices List */}
       {filteredInvoices.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-950/10 bg-white p-10 text-center dark:border-white/10 dark:bg-zinc-900">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-950/10 bg-white p-6 text-center sm:p-10 dark:border-white/10 dark:bg-zinc-900">
           <div className="rounded-full bg-zinc-100 p-2.5 dark:bg-zinc-800">
             <FileText className="h-5 w-5 text-zinc-400" />
           </div>
@@ -273,7 +273,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-900">
+        <div className="overflow-x-auto rounded-lg border border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-900">
           <table className="min-w-full divide-y divide-zinc-950/10 dark:divide-white/10">
             <thead>
               <tr>
