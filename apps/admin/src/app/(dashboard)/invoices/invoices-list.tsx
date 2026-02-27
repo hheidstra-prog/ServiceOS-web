@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, MoreHorizontal, FileText, Send, Copy, Trash2, CreditCard, ArrowRight } from "lucide-react";
+import { Plus, Search, MoreHorizontal, FileText, Send, Lock, Copy, Trash2, CreditCard, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +50,10 @@ const statusConfig: Record<InvoiceStatus, { label: string; className: string }> 
   DRAFT: {
     label: "Draft",
     className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+  },
+  FINALIZED: {
+    label: "Finalized",
+    className: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400",
   },
   SENT: {
     label: "Sent",
@@ -235,7 +239,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
           />
         </div>
         <div className="flex flex-wrap gap-1">
-          {(["ALL", "DRAFT", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const).map((status) => (
+          {(["ALL", "DRAFT", "FINALIZED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const).map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -376,7 +380,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                           </DropdownMenuItem>
                           {invoice.status === "DRAFT" && (
                             <DropdownMenuItem onClick={() => handleFinalize(invoice.id)}>
-                              <Send className="mr-2 h-4 w-4" />
+                              <Lock className="mr-2 h-4 w-4" />
                               Finalize
                             </DropdownMenuItem>
                           )}

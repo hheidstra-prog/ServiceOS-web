@@ -2,7 +2,6 @@ import { getBookings, getBookingTypes } from "./actions";
 import { BookingsList } from "./bookings-list";
 
 export default async function BookingsPage() {
-  // Get bookings for the current month by default
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);

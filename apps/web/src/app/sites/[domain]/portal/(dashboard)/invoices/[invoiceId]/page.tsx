@@ -127,6 +127,7 @@ export default async function InvoiceDetailPage({
   const { invoice, client, organization } = data;
 
   const statusConfig: Record<string, { label: string; color: string }> = {
+    FINALIZED: { label: "Awaiting Payment", color: "bg-blue-100 text-blue-700" },
     SENT: { label: "Awaiting Payment", color: "bg-blue-100 text-blue-700" },
     PAID: { label: "Paid", color: "bg-green-100 text-green-700" },
     OVERDUE: { label: "Overdue", color: "bg-red-100 text-red-700" },

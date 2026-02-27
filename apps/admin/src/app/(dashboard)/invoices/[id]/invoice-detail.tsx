@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Send, Copy, CreditCard, MoreHorizontal, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Send, Copy, CreditCard, MoreHorizontal, Download, Lock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { InvoiceStatus, TaxType } from "@servible/database";
 import { TAX_TYPE_CONFIG } from "@/lib/tax-utils";
-import { deleteInvoice, deleteInvoiceItem, duplicateInvoice, finalizeInvoice, toggleInvoicePortalVisibility } from "../actions";
+import { deleteInvoice, deleteInvoiceItem, duplicateInvoice, finalizeInvoice, sendInvoice, toggleInvoicePortalVisibility } from "../actions";
 import { InvoiceItemDialog } from "./invoice-item-dialog";
 import { RecordPaymentDialog } from "../record-payment-dialog";
 
@@ -78,6 +78,11 @@ const statusConfig: Record<InvoiceStatus, { label: string; className: string; bo
     label: "Draft",
     className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
     borderColor: "",
+  },
+  FINALIZED: {
+    label: "Finalized",
+    className: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400",
+    borderColor: "border-indigo-300 dark:border-indigo-500/50",
   },
   SENT: {
     label: "Sent",
@@ -144,12 +149,24 @@ export function InvoiceDetail({ invoice, orgVatNumber }: InvoiceDetailProps) {
   const canEdit = invoice.status === "DRAFT";
   const canRecordPayment = ["SENT", "VIEWED", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.status);
 
+  const canSend = ["FINALIZED", "SENT", "VIEWED", "OVERDUE"].includes(invoice.status);
+  const isSent = invoice.sentAt !== null;
+
   const handleFinalize = async () => {
     try {
       await finalizeInvoice(invoice.id);
       toast.success("Invoice finalized");
     } catch {
       toast.error("Failed to finalize invoice");
+    }
+  };
+
+  const handleSend = async () => {
+    try {
+      await sendInvoice(invoice.id);
+      toast.success("Invoice sent to client");
+    } catch {
+      toast.error("Failed to send invoice");
     }
   };
 
@@ -217,8 +234,14 @@ export function InvoiceDetail({ invoice, orgVatNumber }: InvoiceDetailProps) {
             <div className="flex gap-2">
               {invoice.status === "DRAFT" && (
                 <Button onClick={handleFinalize} size="sm">
-                  <Send className="mr-1.5 h-4 w-4" />
+                  <Lock className="mr-1.5 h-4 w-4" />
                   Finalize
+                </Button>
+              )}
+              {canSend && (
+                <Button onClick={handleSend} size="sm">
+                  {isSent ? <RefreshCw className="mr-1.5 h-4 w-4" /> : <Send className="mr-1.5 h-4 w-4" />}
+                  {isSent ? "Resend" : "Send to Client"}
                 </Button>
               )}
               {canRecordPayment && (

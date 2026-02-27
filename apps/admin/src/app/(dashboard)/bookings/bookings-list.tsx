@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -42,10 +42,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { BookingStatus, LocationType } from "@servible/database";
-import { cancelBooking, confirmBooking, completeBooking, markNoShow, toggleBookingPortalVisibility } from "./actions";
+import { cancelBooking, confirmBooking, completeBooking, markNoShow, toggleBookingPortalVisibility, getBookings } from "./actions";
 import { NewBookingDialog } from "./new-booking-dialog";
 import { BookingTypesDialog } from "./booking-types-dialog";
 import { AvailabilityDialog } from "./availability-dialog";
+import { BookingSettingsDialog } from "./booking-settings-dialog";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface BookingType {
@@ -194,7 +195,8 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
   const router = useRouter();
   const isMobile = useIsMobile();
   const { confirm, ConfirmDialog } = useConfirm();
-  const bookings = initialBookings;
+  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+  const [isPending, startTransition] = useTransition();
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -203,11 +205,23 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isTypesDialogOpen, setIsTypesDialogOpen] = useState(false);
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [dayDetailDate, setDayDetailDate] = useState<Date | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthDays = getMonthDays(year, month);
+
+  // Refetch bookings when month changes
+  useEffect(() => {
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
+    startTransition(async () => {
+      const data = await getBookings({ startDate: startOfMonth, endDate: endOfMonth });
+      setBookings(data);
+    });
+  }, [year, month]);
 
   const filteredBookings = bookings.filter((booking) => {
     const searchLower = search.toLowerCase();
@@ -244,11 +258,18 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
     (a, b) => new Date(a).getTime() - new Date(b).getTime()
   );
 
+  const refetchBookings = async () => {
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
+    const data = await getBookings({ startDate: startOfMonth, endDate: endOfMonth });
+    setBookings(data);
+  };
+
   const handleConfirm = async (id: string) => {
     try {
       await confirmBooking(id);
       toast.success("Booking confirmed");
-      router.refresh();
+      refetchBookings();
     } catch {
       toast.error("Failed to confirm booking");
     }
@@ -260,7 +281,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
     try {
       await cancelBooking(id);
       toast.success("Booking cancelled");
-      router.refresh();
+      refetchBookings();
     } catch {
       toast.error("Failed to cancel booking");
     }
@@ -270,7 +291,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
     try {
       await completeBooking(id);
       toast.success("Booking marked as completed");
-      router.refresh();
+      refetchBookings();
     } catch {
       toast.error("Failed to complete booking");
     }
@@ -280,7 +301,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
     try {
       await markNoShow(id);
       toast.success("Booking marked as no-show");
-      router.refresh();
+      refetchBookings();
     } catch {
       toast.error("Failed to mark no-show");
     }
@@ -346,14 +367,25 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setIsAvailabilityOpen(true)} variant="outline" size="sm">
-            <Clock className="mr-1.5 h-4 w-4" />
-            Set Hours
-          </Button>
-          <Button onClick={() => setIsTypesDialogOpen(true)} variant="outline" size="sm">
-            <Settings className="mr-1.5 h-4 w-4" />
-            Booking Types
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Settings className="mr-1.5 h-4 w-4" />
+                Settings
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
+                Booking Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsAvailabilityOpen(true)}>
+                Availability Hours
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsTypesDialogOpen(true)}>
+                Booking Types
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={() => setIsNewDialogOpen(true)} size="sm">
             <Plus className="mr-1.5 h-4 w-4" />
             New booking
@@ -439,6 +471,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
       )}
 
       {/* Content */}
+      <div className={`transition-opacity duration-150 ${isPending ? "opacity-50" : ""}`}>
       {view === "calendar" ? (
         isMobile ? (
           // Mobile Calendar: Mini month + Day agenda
@@ -608,9 +641,12 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                               </button>
                             ))}
                             {dayBookings.length > 3 && (
-                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              <button
+                                onClick={() => setDayDetailDate(day)}
+                                className="text-xs text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors"
+                              >
                                 +{dayBookings.length - 3} more
-                              </p>
+                              </button>
                             )}
                           </div>
                         </>
@@ -763,17 +799,25 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
           )}
         </>
       )}
+      </div>
 
       {/* Dialogs */}
       <NewBookingDialog
         open={isNewDialogOpen}
-        onOpenChange={setIsNewDialogOpen}
+        onOpenChange={(open) => {
+          setIsNewDialogOpen(open);
+          if (!open) refetchBookings();
+        }}
         bookingTypes={bookingTypes}
       />
       <BookingTypesDialog
         open={isTypesDialogOpen}
         onOpenChange={setIsTypesDialogOpen}
         bookingTypes={bookingTypes}
+      />
+      <BookingSettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
       />
       <AvailabilityDialog
         open={isAvailabilityOpen}
@@ -943,6 +987,68 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                     </Button>
                   )}
                 </div>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* Day Detail Sheet (for "+x more" on calendar) */}
+      <Sheet open={!!dayDetailDate} onOpenChange={(open) => !open && setDayDetailDate(null)}>
+        <SheetContent className="sm:max-w-md overflow-y-auto" overlayClassName="bg-zinc-950/10 dark:bg-zinc-950/30">
+          <SheetHeader className="pb-0">
+            <SheetTitle>{dayDetailDate ? formatDateLong(dayDetailDate) : ""}</SheetTitle>
+          </SheetHeader>
+          {dayDetailDate && (() => {
+            const dayBookings = getBookingsForDay(dayDetailDate)
+              .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+            return (
+              <div className="space-y-2 px-4 pb-4">
+                {dayBookings.map((booking) => {
+                  const config = statusConfig[booking.status];
+                  return (
+                    <Card
+                      key={booking.id}
+                      className={`border-l-4 ${config.borderColor} cursor-pointer active:bg-zinc-50 dark:active:bg-zinc-800/50`}
+                      onClick={() => {
+                        setDayDetailDate(null);
+                        setSelectedBooking(booking);
+                      }}
+                    >
+                      <CardContent className="flex items-center justify-between py-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="text-center shrink-0">
+                            <p className="text-sm font-semibold text-zinc-950 dark:text-white">
+                              {formatTime(booking.startsAt)}
+                            </p>
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                              {formatTime(booking.endsAt)}
+                            </p>
+                          </div>
+                          <div className="min-w-0 border-l border-zinc-200 pl-3 dark:border-zinc-700">
+                            <p className="truncate text-sm font-medium text-zinc-950 dark:text-white">
+                              {booking.client?.name || booking.guestName || "No client"}
+                              {booking.contact && (
+                                <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {booking.bookingType && (
+                                <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                  {booking.bookingType.name}
+                                </span>
+                              )}
+                              <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
+                                {config.label}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 dark:text-zinc-600" />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             );
           })()}

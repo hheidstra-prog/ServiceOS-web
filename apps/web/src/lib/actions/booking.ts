@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@servible/database";
+import { sendBookingConfirmation } from "@/lib/email";
 
 // ─── Types ───
 
@@ -218,6 +219,8 @@ export async function createPublicBooking(
     const org = await db.organization.findUnique({
       where: { id: organizationId },
       select: {
+        name: true,
+        locale: true,
         publicBookingTitle: true,
         publicBookingBuffer: true,
         publicBookingConfirm: true,
@@ -325,6 +328,24 @@ export async function createPublicBooking(
       }),
     ]);
 
+    // Send confirmation email (async, non-blocking)
+    const locale = org.locale || "en";
+    const dateFormatted = new Intl.DateTimeFormat(
+      locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US",
+      { year: "numeric", month: "long", day: "numeric" }
+    ).format(startsAt);
+
+    sendBookingConfirmation({
+      to: normalizedEmail,
+      guestName: name.trim(),
+      organizationName: org.name,
+      dateFormatted,
+      time,
+      durationMinutes,
+      status: status as "CONFIRMED" | "PENDING",
+      locale,
+    }).catch((err) => console.error("Failed to send booking confirmation email:", err));
+
     return { success: true, bookingId: booking.id, status };
   } catch (e) {
     console.error("Public booking creation failed:", e);
@@ -348,6 +369,8 @@ export async function createPortalBooking(
     const org = await db.organization.findUnique({
       where: { id: organizationId },
       select: {
+        name: true,
+        locale: true,
         portalBookingBuffer: true,
         portalBookingConfirm: true,
       },
@@ -425,6 +448,28 @@ export async function createPortalBooking(
         },
       }),
     ]);
+
+    // Send confirmation email (async, non-blocking)
+    if (client.email) {
+      const locale = org.locale || "en";
+      const dateFormatted = new Intl.DateTimeFormat(
+        locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US",
+        { year: "numeric", month: "long", day: "numeric" }
+      ).format(startsAt);
+
+      sendBookingConfirmation({
+        to: client.email,
+        guestName: client.name,
+        organizationName: org.name,
+        dateFormatted,
+        time,
+        durationMinutes,
+        status: status as "CONFIRMED" | "PENDING",
+        locale,
+      }).catch((err) => console.error("Failed to send portal booking confirmation email:", err));
+    } else {
+      console.warn(`Portal booking: client ${client.name} has no email, skipping confirmation`);
+    }
 
     return { success: true, bookingId: booking.id, status };
   } catch (e) {

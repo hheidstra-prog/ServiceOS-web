@@ -4,6 +4,24 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
 import { BookingStatus, LocationType } from "@servible/database";
+import { sendBookingConfirmation, sendBookingCancellation } from "@/lib/email";
+
+function getLocaleTag(locale: string) {
+  const map: Record<string, string> = { nl: "nl-NL", de: "de-DE", fr: "fr-FR", en: "en-US" };
+  return map[locale] || "en-US";
+}
+
+function formatBookingDate(date: Date, locale: string) {
+  return new Intl.DateTimeFormat(getLocaleTag(locale), {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
+function formatBookingTime(date: Date) {
+  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+}
 
 // Get all bookings for the organization
 export async function getBookings(filters?: {
@@ -178,6 +196,26 @@ export async function createBooking(data: {
     });
   }
 
+  // Send booking confirmation email (async, non-blocking)
+  const recipientEmail = data.guestEmail || (data.clientId ? (await db.client.findUnique({ where: { id: data.clientId }, select: { email: true } }))?.email : null);
+  const recipientName = data.guestName || (data.clientId ? (await db.client.findUnique({ where: { id: data.clientId }, select: { name: true } }))?.name : null);
+
+  if (recipientEmail && recipientName) {
+    const locale = organization.locale || "en";
+    const durationMinutes = Math.round((data.endsAt.getTime() - data.startsAt.getTime()) / 60000);
+
+    sendBookingConfirmation({
+      to: recipientEmail,
+      guestName: recipientName,
+      organizationName: organization.name,
+      dateFormatted: formatBookingDate(data.startsAt, locale),
+      time: formatBookingTime(data.startsAt),
+      durationMinutes,
+      status: (data.status || "CONFIRMED") as "CONFIRMED" | "PENDING",
+      locale,
+    }).catch((err) => console.error("Failed to send booking confirmation email:", err));
+  }
+
   revalidatePath("/bookings");
   return booking;
 }
@@ -233,7 +271,27 @@ export async function cancelBooking(id: string) {
       status: "CANCELLED",
       cancelledAt: new Date(),
     },
+    include: {
+      client: { select: { name: true, email: true } },
+    },
   });
+
+  // Send cancellation email (async, non-blocking)
+  const email = booking.guestEmail || booking.client?.email;
+  const name = booking.guestName || booking.client?.name;
+
+  if (email && name) {
+    const locale = organization.locale || "en";
+
+    sendBookingCancellation({
+      to: email,
+      guestName: name,
+      organizationName: organization.name,
+      dateFormatted: formatBookingDate(booking.startsAt, locale),
+      time: formatBookingTime(booking.startsAt),
+      locale,
+    }).catch((err) => console.error("Failed to send booking cancellation email:", err));
+  }
 
   revalidatePath("/bookings");
   revalidatePath(`/bookings/${id}`);
@@ -250,7 +308,30 @@ export async function confirmBooking(id: string) {
     data: {
       status: "CONFIRMED",
     },
+    include: {
+      client: { select: { name: true, email: true } },
+    },
   });
+
+  // Send confirmation email (async, non-blocking)
+  const email = booking.guestEmail || booking.client?.email;
+  const name = booking.guestName || booking.client?.name;
+
+  if (email && name) {
+    const locale = organization.locale || "en";
+    const durationMinutes = Math.round((booking.endsAt.getTime() - booking.startsAt.getTime()) / 60000);
+
+    sendBookingConfirmation({
+      to: email,
+      guestName: name,
+      organizationName: organization.name,
+      dateFormatted: formatBookingDate(booking.startsAt, locale),
+      time: formatBookingTime(booking.startsAt),
+      durationMinutes,
+      status: "CONFIRMED",
+      locale,
+    }).catch((err) => console.error("Failed to send booking confirmation email:", err));
+  }
 
   revalidatePath("/bookings");
   revalidatePath(`/bookings/${id}`);
@@ -500,6 +581,60 @@ export async function getClientsForSelect() {
     },
     orderBy: { name: "asc" },
   });
+}
+
+// =====================
+// BOOKING SETTINGS
+// =====================
+
+export async function getBookingSettings() {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) return null;
+
+  const org = await db.organization.findUnique({
+    where: { id: organization.id },
+    select: {
+      publicBookingTitle: true,
+      publicBookingDurations: true,
+      publicBookingBuffer: true,
+      publicBookingConfirm: true,
+      portalBookingDurations: true,
+      portalBookingBuffer: true,
+      portalBookingConfirm: true,
+    },
+  });
+
+  if (!org) return null;
+
+  return {
+    publicBookingTitle: org.publicBookingTitle || "Intro Call",
+    publicBookingDurations: (org.publicBookingDurations as number[]) || [15, 30],
+    publicBookingBuffer: org.publicBookingBuffer,
+    publicBookingConfirm: org.publicBookingConfirm,
+    portalBookingDurations: (org.portalBookingDurations as number[]) || [30, 60],
+    portalBookingBuffer: org.portalBookingBuffer,
+    portalBookingConfirm: org.portalBookingConfirm,
+  };
+}
+
+export async function updateBookingSettings(data: {
+  publicBookingTitle?: string;
+  publicBookingDurations?: number[];
+  publicBookingBuffer?: number;
+  publicBookingConfirm?: boolean;
+  portalBookingDurations?: number[];
+  portalBookingBuffer?: number;
+  portalBookingConfirm?: boolean;
+}) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) throw new Error("Not authorized");
+
+  await db.organization.update({
+    where: { id: organization.id },
+    data,
+  });
+
+  revalidatePath("/bookings");
 }
 
 // Toggle portal visibility

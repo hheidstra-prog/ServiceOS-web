@@ -981,6 +981,7 @@ model Invoice {
 
 enum InvoiceStatus {
   DRAFT
+  FINALIZED
   SENT
   VIEWED
   PARTIALLY_PAID

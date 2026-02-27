@@ -32,6 +32,11 @@ const statusConfig: Record<QuoteStatus, { label: string; badgeColor: string; bor
     badgeColor: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
     borderColor: "",
   },
+  FINALIZED: {
+    label: "Finalized",
+    badgeColor: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400",
+    borderColor: "border-indigo-300 dark:border-indigo-500/50",
+  },
   SENT: {
     label: "Sent",
     badgeColor: "bg-sky-500/10 text-sky-700 dark:text-sky-400",

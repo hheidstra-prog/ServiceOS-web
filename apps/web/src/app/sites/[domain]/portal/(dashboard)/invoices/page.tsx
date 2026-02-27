@@ -72,6 +72,7 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
   }
 
   const statusConfig: Record<string, { label: string; color: string }> = {
+    FINALIZED: { label: "Awaiting Payment", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
     SENT: { label: "Awaiting Payment", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
     PAID: { label: "Paid", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
     OVERDUE: { label: "Overdue", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
@@ -84,7 +85,7 @@ export default async function InvoicesPage({ params }: InvoicesPageProps) {
 
   // Group invoices by status
   const pendingInvoices = invoices.filter((inv) =>
-    ["SENT", "OVERDUE", "PARTIALLY_PAID"].includes(inv.status)
+    ["FINALIZED", "SENT", "OVERDUE", "PARTIALLY_PAID"].includes(inv.status)
   );
   const paidInvoices = invoices.filter((inv) => inv.status === "PAID");
 

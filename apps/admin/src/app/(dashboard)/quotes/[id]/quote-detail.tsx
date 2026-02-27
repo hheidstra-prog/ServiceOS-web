@@ -19,6 +19,7 @@ import {
   Calendar,
   Clock,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -317,8 +318,12 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
             )}
             {!isDraft && (
               <Button onClick={handleSend} size="sm">
-                <Send className="mr-1.5 h-4 w-4" />
-                Send to Client
+                {quote.sentAt ? (
+                  <RefreshCw className="mr-1.5 h-4 w-4" />
+                ) : (
+                  <Send className="mr-1.5 h-4 w-4" />
+                )}
+                {quote.sentAt ? "Resend" : "Send to Client"}
               </Button>
             )}
             <DropdownMenu>

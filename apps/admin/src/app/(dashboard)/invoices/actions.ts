@@ -5,6 +5,9 @@ import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
 import { InvoiceStatus, TaxType } from "@servible/database";
 import { taxRateFromType } from "@/lib/tax-utils";
+import { generateInvoicePdf } from "@servible/pdf/generate";
+import type { PdfInvoiceData } from "@servible/pdf";
+import { sendInvoiceEmail } from "@/lib/email";
 
 // Get all invoices for the organization
 export async function getInvoices() {
@@ -313,7 +316,7 @@ async function recalculateInvoiceTotals(invoiceId: string) {
   });
 }
 
-// Send invoice to client
+// Finalize invoice (lock editing, no email yet)
 export async function finalizeInvoice(id: string) {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
@@ -321,11 +324,10 @@ export async function finalizeInvoice(id: string) {
   const invoice = await db.invoice.update({
     where: { id, organizationId: organization.id },
     data: {
-      status: "SENT",
-      sentAt: new Date(),
+      status: "FINALIZED",
     },
     include: {
-      client: true,
+      client: { select: { id: true, status: true } },
     },
   });
 
@@ -337,11 +339,134 @@ export async function finalizeInvoice(id: string) {
     });
   }
 
-  // TODO: Send email notification
-
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
   revalidatePath("/clients");
+}
+
+// Send invoice to client (email + PDF)
+export async function sendInvoice(id: string) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) throw new Error("Not authorized");
+
+  const invoice = await db.invoice.findFirst({
+    where: { id, organizationId: organization.id },
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          companyName: true,
+          email: true,
+          addressLine1: true,
+          addressLine2: true,
+          city: true,
+          postalCode: true,
+          country: true,
+          vatNumber: true,
+        },
+      },
+      items: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+  if (invoice.status === "DRAFT") throw new Error("Invoice must be finalized before sending");
+
+  // Update status to SENT and set sentAt
+  await db.invoice.update({
+    where: { id },
+    data: {
+      status: "SENT",
+      sentAt: new Date(),
+    },
+  });
+
+  // Send email notification (async, non-blocking)
+  if (invoice.client.email) {
+    const locale = organization.locale || "en";
+    const currency = invoice.currency || "EUR";
+
+    const fmtCurrency = (amount: number) =>
+      new Intl.NumberFormat(locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US", {
+        style: "currency",
+        currency,
+      }).format(amount);
+
+    const fmtDate = (date: Date | null) =>
+      date
+        ? new Intl.DateTimeFormat(locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }).format(date)
+        : "";
+
+    const pdfData: PdfInvoiceData = {
+      invoice: {
+        number: invoice.number,
+        status: "SENT",
+        issueDate: invoice.issueDate,
+        dueDate: invoice.dueDate,
+        paidAt: invoice.paidAt,
+        notes: invoice.notes,
+        paymentTerms: invoice.paymentTerms,
+        subtotal: Number(invoice.subtotal),
+        taxAmount: Number(invoice.taxAmount),
+        total: Number(invoice.total),
+        paidAmount: Number(invoice.paidAmount),
+        currency,
+        items: invoice.items.map((item) => ({
+          description: item.description,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          taxRate: Number(item.taxRate),
+          taxType: item.taxType,
+          taxAmount: Number(item.taxAmount),
+          subtotal: Number(item.subtotal),
+          total: Number(item.total),
+        })),
+      },
+      organization: {
+        name: organization.name,
+        logo: organization.logo,
+        addressLine1: organization.addressLine1,
+        addressLine2: organization.addressLine2,
+        postalCode: organization.postalCode,
+        city: organization.city,
+        country: organization.country,
+        vatNumber: organization.vatNumber,
+        registrationNumber: organization.registrationNumber,
+        iban: organization.iban,
+        email: organization.email,
+        phone: organization.phone,
+      },
+      client: invoice.client,
+    };
+
+    generateInvoicePdf(pdfData)
+      .then((pdfBuffer) =>
+        sendInvoiceEmail({
+          to: invoice.client.email!,
+          clientName: invoice.client.companyName || invoice.client.name,
+          organizationName: organization.name,
+          invoiceNumber: invoice.number,
+          totalFormatted: fmtCurrency(Number(invoice.total)),
+          dueDateFormatted: fmtDate(invoice.dueDate),
+          locale,
+          pdfBuffer,
+          pdfFilename: `${invoice.number}.pdf`,
+        })
+      )
+      .catch((err) => console.error("Failed to send invoice email:", err));
+  } else {
+    console.warn(`Invoice ${invoice.number}: client has no email, skipping notification`);
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${id}`);
 }
 
 // Record payment

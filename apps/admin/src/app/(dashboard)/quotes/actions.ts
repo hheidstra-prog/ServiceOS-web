@@ -6,6 +6,9 @@ import { db } from "@/lib/db";
 import { getCurrentUserAndOrg } from "@/lib/auth";
 import { QuoteStatus, TaxType } from "@servible/database";
 import { taxRateFromType } from "@/lib/tax-utils";
+import { generateQuotePdf } from "@servible/pdf/generate";
+import type { PdfQuoteData } from "@servible/pdf";
+import { sendQuoteEmail } from "@/lib/email";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -335,7 +338,24 @@ export async function sendQuote(id: string) {
       sentAt: new Date(),
     },
     include: {
-      client: true,
+      client: {
+        select: {
+          id: true,
+          name: true,
+          companyName: true,
+          email: true,
+          status: true,
+          addressLine1: true,
+          addressLine2: true,
+          city: true,
+          postalCode: true,
+          country: true,
+          vatNumber: true,
+        },
+      },
+      items: {
+        orderBy: { sortOrder: "asc" as const },
+      },
     },
   });
 
@@ -347,7 +367,88 @@ export async function sendQuote(id: string) {
     });
   }
 
-  // TODO: Send email notification
+  // Send email notification (async, non-blocking)
+  if (quote.client.email) {
+    const locale = organization.locale || "en";
+    const currency = quote.currency || "EUR";
+
+    const formatCurrency = (amount: number) =>
+      new Intl.NumberFormat(locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US", {
+        style: "currency",
+        currency,
+      }).format(amount);
+
+    const formatDate = (date: Date | null) =>
+      date
+        ? new Intl.DateTimeFormat(locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }).format(date)
+        : null;
+
+    const pdfData: PdfQuoteData = {
+      quote: {
+        number: quote.number,
+        status: quote.status,
+        title: quote.title,
+        introduction: quote.introduction,
+        terms: quote.terms,
+        createdAt: quote.createdAt,
+        validUntil: quote.validUntil,
+        subtotal: Number(quote.subtotal),
+        taxAmount: Number(quote.taxAmount),
+        total: Number(quote.total),
+        currency,
+        items: quote.items.map((item) => ({
+          description: item.description,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          taxRate: Number(item.taxRate),
+          taxType: item.taxType,
+          taxAmount: Number(item.taxAmount),
+          subtotal: Number(item.subtotal),
+          total: Number(item.total),
+          isOptional: item.isOptional,
+          isSelected: item.isSelected,
+        })),
+      },
+      organization: {
+        name: organization.name,
+        logo: organization.logo,
+        addressLine1: organization.addressLine1,
+        addressLine2: organization.addressLine2,
+        postalCode: organization.postalCode,
+        city: organization.city,
+        country: organization.country,
+        vatNumber: organization.vatNumber,
+        registrationNumber: organization.registrationNumber,
+        iban: organization.iban,
+        email: organization.email,
+        phone: organization.phone,
+      },
+      client: quote.client,
+    };
+
+    generateQuotePdf(pdfData)
+      .then((pdfBuffer) =>
+        sendQuoteEmail({
+          to: quote.client.email!,
+          clientName: quote.client.companyName || quote.client.name,
+          organizationName: organization.name,
+          quoteNumber: quote.number,
+          quoteTitle: quote.title,
+          totalFormatted: formatCurrency(Number(quote.total)),
+          validUntilFormatted: formatDate(quote.validUntil),
+          locale,
+          pdfBuffer,
+          pdfFilename: `${quote.number}.pdf`,
+        })
+      )
+      .catch((err) => console.error("Failed to send quote email:", err));
+  } else {
+    console.warn(`Quote ${quote.number}: client has no email, skipping notification`);
+  }
 
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${id}`);
