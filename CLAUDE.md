@@ -121,8 +121,14 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
 - **All UI text** uses hardcoded translations keyed by locale (nl/en/de/fr) — no AI roundtrip
 - **BookingType.isPublic**: distinguishes public-facing booking types (shown on `/book`) from portal-only types
 - **Admin availability**: `availability-dialog.tsx` in bookings — 7-day weekly hours grid (Mon-Sun toggle + start/end times)
-- **Admin booking sheet**: clicking a calendar booking opens a Sheet info panel (not navigation), with booking details and action buttons
-- **Backlog**: Google Calendar / MS Outlook sync (fields `externalCalendarId` and `externalCalendarEventId` already exist on Booking model)
+- **Admin booking list**: calendar view + Sheet info panel on click (not navigation), with booking details and action buttons
+- **Admin booking detail** (`/bookings/[id]`): inline-editable form (no modal) — date/time, booking type, location, client/contact selectors, notes. Guest bookings show read-only guest info. Status actions (Confirm/Complete/Cancel Booking/No Show/Delete) in top bar. Portal visibility toggle (immediate save). Fields disabled when booking is in terminal state (CANCELLED/COMPLETED/NO_SHOW). Pattern matches Client and Project detail pages.
+- **Key files**:
+  - Detail page: `apps/admin/src/app/(dashboard)/bookings/[id]/page.tsx` + `booking-detail.tsx`
+  - List/calendar: `apps/admin/src/app/(dashboard)/bookings/bookings-list.tsx`
+  - Server actions: `apps/admin/src/app/(dashboard)/bookings/actions.ts`
+  - New booking dialog: `apps/admin/src/app/(dashboard)/bookings/new-booking-dialog.tsx`
+- **Backlog**: Google Calendar / MS Outlook sync (fields `externalCalendarId` and `externalCalendarEventId` already exist on Booking model), send invite email with .ics to contact person
 
 ## Public Blog (Web App)
 - Blog listing at `/blog`, individual posts at `/blog/[slug]`
