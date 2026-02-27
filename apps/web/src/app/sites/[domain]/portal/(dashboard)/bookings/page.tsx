@@ -49,6 +49,9 @@ async function getBookings(domain: string, token: string | undefined) {
       bookingType: {
         select: { name: true, color: true },
       },
+      contact: {
+        select: { firstName: true, lastName: true },
+      },
     },
   });
 
@@ -216,6 +219,11 @@ export default async function BookingsPage({ params }: BookingsPageProps) {
                                 {locationLabel[booking.locationType]}
                               </span>
                             </div>
+                            {booking.contact && (
+                              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                With: {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}
+                              </p>
+                            )}
                             {booking.location && (
                               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
                                 {booking.locationType === "ONLINE" ? (
@@ -286,6 +294,9 @@ export default async function BookingsPage({ params }: BookingsPageProps) {
                             </p>
                             <p className="text-sm text-zinc-500 dark:text-zinc-400">
                               {format(startDate, "h:mm a")}
+                              {booking.contact && (
+                                <span> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                              )}
                             </p>
                           </div>
                         </div>

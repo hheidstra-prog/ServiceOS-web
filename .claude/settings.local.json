@@ -82,7 +82,9 @@
       "Bash(cd /c/code/launchminds/ServiceOS/ServiceOS-web/apps/admin && npx next dev -p 3001 2>&1)",
       "Bash(cd /c/code/launchminds/ServiceOS/ServiceOS-web/apps/admin && npx prisma db execute --stdin --schema prisma/schema.prisma 2>&1 <<'SQL'\n-- Add taxType to Service \\(replacing taxRate/taxExempt\\)\nALTER TABLE \"Service\" ADD COLUMN IF NOT EXISTS \"taxType\" \"TaxType\" NOT NULL DEFAULT 'STANDARD';\n\n-- Backfill: taxExempt=true → EXEMPT, taxRate=9 → REDUCED, taxRate=0 → EXEMPT\nUPDATE \"Service\" SET \"taxType\" = 'EXEMPT' WHERE \"taxExempt\" = true;\nUPDATE \"Service\" SET \"taxType\" = 'REDUCED' WHERE \"taxExempt\" = false AND \"taxRate\" = 9;\nUPDATE \"Service\" SET \"taxType\" = 'EXEMPT' WHERE \"taxExempt\" = false AND \"taxRate\" = 0;\n\n-- Drop old columns from Service\nALTER TABLE \"Service\" DROP COLUMN IF EXISTS \"taxRate\";\nALTER TABLE \"Service\" DROP COLUMN IF EXISTS \"taxExempt\";\n\n-- Add taxType to QuoteItem\nALTER TABLE \"QuoteItem\" ADD COLUMN IF NOT EXISTS \"taxType\" \"TaxType\" NOT NULL DEFAULT 'STANDARD';\n\n-- Backfill QuoteItem: derive taxType from taxRate\nUPDATE \"QuoteItem\" SET \"taxType\" = 'REDUCED' WHERE \"taxRate\" = 9;\nUPDATE \"QuoteItem\" SET \"taxType\" = 'EXEMPT' WHERE \"taxRate\" = 0;\nSQL)",
       "Bash(cd /c/code/launchminds/ServiceOS/ServiceOS-web/apps/admin && npx next dev --port 3001 2>&1)",
-      "Bash(cd /c/code/launchminds/ServiceOS/ServiceOS-web/apps/web && npx next dev --port 3002 2>&1)"
+      "Bash(cd /c/code/launchminds/ServiceOS/ServiceOS-web/apps/web && npx next dev --port 3002 2>&1)",
+      "Bash(cd C:/code/launchminds/ServiceOS/ServiceOS-web && npx turbo dev --filter=@servible/admin 2>&1)",
+      "Bash(cd C:/code/launchminds/ServiceOS/ServiceOS-web && npx turbo dev --filter=@servible/web 2>&1)"
     ]
   }
 }

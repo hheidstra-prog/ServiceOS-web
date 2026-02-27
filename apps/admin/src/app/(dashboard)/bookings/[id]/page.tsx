@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getBooking } from "../actions";
+import { getBooking, getBookingTypesForSelect, getClientsForSelect } from "../actions";
 import { BookingDetail } from "./booking-detail";
 
 interface BookingPageProps {
@@ -11,7 +11,11 @@ interface BookingPageProps {
 
 export default async function BookingPage({ params }: BookingPageProps) {
   const { id } = await params;
-  const booking = await getBooking(id);
+  const [booking, bookingTypes, clients] = await Promise.all([
+    getBooking(id),
+    getBookingTypesForSelect(),
+    getClientsForSelect(),
+  ]);
 
   if (!booking) {
     notFound();
@@ -47,7 +51,11 @@ export default async function BookingPage({ params }: BookingPageProps) {
         </div>
       </div>
 
-      <BookingDetail booking={serializedBooking} />
+      <BookingDetail
+        booking={serializedBooking}
+        bookingTypes={bookingTypes}
+        clients={clients}
+      />
     </div>
   );
 }

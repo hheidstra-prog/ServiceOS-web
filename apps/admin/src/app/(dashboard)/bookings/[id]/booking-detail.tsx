@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,7 +13,7 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
-  Pencil,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -46,6 +38,7 @@ import {
   deleteBooking,
   updateBooking,
   toggleBookingPortalVisibility,
+  getContactsForClient,
 } from "../actions";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
@@ -57,6 +50,28 @@ interface BookingType {
   price: number | null;
   currency: string;
   color: string | null;
+}
+
+interface BookingTypeOption {
+  id: string;
+  name: string;
+  durationMinutes: number;
+  color: string | null;
+}
+
+interface ClientOption {
+  id: string;
+  name: string;
+  companyName: string | null;
+  email: string | null;
+}
+
+interface ContactOption {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email?: string | null;
+  isPrimary?: boolean;
 }
 
 interface Booking {
@@ -83,11 +98,18 @@ interface Booking {
     addressLine1: string | null;
     city: string | null;
   } | null;
+  contact: {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+  } | null;
   bookingType: BookingType | null;
 }
 
 interface BookingDetailProps {
   booking: Booking;
+  bookingTypes: BookingTypeOption[];
+  clients: ClientOption[];
 }
 
 const statusConfig: Record<BookingStatus, { label: string; className: string; borderColor: string }> = {
@@ -125,17 +147,6 @@ const locationTypeLabels: Record<LocationType, string> = {
   OTHER: "Other Location",
 };
 
-function formatDateTime(date: Date) {
-  return new Date(date).toLocaleString("nl-NL", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function formatTime(date: Date) {
   return new Date(date).toLocaleTimeString("nl-NL", {
     hour: "2-digit",
@@ -143,26 +154,57 @@ function formatTime(date: Date) {
   });
 }
 
-export function BookingDetail({ booking }: BookingDetailProps) {
+export function BookingDetail({ booking, bookingTypes, clients }: BookingDetailProps) {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Edit form state
+  // Form state
   const [editDate, setEditDate] = useState(
     new Date(booking.startsAt).toISOString().split("T")[0]
   );
   const [editTime, setEditTime] = useState(formatTime(booking.startsAt));
   const [editEndTime, setEditEndTime] = useState(formatTime(booking.endsAt));
+  const [editBookingTypeId, setEditBookingTypeId] = useState(booking.bookingType?.id || "none");
   const [editLocationType, setEditLocationType] = useState<LocationType>(booking.locationType);
   const [editLocation, setEditLocation] = useState(booking.location || "");
+  const [editClientId, setEditClientId] = useState(booking.client?.id || "");
+  const [editContactId, setEditContactId] = useState(booking.contact?.id || "none");
   const [editNotes, setEditNotes] = useState(booking.notes || "");
   const [editInternalNotes, setEditInternalNotes] = useState(booking.internalNotes || "");
+
+  // Contacts for client selector
+  const [contacts, setContacts] = useState<ContactOption[]>([]);
 
   const config = statusConfig[booking.status];
   const isPast = new Date(booking.endsAt) < new Date();
   const canModify = !["CANCELLED", "COMPLETED", "NO_SHOW"].includes(booking.status);
+  const isGuestBooking = !booking.client && (booking.guestName || booking.guestEmail);
+
+  // Fetch contacts when client changes
+  useEffect(() => {
+    if (editClientId) {
+      getContactsForClient(editClientId).then((c) => {
+        setContacts(c);
+      });
+    } else {
+      setContacts([]);
+      setEditContactId("none");
+    }
+  }, [editClientId]);
+
+  // Check if form has unsaved changes
+  const hasChanges =
+    editDate !== new Date(booking.startsAt).toISOString().split("T")[0] ||
+    editTime !== formatTime(booking.startsAt) ||
+    editEndTime !== formatTime(booking.endsAt) ||
+    editBookingTypeId !== (booking.bookingType?.id || "none") ||
+    editLocationType !== booking.locationType ||
+    editLocation !== (booking.location || "") ||
+    editClientId !== (booking.client?.id || "") ||
+    editContactId !== (booking.contact?.id || "none") ||
+    editNotes !== (booking.notes || "") ||
+    editInternalNotes !== (booking.internalNotes || "");
 
   const handleConfirm = async () => {
     try {
@@ -218,7 +260,7 @@ export function BookingDetail({ booking }: BookingDetailProps) {
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -229,13 +271,15 @@ export function BookingDetail({ booking }: BookingDetailProps) {
       await updateBooking(booking.id, {
         startsAt,
         endsAt,
+        bookingTypeId: editBookingTypeId === "none" ? null : editBookingTypeId,
         locationType: editLocationType,
         location: editLocation || undefined,
+        clientId: editClientId || null,
+        contactId: editContactId === "none" ? null : editContactId,
         notes: editNotes || undefined,
         internalNotes: editInternalNotes || undefined,
       });
       toast.success("Booking updated");
-      setIsEditDialogOpen(false);
       router.refresh();
     } catch {
       toast.error("Failed to update booking");
@@ -246,393 +290,358 @@ export function BookingDetail({ booking }: BookingDetailProps) {
 
   return (
     <>{ConfirmDialog}
-    <div className="grid gap-6 lg:grid-cols-3">
-      {/* Main Content */}
-      <div className="space-y-6 lg:col-span-2">
-        {/* Status & Actions */}
-        <Card className={config.borderColor}>
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
-            <div className="flex items-center gap-3">
-              <span className={`inline-flex items-center rounded-md px-2 py-1 text-sm font-medium ${config.className}`}>
-                {config.label}
-              </span>
-              {booking.cancelledAt && (
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Cancelled on {new Date(booking.cancelledAt).toLocaleDateString()}
+    <form onSubmit={handleSave}>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Main Content */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* Status & Actions */}
+          <Card className={config.borderColor}>
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <span className={`inline-flex items-center rounded-md px-2 py-1 text-sm font-medium ${config.className}`}>
+                  {config.label}
                 </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {booking.status === "PENDING" && (
-                <Button onClick={handleConfirm} size="sm">
-                  <CheckCircle className="mr-1.5 h-4 w-4" />
-                  Confirm
-                </Button>
-              )}
-              {booking.status === "CONFIRMED" && isPast && (
-                <>
-                  <Button onClick={handleComplete} size="sm">
-                    <CheckCircle className="mr-1.5 h-4 w-4" />
-                    Complete
-                  </Button>
-                  <Button onClick={handleNoShow} size="sm" variant="outline">
-                    No Show
-                  </Button>
-                </>
-              )}
-              {canModify && (
-                <>
-                  <Button onClick={() => setIsEditDialogOpen(true)} size="sm" variant="outline">
-                    <Pencil className="mr-1.5 h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button onClick={handleCancel} size="sm" variant="outline">
-                    <XCircle className="mr-1.5 h-4 w-4" />
-                    Cancel
-                  </Button>
-                </>
-              )}
-              <Button onClick={handleDelete} size="sm" variant="ghost">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Booking Info */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Appointment Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start gap-3">
-              <Calendar className="mt-0.5 h-5 w-5 text-zinc-400" />
-              <div>
-                <p className="font-medium text-zinc-950 dark:text-white">
-                  {formatDateTime(booking.startsAt)}
-                </p>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {formatTime(booking.startsAt)} - {formatTime(booking.endsAt)}
-                </p>
-              </div>
-            </div>
-
-            {booking.bookingType && (
-              <div className="flex items-start gap-3">
-                <Clock className="mt-0.5 h-5 w-5 text-zinc-400" />
-                <div>
-                  <p className="font-medium text-zinc-950 dark:text-white">
-                    {booking.bookingType.name}
-                  </p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {booking.bookingType.durationMinutes} minutes
-                    {booking.bookingType.price
-                      ? ` · €${booking.bookingType.price}`
-                      : ""}
-                  </p>
-                  {booking.bookingType.description && (
-                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                      {booking.bookingType.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-5 w-5 text-zinc-400" />
-              <div>
-                <p className="font-medium text-zinc-950 dark:text-white">
-                  {locationTypeLabels[booking.locationType]}
-                </p>
-                {booking.location && (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {booking.locationType === "ONLINE" ? (
-                      <a
-                        href={booking.location}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sky-600 hover:underline dark:text-sky-400"
-                      >
-                        {booking.location}
-                      </a>
-                    ) : (
-                      booking.location
-                    )}
-                  </p>
+                {booking.cancelledAt && (
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Cancelled on {new Date(booking.cancelledAt).toLocaleDateString()}
+                  </span>
                 )}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex flex-wrap gap-2">
+                {booking.status === "PENDING" && (
+                  <Button type="button" onClick={handleConfirm} size="sm">
+                    <CheckCircle className="mr-1.5 h-4 w-4" />
+                    Confirm
+                  </Button>
+                )}
+                {booking.status === "CONFIRMED" && isPast && (
+                  <>
+                    <Button type="button" onClick={handleComplete} size="sm">
+                      <CheckCircle className="mr-1.5 h-4 w-4" />
+                      Complete
+                    </Button>
+                    <Button type="button" onClick={handleNoShow} size="sm" variant="outline">
+                      No Show
+                    </Button>
+                  </>
+                )}
+                {canModify && (
+                  <Button type="button" onClick={handleCancel} size="sm" variant="destructive">
+                    <XCircle className="mr-1.5 h-4 w-4" />
+                    Cancel Booking
+                  </Button>
+                )}
+                <Button type="button" onClick={handleDelete} size="sm" variant="ghost">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Notes */}
-        {(booking.notes || booking.internalNotes) && (
+          {/* Appointment Details */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calendar className="h-4 w-4 text-zinc-400" />
+                Appointment Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Date & Time */}
+              <div className="grid gap-4 grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="editDate">Date</Label>
+                  <Input
+                    id="editDate"
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    disabled={!canModify}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editTime">Start</Label>
+                  <Input
+                    id="editTime"
+                    type="time"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    disabled={!canModify}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editEndTime">End</Label>
+                  <Input
+                    id="editEndTime"
+                    type="time"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    disabled={!canModify}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Booking Type */}
+              <div className="space-y-2">
+                <Label>Booking Type</Label>
+                <Select
+                  value={editBookingTypeId}
+                  onValueChange={setEditBookingTypeId}
+                  disabled={!canModify}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No type</SelectItem>
+                    {bookingTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name} ({type.durationMinutes} min)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Location */}
+              <div className="grid gap-4 grid-cols-2">
+                <div className="space-y-2">
+                  <Label>
+                    <MapPin className="mr-1 inline h-3.5 w-3.5 text-zinc-400" />
+                    Location Type
+                  </Label>
+                  <Select
+                    value={editLocationType}
+                    onValueChange={(v) => setEditLocationType(v as LocationType)}
+                    disabled={!canModify}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ONLINE">Online</SelectItem>
+                      <SelectItem value="AT_PROVIDER">At Office</SelectItem>
+                      <SelectItem value="AT_CLIENT">At Client</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editLocation">
+                    {editLocationType === "ONLINE" ? "Meeting Link" : "Address"}
+                  </Label>
+                  <Input
+                    id="editLocation"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    disabled={!canModify}
+                    placeholder={editLocationType === "ONLINE" ? "https://..." : "Address..."}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notes */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Notes</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {booking.notes && (
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                    Client Notes
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-950 dark:text-white">
-                    {booking.notes}
-                  </p>
-                </div>
-              )}
-              {booking.internalNotes && (
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                    Internal Notes
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-950 dark:text-white">
-                    {booking.internalNotes}
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="editNotes">Client Notes</Label>
+                <Textarea
+                  id="editNotes"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  disabled={!canModify}
+                  rows={3}
+                  placeholder="Notes visible to client..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editInternalNotes">Internal Notes</Label>
+                <Textarea
+                  id="editInternalNotes"
+                  value={editInternalNotes}
+                  onChange={(e) => setEditInternalNotes(e.target.value)}
+                  disabled={!canModify}
+                  rows={3}
+                  placeholder="Only visible to your team..."
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Save Button */}
+          {canModify && hasChanges && (
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isLoading}>
+                <Save className="mr-1.5 h-4 w-4" />
+                {isLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Client/Contact */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <User className="h-4 w-4 text-zinc-400" />
+                {isGuestBooking ? "Guest" : "Client"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {isGuestBooking ? (
+                /* Guest booking: read-only display */
+                <>
+                  {booking.guestName && (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-zinc-400" />
+                      <span className="font-medium text-zinc-950 dark:text-white">
+                        {booking.guestName}
+                      </span>
+                    </div>
+                  )}
+                  {booking.guestEmail && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-zinc-400" />
+                      <a
+                        href={`mailto:${booking.guestEmail}`}
+                        className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
+                      >
+                        {booking.guestEmail}
+                      </a>
+                    </div>
+                  )}
+                  {booking.guestPhone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-zinc-400" />
+                      <a
+                        href={`tel:${booking.guestPhone}`}
+                        className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
+                      >
+                        {booking.guestPhone}
+                      </a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Client booking: editable selectors */
+                <>
+                  <div className="space-y-2">
+                    <Label>Client</Label>
+                    <Select
+                      value={editClientId}
+                      onValueChange={(v) => {
+                        setEditClientId(v);
+                        setEditContactId("none");
+                      }}
+                      disabled={!canModify}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.companyName || client.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {contacts.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Contact Person</Label>
+                      <Select
+                        value={editContactId}
+                        onValueChange={setEditContactId}
+                        disabled={!canModify}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a contact" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No specific contact</SelectItem>
+                          {contacts.map((contact) => (
+                            <SelectItem key={contact.id} value={contact.id}>
+                              {contact.firstName}{contact.lastName ? ` ${contact.lastName}` : ""}
+                              {contact.isPrimary ? " (Primary)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {/* Quick link to client */}
+                  {editClientId && (
+                    <Link
+                      href={`/clients/${editClientId}`}
+                      className="inline-block text-sm text-sky-600 hover:underline dark:text-sky-400"
+                    >
+                      View client profile →
+                    </Link>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
-        )}
-      </div>
 
-      {/* Sidebar */}
-      <div className="space-y-6">
-        {/* Client/Guest Info */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              {booking.client ? "Client" : "Guest"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {booking.client ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-zinc-400" />
-                  <Link
-                    href={`/clients/${booking.client.id}`}
-                    className="font-medium text-zinc-950 hover:underline dark:text-white"
-                  >
-                    {booking.client.companyName || booking.client.name}
-                  </Link>
-                </div>
-                {booking.client.companyName && (
-                  <p className="ml-6 text-sm text-zinc-500 dark:text-zinc-400">
-                    {booking.client.name}
+          {/* Portal Visibility */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="portalVisible">Client Portal</Label>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Show this booking on the client portal
                   </p>
-                )}
-                {booking.client.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-zinc-400" />
-                    <a
-                      href={`mailto:${booking.client.email}`}
-                      className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-                    >
-                      {booking.client.email}
-                    </a>
-                  </div>
-                )}
-                {booking.client.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-zinc-400" />
-                    <a
-                      href={`tel:${booking.client.phone}`}
-                      className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-                    >
-                      {booking.client.phone}
-                    </a>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                {booking.guestName && (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-zinc-400" />
-                    <span className="font-medium text-zinc-950 dark:text-white">
-                      {booking.guestName}
-                    </span>
-                  </div>
-                )}
-                {booking.guestEmail && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-zinc-400" />
-                    <a
-                      href={`mailto:${booking.guestEmail}`}
-                      className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-                    >
-                      {booking.guestEmail}
-                    </a>
-                  </div>
-                )}
-                {booking.guestPhone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-zinc-400" />
-                    <a
-                      href={`tel:${booking.guestPhone}`}
-                      className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-                    >
-                      {booking.guestPhone}
-                    </a>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Portal Visibility */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="portalVisible">Client Portal</Label>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Show this booking on the client portal
-                </p>
+                </div>
+                <Switch
+                  id="portalVisible"
+                  checked={booking.portalVisible}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      await toggleBookingPortalVisibility(booking.id, checked);
+                      toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                      router.refresh();
+                    } catch {
+                      toast.error("Failed to update visibility");
+                    }
+                  }}
+                />
               </div>
-              <Switch
-                id="portalVisible"
-                checked={booking.portalVisible}
-                onCheckedChange={async (checked) => {
-                  try {
-                    await toggleBookingPortalVisibility(booking.id, checked);
-                    toast.success(checked ? "Visible on portal" : "Hidden from portal");
-                  } catch {
-                    toast.error("Failed to update visibility");
-                  }
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Booking Metadata */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-zinc-500 dark:text-zinc-400">Created</span>
-              <span className="text-zinc-950 dark:text-white">
-                {new Date(booking.createdAt).toLocaleDateString("nl-NL")}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-500 dark:text-zinc-400">Timezone</span>
-              <span className="text-zinc-950 dark:text-white">Europe/Amsterdam</span>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Booking Metadata */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-zinc-500 dark:text-zinc-400">Created</span>
+                <span className="text-zinc-950 dark:text-white">
+                  {new Date(booking.createdAt).toLocaleDateString("nl-NL")}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500 dark:text-zinc-400">Timezone</span>
+                <span className="text-zinc-950 dark:text-white">Europe/Amsterdam</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit Booking</DialogTitle>
-            <DialogDescription>Update the booking details.</DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div className="grid gap-4 grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="editDate">Date</Label>
-                <Input
-                  id="editDate"
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="editTime">Start</Label>
-                <Input
-                  id="editTime"
-                  type="time"
-                  value={editTime}
-                  onChange={(e) => setEditTime(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="editEndTime">End</Label>
-                <Input
-                  id="editEndTime"
-                  type="time"
-                  value={editEndTime}
-                  onChange={(e) => setEditEndTime(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 grid-cols-2">
-              <div className="space-y-2">
-                <Label>Location Type</Label>
-                <Select
-                  value={editLocationType}
-                  onValueChange={(v) => setEditLocationType(v as LocationType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ONLINE">Online</SelectItem>
-                    <SelectItem value="AT_PROVIDER">At Office</SelectItem>
-                    <SelectItem value="AT_CLIENT">At Client</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="editLocation">Location/Link</Label>
-                <Input
-                  id="editLocation"
-                  value={editLocation}
-                  onChange={(e) => setEditLocation(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editNotes">Client Notes</Label>
-              <Textarea
-                id="editNotes"
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editInternalNotes">Internal Notes</Label>
-              <Textarea
-                id="editInternalNotes"
-                value={editInternalNotes}
-                onChange={(e) => setEditInternalNotes(e.target.value)}
-                rows={2}
-                placeholder="Only visible to your team..."
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </form>
     </>
   );
 }

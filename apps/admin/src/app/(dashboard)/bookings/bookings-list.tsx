@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
-  Calendar,
+  Calendar as CalendarIcon,
   List,
   ChevronLeft,
   ChevronRight,
@@ -22,6 +22,7 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,8 +39,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { BookingStatus, LocationType } from "@servible/database";
-import { cancelBooking, confirmBooking, completeBooking, markNoShow } from "./actions";
+import { cancelBooking, confirmBooking, completeBooking, markNoShow, toggleBookingPortalVisibility } from "./actions";
 import { NewBookingDialog } from "./new-booking-dialog";
 import { BookingTypesDialog } from "./booking-types-dialog";
 import { AvailabilityDialog } from "./availability-dialog";
@@ -70,6 +73,12 @@ interface Booking {
   notes: string | null;
   guestName: string | null;
   guestEmail: string | null;
+  portalVisible: boolean;
+  contact: {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+  } | null;
   client: {
     id: string;
     name: string;
@@ -173,12 +182,22 @@ function getMonthDays(year: number, month: number) {
   return days;
 }
 
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getDate() === b.getDate() &&
+    a.getMonth() === b.getMonth() &&
+    a.getFullYear() === b.getFullYear()
+  );
+}
+
 export function BookingsList({ initialBookings, bookingTypes }: BookingsListProps) {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { confirm, ConfirmDialog } = useConfirm();
-  const [bookings] = useState(initialBookings);
-  const [view, setView] = useState<"calendar" | "list">("list");
+  const bookings = initialBookings;
+  const [view, setView] = useState<"calendar" | "list">("calendar");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "ALL">("ALL");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
@@ -195,11 +214,13 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
     const clientName = booking.client?.name || booking.guestName || "";
     const companyName = booking.client?.companyName || "";
     const typeName = booking.bookingType?.name || "";
+    const contactName = booking.contact ? `${booking.contact.firstName} ${booking.contact.lastName || ""}`.trim() : "";
 
     const matchesSearch =
       clientName.toLowerCase().includes(searchLower) ||
       companyName.toLowerCase().includes(searchLower) ||
-      typeName.toLowerCase().includes(searchLower);
+      typeName.toLowerCase().includes(searchLower) ||
+      contactName.toLowerCase().includes(searchLower);
 
     const matchesStatus = statusFilter === "ALL" || booking.status === statusFilter;
 
@@ -266,16 +287,27 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
   };
 
   const prevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+    const d = new Date(year, month - 1, 1);
+    setCurrentDate(d);
+    if (isMobile) setSelectedDate(d);
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+    const d = new Date(year, month + 1, 1);
+    setCurrentDate(d);
+    if (isMobile) setSelectedDate(d);
   };
 
   const goToToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDate(today);
   };
+
+  // Bookings for the selected day (mobile agenda)
+  const selectedDayBookings = filteredBookings
+    .filter((b) => isSameDay(new Date(b.startsAt), selectedDate))
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
   // Get bookings for a specific day (for calendar view)
   const getBookingsForDay = (day: Date | null) => {
@@ -379,7 +411,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                   : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
               } rounded-r-md`}
             >
-              <Calendar className="h-3.5 w-3.5" />
+              <CalendarIcon className="h-3.5 w-3.5" />
               Calendar
             </button>
           </div>
@@ -408,70 +440,188 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
 
       {/* Content */}
       {view === "calendar" ? (
-        // Calendar View
-        <Card>
-          <CardContent className="p-0">
-            <div className="grid grid-cols-7 border-b border-zinc-950/10 dark:border-white/10">
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-                <div
-                  key={day}
-                  className="py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400"
-                >
-                  {day}
+        isMobile ? (
+          // Mobile Calendar: Mini month + Day agenda
+          <div className="space-y-4">
+            {/* Mini month calendar */}
+            <Card>
+              <CardContent className="p-3">
+                <div className="grid grid-cols-7 mb-1">
+                  {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                    <div
+                      key={i}
+                      className="py-1 text-center text-xs font-medium text-zinc-400 dark:text-zinc-500"
+                    >
+                      {d}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <div className="grid grid-cols-7 gap-y-0.5">
+                  {monthDays.map((day, index) => {
+                    if (!day) {
+                      return <div key={index} />;
+                    }
+                    const hasBookings = getBookingsForDay(day).length > 0;
+                    const isSelected = isSameDay(day, selectedDate);
+                    const isTodayDay = isToday(day);
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedDate(day)}
+                        className={`relative mx-auto flex h-9 w-9 flex-col items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                          isSelected
+                            ? "bg-sky-500 text-white"
+                            : isTodayDay
+                              ? "bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400"
+                              : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        {day.getDate()}
+                        {hasBookings && (
+                          <span
+                            className={`absolute bottom-0.5 h-1 w-1 rounded-full ${
+                              isSelected ? "bg-white" : "bg-sky-500"
+                            }`}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Day agenda */}
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                {formatDateLong(selectedDate)}
+              </h3>
+              {selectedDayBookings.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <CalendarIcon className="h-5 w-5 text-zinc-300 dark:text-zinc-600" />
+                    <p className="mt-2 text-sm text-zinc-400 dark:text-zinc-500">
+                      No bookings on this day
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {selectedDayBookings.map((booking) => {
+                    const config = statusConfig[booking.status];
+                    return (
+                      <Card
+                        key={booking.id}
+                        className={`border-l-4 ${config.borderColor} cursor-pointer active:bg-zinc-50 dark:active:bg-zinc-800/50`}
+                        onClick={() => setSelectedBooking(booking)}
+                      >
+                        <CardContent className="flex items-center justify-between py-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="text-center shrink-0">
+                              <p className="text-sm font-semibold text-zinc-950 dark:text-white">
+                                {formatTime(booking.startsAt)}
+                              </p>
+                              <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                                {formatTime(booking.endsAt)}
+                              </p>
+                            </div>
+                            <div className="min-w-0 border-l border-zinc-200 pl-3 dark:border-zinc-700">
+                              <p className="truncate text-sm font-medium text-zinc-950 dark:text-white">
+                                {booking.client?.name || booking.guestName || "No client"}
+                                {booking.contact && (
+                                  <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                                )}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {booking.bookingType && (
+                                  <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                    {booking.bookingType.name}
+                                  </span>
+                                )}
+                                <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
+                                  {config.label}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 dark:text-zinc-600" />
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-7">
-              {monthDays.map((day, index) => {
-                const dayBookings = getBookingsForDay(day);
-                return (
+          </div>
+        ) : (
+          // Desktop Calendar: Full month grid
+          <Card>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-7 border-b border-zinc-950/10 dark:border-white/10">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
                   <div
-                    key={index}
-                    className={`min-h-[100px] border-b border-r border-zinc-950/10 p-1 dark:border-white/10 ${
-                      index % 7 === 6 ? "border-r-0" : ""
-                    } ${!day ? "bg-zinc-50 dark:bg-zinc-900" : ""}`}
+                    key={day}
+                    className="py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400"
                   >
-                    {day && (
-                      <>
-                        <div
-                          className={`mb-1 text-xs font-medium ${
-                            isToday(day)
-                              ? "flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 text-white"
-                              : "text-zinc-500 dark:text-zinc-400"
-                          }`}
-                        >
-                          {day.getDate()}
-                        </div>
-                        <div className="space-y-0.5">
-                          {dayBookings.slice(0, 3).map((booking) => (
-                            <button
-                              key={booking.id}
-                              onClick={() => setSelectedBooking(booking)}
-                              className={`block w-full truncate rounded px-1 py-0.5 text-xs text-left border-l-2 ${
-                                statusConfig[booking.status].borderColor
-                              } bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700`}
-                              style={{
-                                borderLeftColor: booking.bookingType?.color || undefined,
-                              }}
-                            >
-                              <span className="font-medium">{formatTime(booking.startsAt)}</span>{" "}
-                              {booking.client?.name || booking.guestName}
-                            </button>
-                          ))}
-                          {dayBookings.length > 3 && (
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                              +{dayBookings.length - 3} more
-                            </p>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    {day}
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+              <div className="grid grid-cols-7">
+                {monthDays.map((day, index) => {
+                  const dayBookings = getBookingsForDay(day);
+                  return (
+                    <div
+                      key={index}
+                      className={`min-h-[100px] border-b border-r border-zinc-950/10 p-1 dark:border-white/10 ${
+                        index % 7 === 6 ? "border-r-0" : ""
+                      } ${!day ? "bg-zinc-50 dark:bg-zinc-900" : ""}`}
+                    >
+                      {day && (
+                        <>
+                          <div
+                            className={`mb-1 text-xs font-medium ${
+                              isToday(day)
+                                ? "flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 text-white"
+                                : "text-zinc-500 dark:text-zinc-400"
+                            }`}
+                          >
+                            {day.getDate()}
+                          </div>
+                          <div className="space-y-0.5">
+                            {dayBookings.slice(0, 3).map((booking) => (
+                              <button
+                                key={booking.id}
+                                onClick={() => setSelectedBooking(booking)}
+                                className={`block w-full truncate rounded px-1 py-0.5 text-xs text-left border-l-2 ${
+                                  statusConfig[booking.status].borderColor
+                                } bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700`}
+                                style={{
+                                  borderLeftColor: booking.bookingType?.color || undefined,
+                                }}
+                              >
+                                <span className="font-medium">{formatTime(booking.startsAt)}</span>{" "}
+                                {booking.client?.name || booking.guestName}
+                                {booking.contact && (
+                                  <span className="text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                                )}
+                              </button>
+                            ))}
+                            {dayBookings.length > 3 && (
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                +{dayBookings.length - 3} more
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )
       ) : (
         // List View
         <>
@@ -479,7 +629,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <div className="rounded-full bg-zinc-100 p-2.5 dark:bg-zinc-800">
-                  <Calendar className="h-5 w-5 text-zinc-400" />
+                  <CalendarIcon className="h-5 w-5 text-zinc-400" />
                 </div>
                 <h3 className="mt-3 text-sm font-semibold text-zinc-950 dark:text-white">
                   {bookings.length === 0 ? "No bookings yet" : "No bookings found"}
@@ -530,6 +680,9 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                                       {booking.client?.name ||
                                         booking.guestName ||
                                         "No client assigned"}
+                                      {booking.contact && (
+                                        <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                                      )}
                                     </Link>
                                     <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
                                       {config.label}
@@ -652,12 +805,17 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                   {b.client?.companyName && (
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">{b.client.companyName}</p>
                   )}
+                  {b.contact && (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Contact: {b.contact.firstName}{b.contact.lastName ? ` ${b.contact.lastName}` : ""}
+                    </p>
+                  )}
                 </div>
 
                 {/* Schedule */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-3">
-                    <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />
+                    <CalendarIcon className="h-4 w-4 text-zinc-400 shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-zinc-950 dark:text-white">
                         {formatDateLong(new Date(b.startsAt))}
@@ -725,6 +883,31 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                   </div>
                 )}
 
+                {/* Portal visibility */}
+                <div className="flex items-center justify-between border-t border-zinc-950/10 pt-3 dark:border-white/10">
+                  <div>
+                    <Label htmlFor="sheet-portalVisible" className="text-sm">Client Portal</Label>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Show on client portal
+                    </p>
+                  </div>
+                  <Switch
+                    id="sheet-portalVisible"
+                    checked={b.portalVisible}
+                    onCheckedChange={async (checked) => {
+                      setSelectedBooking({ ...b, portalVisible: checked });
+                      try {
+                        await toggleBookingPortalVisibility(b.id, checked);
+                        toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                        router.refresh();
+                      } catch {
+                        setSelectedBooking({ ...b, portalVisible: !checked });
+                        toast.error("Failed to update visibility");
+                      }
+                    }}
+                  />
+                </div>
+
                 {/* Actions */}
                 <div className="flex flex-wrap gap-2 border-t border-zinc-950/10 pt-3 dark:border-white/10">
                   {b.status === "PENDING" && (
@@ -740,9 +923,9 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                     </Button>
                   )}
                   {["PENDING", "CONFIRMED"].includes(b.status) && (
-                    <Button size="sm" variant="outline" onClick={() => { handleCancel(b.id); setSelectedBooking(null); }}>
+                    <Button size="sm" variant="destructive" onClick={() => { handleCancel(b.id); setSelectedBooking(null); }}>
                       <XCircle className="mr-1.5 h-4 w-4" />
-                      Cancel
+                      Cancel Booking
                     </Button>
                   )}
                   <Button size="sm" variant="outline" asChild>

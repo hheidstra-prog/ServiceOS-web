@@ -223,6 +223,7 @@ model Contact {
   updatedAt DateTime @updatedAt
 
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  bookings  Booking[]
 
   @@index([clientId])
 }
@@ -628,13 +629,18 @@ model Booking {
   updatedAt      DateTime @updatedAt
   cancelledAt    DateTime?
 
+  // Contact (specific person at the client company)
+  contactId      String?
+
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   bookingType    BookingType? @relation(fields: [bookingTypeId], references: [id], onDelete: SetNull)
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([organizationId, startsAt])
   @@index([clientId])
+  @@index([contactId])
 }
 
 enum BookingStatus {

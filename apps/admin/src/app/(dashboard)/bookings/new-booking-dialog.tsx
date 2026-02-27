@@ -22,8 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createBooking, getClientsForSelect } from "./actions";
+import { createBooking, getClientsForSelect, getContactsForClient } from "./actions";
 import { LocationType } from "@servible/database";
 
 interface BookingType {
@@ -38,6 +39,14 @@ interface Client {
   name: string;
   companyName: string | null;
   email: string | null;
+}
+
+interface ContactOption {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  isPrimary: boolean;
 }
 
 interface NewBookingDialogProps {
@@ -56,10 +65,12 @@ export function NewBookingDialog({
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
+  const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [clientType, setClientType] = useState<"existing" | "guest">("existing");
 
   // Form state
   const [clientId, setClientId] = useState(preselectedClientId || "");
+  const [contactId, setContactId] = useState("");
   const [bookingTypeId, setBookingTypeId] = useState("");
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
@@ -70,6 +81,7 @@ export function NewBookingDialog({
   const [locationType, setLocationType] = useState<LocationType>("ONLINE");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [portalVisible, setPortalVisible] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -87,6 +99,21 @@ export function NewBookingDialog({
       setTime(nextHour.toTimeString().slice(0, 5));
     }
   }, [open, preselectedClientId]);
+
+  // Fetch contacts when client changes
+  useEffect(() => {
+    if (clientId && clientType === "existing") {
+      getContactsForClient(clientId).then((c) => {
+        setContacts(c);
+        // Auto-select primary contact if available
+        const primary = c.find((contact) => contact.isPrimary);
+        if (primary) setContactId(primary.id);
+      });
+    } else {
+      setContacts([]);
+      setContactId("");
+    }
+  }, [clientId, clientType]);
 
   // Update duration when booking type changes
   useEffect(() => {
@@ -124,6 +151,7 @@ export function NewBookingDialog({
     try {
       await createBooking({
         clientId: clientType === "existing" ? clientId : undefined,
+        contactId: clientType === "existing" && contactId && contactId !== "none" ? contactId : undefined,
         bookingTypeId: bookingTypeId && bookingTypeId !== "none" ? bookingTypeId : undefined,
         guestName: clientType === "guest" ? guestName : undefined,
         guestEmail: clientType === "guest" ? guestEmail : undefined,
@@ -133,6 +161,7 @@ export function NewBookingDialog({
         locationType,
         location: location || undefined,
         notes: notes || undefined,
+        portalVisible,
       });
       toast.success("Booking created");
       onOpenChange(false);
@@ -146,6 +175,8 @@ export function NewBookingDialog({
 
   const resetForm = () => {
     setClientId("");
+    setContactId("");
+    setContacts([]);
     setBookingTypeId("");
     setGuestName("");
     setGuestEmail("");
@@ -156,6 +187,7 @@ export function NewBookingDialog({
     setLocationType("ONLINE");
     setLocation("");
     setNotes("");
+    setPortalVisible(false);
     setClientType("existing");
   };
 
@@ -180,20 +212,41 @@ export function NewBookingDialog({
               <TabsTrigger value="existing">Existing Client</TabsTrigger>
               <TabsTrigger value="guest">Guest</TabsTrigger>
             </TabsList>
-            <TabsContent value="existing" className="space-y-2">
-              <Label>Client *</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.companyName || client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <TabsContent value="existing" className="space-y-3">
+              <div className="space-y-2">
+                <Label>Client *</Label>
+                <Select value={clientId} onValueChange={setClientId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.companyName || client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {contacts.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Contact Person</Label>
+                  <Select value={contactId} onValueChange={setContactId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a contact (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No specific contact</SelectItem>
+                      {contacts.map((contact) => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          {contact.firstName}{contact.lastName ? ` ${contact.lastName}` : ""}
+                          {contact.isPrimary ? " (Primary)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="guest" className="space-y-3">
               <div className="space-y-2">
@@ -332,6 +385,21 @@ export function NewBookingDialog({
               placeholder="Additional notes..."
             />
           </div>
+
+          {/* Portal visibility */}
+          {clientType === "existing" && clientId && (
+            <div className="flex items-center justify-between rounded-lg border border-zinc-950/10 px-3 py-2.5 dark:border-white/10">
+              <div>
+                <Label htmlFor="portalVisible" className="text-sm">Client Portal</Label>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Show on client portal</p>
+              </div>
+              <Switch
+                id="portalVisible"
+                checked={portalVisible}
+                onCheckedChange={setPortalVisible}
+              />
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

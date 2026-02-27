@@ -44,6 +44,13 @@ export async function getBookings(filters?: {
           phone: true,
         },
       },
+      contact: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
       bookingType: {
         select: {
           id: true,
@@ -90,6 +97,13 @@ export async function getBooking(id: string) {
           city: true,
         },
       },
+      contact: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
       bookingType: true,
     },
   });
@@ -98,6 +112,7 @@ export async function getBooking(id: string) {
 // Create a new booking
 export async function createBooking(data: {
   clientId?: string;
+  contactId?: string;
   bookingTypeId?: string;
   guestName?: string;
   guestEmail?: string;
@@ -109,6 +124,7 @@ export async function createBooking(data: {
   notes?: string;
   internalNotes?: string;
   status?: BookingStatus;
+  portalVisible?: boolean;
 }) {
   const { organization } = await getCurrentUserAndOrg();
   if (!organization) throw new Error("Not authorized");
@@ -127,6 +143,7 @@ export async function createBooking(data: {
     data: {
       organizationId: organization.id,
       clientId: data.clientId,
+      contactId: data.contactId,
       bookingTypeId: data.bookingTypeId,
       guestName: data.guestName,
       guestEmail: data.guestEmail,
@@ -138,6 +155,7 @@ export async function createBooking(data: {
       notes: data.notes,
       internalNotes: data.internalNotes,
       status: data.status || "CONFIRMED",
+      portalVisible: data.portalVisible ?? false,
       timezone: organization.timezone,
     },
   });
@@ -175,6 +193,9 @@ export async function updateBooking(
     notes?: string;
     internalNotes?: string;
     status?: BookingStatus;
+    clientId?: string | null;
+    contactId?: string | null;
+    bookingTypeId?: string | null;
   }
 ) {
   const { organization } = await getCurrentUserAndOrg();
@@ -190,6 +211,9 @@ export async function updateBooking(
       notes: data.notes,
       internalNotes: data.internalNotes,
       status: data.status,
+      ...(data.clientId !== undefined && { clientId: data.clientId }),
+      ...(data.contactId !== undefined && { contactId: data.contactId }),
+      ...(data.bookingTypeId !== undefined && { bookingTypeId: data.bookingTypeId }),
     },
   });
 
@@ -435,6 +459,27 @@ export async function setAvailability(
   ]);
 
   revalidatePath("/bookings");
+}
+
+// Get contacts for a specific client
+export async function getContactsForClient(clientId: string) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) return [];
+
+  return db.contact.findMany({
+    where: {
+      clientId,
+      client: { organizationId: organization.id },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      isPrimary: true,
+    },
+    orderBy: [{ isPrimary: "desc" }, { firstName: "asc" }],
+  });
 }
 
 // Get clients for dropdown
