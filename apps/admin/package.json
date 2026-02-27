@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.74.0",
     "@clerk/nextjs": "^6.37.1",
     "@servible/database": "*",
+    "@servible/pdf": "*",
     "@vercel/blob": "^2.2.0",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.9.0",

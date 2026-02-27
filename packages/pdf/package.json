@@ -1,0 +1,32 @@
+{
+  "name": "@servible/pdf",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./generate": {
+      "types": "./src/generate.ts",
+      "default": "./src/generate.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.0"
+  },
+  "devDependencies": {
+    "@servible/typescript-config": "*",
+    "@types/react": "^19",
+    "react": "^19.0.0",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

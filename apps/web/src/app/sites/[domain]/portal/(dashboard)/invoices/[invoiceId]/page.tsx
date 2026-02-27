@@ -383,13 +383,14 @@ export default async function InvoiceDetailPage({
                 </div>
               )}
             </div>
-            <button
-              type="button"
+            <a
+              href={`/api/portal/invoices/${invoice.id}/pdf`}
+              download
               className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
             >
               <Download className="h-4 w-4" />
               Download PDF
-            </button>
+            </a>
           </div>
         </div>
       </div>

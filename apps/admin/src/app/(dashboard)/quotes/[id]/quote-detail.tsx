@@ -10,6 +10,7 @@ import {
   Plus,
   Pencil,
   MoreHorizontal,
+  Download,
   Sparkles,
   Building,
   Mail,
@@ -328,6 +329,12 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <a href={`/api/quotes/${quote.id}/pdf`} download>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </a>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleDuplicate}>
                   <Copy className="mr-2 h-4 w-4" />
                   Duplicate

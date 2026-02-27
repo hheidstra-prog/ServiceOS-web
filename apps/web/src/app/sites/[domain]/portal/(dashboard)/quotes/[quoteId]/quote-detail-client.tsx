@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Check, X, AlertTriangle, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Check, X, AlertTriangle, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { acceptQuote, rejectQuote } from "@/lib/actions/quote";
 
 interface QuoteItem {
@@ -353,6 +353,18 @@ export function QuoteDetailClient({ quote, domain }: QuoteDetailClientProps) {
           </p>
         </div>
       )}
+
+      {/* Download PDF */}
+      <div className="flex justify-end">
+        <a
+          href={`/api/portal/quotes/${quote.id}/pdf`}
+          download
+          className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          <Download className="h-4 w-4" />
+          Download PDF
+        </a>
+      </div>
 
       {/* Accept / Reject Buttons */}
       {canRespond && !confirmAction && (

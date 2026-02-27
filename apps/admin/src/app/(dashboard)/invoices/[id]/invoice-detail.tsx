@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Send, Copy, CreditCard, MoreHorizontal } from "lucide-react";
+import { Plus, Pencil, Trash2, Send, Copy, CreditCard, MoreHorizontal, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -234,6 +234,12 @@ export function InvoiceDetail({ invoice, orgVatNumber }: InvoiceDetailProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <a href={`/api/invoices/${invoice.id}/pdf`} download>
+                      <Download className="mr-2 h-4 w-4" />
+                      Download PDF
+                    </a>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleDuplicate}>
                     <Copy className="mr-2 h-4 w-4" />
                     Duplicate
