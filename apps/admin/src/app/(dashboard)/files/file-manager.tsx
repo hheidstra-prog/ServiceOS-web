@@ -420,7 +420,7 @@ export function FileManager({ initialFileCount, locale }: FileManagerProps) {
                               {file.tags.slice(0, 3).map((tag) => (
                                 <span
                                   key={tag}
-                                  className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-600 dark:bg-violet-950 dark:text-violet-400"
+                                  className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-600 dark:bg-violet-500/15 dark:text-violet-200"
                                 >
                                   {tag}
                                 </span>

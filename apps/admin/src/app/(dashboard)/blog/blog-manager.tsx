@@ -217,7 +217,7 @@ export function BlogManager({
                         {post.categories.map((c) => (
                           <span
                             key={c.name}
-                            className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-950 dark:text-violet-400"
+                            className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-500/15 dark:text-violet-200"
                           >
                             {c.name}
                           </span>
@@ -388,7 +388,7 @@ export function BlogManager({
                     {selectedPost.categories.map((c) => (
                       <span
                         key={c.name}
-                        className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600 dark:bg-violet-950 dark:text-violet-400"
+                        className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600 dark:bg-violet-500/15 dark:text-violet-200"
                       >
                         {c.name}
                       </span>

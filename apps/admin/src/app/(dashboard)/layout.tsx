@@ -24,7 +24,7 @@ export default async function DashboardLayout({
   const runningTimer = await getRunningTimer();
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-white dark:bg-zinc-950">
+    <div className="flex h-dvh overflow-hidden bg-zinc-50 dark:bg-zinc-950">
       {/* Sidebar - hidden on mobile */}
       <aside className="hidden w-64 flex-shrink-0 lg:block">
         <Sidebar />
@@ -34,7 +34,7 @@ export default async function DashboardLayout({
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header organizationName={organization.name} />
         {runningTimer && <TimerBar timer={runningTimer} />}
-        <main className="flex-1 overflow-auto bg-white p-4 dark:bg-zinc-950 lg:p-6">
+        <main className="flex-1 overflow-auto bg-zinc-50 p-4 dark:bg-zinc-950 lg:p-6">
           {children}
         </main>
       </div>

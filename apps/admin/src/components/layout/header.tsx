@@ -18,7 +18,9 @@ export function Header({ organizationName }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-zinc-950/5 bg-white px-4 dark:border-white/5 dark:bg-zinc-950 lg:px-6">
+    <header className="relative sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-zinc-950/5 bg-white px-4 dark:border-white/5 dark:bg-zinc-950 lg:px-6">
+      {/* Subtle gradient border - dark mode only */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/20 to-transparent hidden dark:block" />
       {/* Mobile menu */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetTrigger asChild>

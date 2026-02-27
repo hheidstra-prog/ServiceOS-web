@@ -15,18 +15,18 @@ const badgeVariants = cva(
         secondary:
           "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
         destructive:
-          "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+          "bg-rose-500/10 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
         outline:
           "border border-zinc-950/10 text-zinc-700 dark:border-white/10 dark:text-zinc-300",
         // Status variants with subtle backgrounds
         success:
-          "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+          "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
         warning:
-          "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+          "bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
         info:
-          "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+          "bg-sky-500/10 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400",
         accent:
-          "bg-violet-500/10 text-violet-700 dark:text-violet-400",
+          "bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400",
       },
     },
     defaultVariants: {
@@ -60,18 +60,18 @@ interface StatusBadgeProps extends React.ComponentProps<"span"> {
 }
 
 const statusConfig: Record<StatusBadgeProps["status"], { label: string; colorClass: string }> = {
-  lead: { label: "Lead", colorClass: "bg-sky-500/10 text-sky-700 dark:text-sky-400" },
-  quote_sent: { label: "Quote Sent", colorClass: "bg-violet-500/10 text-violet-700 dark:text-violet-400" },
-  quote_accepted: { label: "Accepted", colorClass: "bg-lime-500/10 text-lime-700 dark:text-lime-400" },
-  contract_sent: { label: "Contract Sent", colorClass: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
-  contract_signed: { label: "Signed", colorClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-  active: { label: "Active", colorClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-  completed: { label: "Completed", colorClass: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400" },
-  invoiced: { label: "Invoiced", colorClass: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
-  paid: { label: "Paid", colorClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-  overdue: { label: "Overdue", colorClass: "bg-rose-500/10 text-rose-700 dark:text-rose-400" },
-  cancelled: { label: "Cancelled", colorClass: "bg-rose-500/10 text-rose-700 dark:text-rose-400" },
-  archived: { label: "Archived", colorClass: "bg-zinc-500/10 text-zinc-500 dark:text-zinc-500" },
+  lead: { label: "Lead", colorClass: "bg-sky-500/10 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400" },
+  quote_sent: { label: "Quote Sent", colorClass: "bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400" },
+  quote_accepted: { label: "Accepted", colorClass: "bg-lime-500/10 text-lime-700 dark:bg-lime-500/15 dark:text-lime-400" },
+  contract_sent: { label: "Contract Sent", colorClass: "bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400" },
+  contract_signed: { label: "Signed", colorClass: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" },
+  active: { label: "Active", colorClass: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" },
+  completed: { label: "Completed", colorClass: "bg-zinc-500/10 text-zinc-600 dark:bg-zinc-500/15 dark:text-zinc-400" },
+  invoiced: { label: "Invoiced", colorClass: "bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400" },
+  paid: { label: "Paid", colorClass: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" },
+  overdue: { label: "Overdue", colorClass: "bg-rose-500/10 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400" },
+  cancelled: { label: "Cancelled", colorClass: "bg-rose-500/10 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400" },
+  archived: { label: "Archived", colorClass: "bg-zinc-500/10 text-zinc-500 dark:bg-zinc-500/15 dark:text-zinc-500" },
 }
 
 function StatusBadge({ status, className, children, ...props }: StatusBadgeProps) {

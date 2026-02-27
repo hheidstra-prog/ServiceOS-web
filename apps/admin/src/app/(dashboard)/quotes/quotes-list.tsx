@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, MoreHorizontal, FileText, Send, Copy, Trash2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, FileText, Send, Copy, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -267,11 +267,15 @@ export function QuotesList({ quotes }: QuotesListProps) {
               {filteredQuotes.map((quote) => (
                 <tr
                   key={quote.id}
-                  className="transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025]"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("button, a, [role=menuitem]")) return;
+                    router.push(`/quotes/${quote.id}`);
+                  }}
+                  className="group cursor-pointer transition-colors outline-1 -outline-offset-1 outline-transparent hover:outline-violet-300 dark:hover:outline-violet-700 rounded-lg"
                 >
                   <td className="whitespace-nowrap py-3 pl-4 pr-3 sm:pl-5">
-                    <Link href={`/quotes/${quote.id}`} className="group block">
-                      <div className="text-sm font-medium text-zinc-950 group-hover:text-zinc-600 dark:text-white dark:group-hover:text-zinc-300">
+                    <div>
+                      <div className="text-sm font-medium text-zinc-950 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400">
                         {quote.number}
                       </div>
                       {quote.title && (
@@ -282,10 +286,10 @@ export function QuotesList({ quotes }: QuotesListProps) {
                       <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400 lg:hidden">
                         {quote.client.companyName || quote.client.name}
                       </div>
-                    </Link>
+                    </div>
                   </td>
                   <td className="hidden whitespace-nowrap px-3 py-3 text-sm text-zinc-500 dark:text-zinc-400 lg:table-cell">
-                    <Link href={`/clients/${quote.client.id}`} className="hover:underline">
+                    <Link href={`/clients/${quote.client.id}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
                       {quote.client.companyName || quote.client.name}
                     </Link>
                   </td>
@@ -299,37 +303,40 @@ export function QuotesList({ quotes }: QuotesListProps) {
                     {formatCurrency(quote.total, quote.currency)}
                   </td>
                   <td className="whitespace-nowrap py-3 pl-3 pr-4 text-right sm:pr-5">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-xs">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/quotes/${quote.id}`}>View</Link>
-                        </DropdownMenuItem>
-                        {quote.status === "DRAFT" && (
-                          <DropdownMenuItem onClick={() => handleSend(quote.id)}>
-                            <Send className="mr-2 h-4 w-4" />
-                            Send to client
+                    <div className="flex items-center justify-end gap-1">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-xs">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Open menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/quotes/${quote.id}`}>View</Link>
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => handleDuplicate(quote.id)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Duplicate
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(quote.id)}
-                          variant="destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {quote.status === "DRAFT" && (
+                            <DropdownMenuItem onClick={() => handleSend(quote.id)}>
+                              <Send className="mr-2 h-4 w-4" />
+                              Send to client
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleDuplicate(quote.id)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(quote.id)}
+                            variant="destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <ArrowRight className="h-4 w-4 text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-zinc-600" />
+                    </div>
                   </td>
                 </tr>
               ))}

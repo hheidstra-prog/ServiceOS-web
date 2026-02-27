@@ -66,13 +66,13 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
         className={cn(
           "group relative flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors",
           isActive
-            ? "bg-zinc-950/5 text-zinc-950 dark:bg-white/5 dark:text-white"
+            ? "bg-zinc-950/5 text-zinc-950 dark:bg-white/[0.08] dark:text-white"
             : "text-zinc-500 hover:bg-zinc-950/5 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
         )}
       >
         {/* Active indicator - left border */}
         {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-zinc-950 dark:bg-white" />
+          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-zinc-950 dark:bg-violet-400" />
         )}
         <item.icon className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
         <span>{item.name}</span>
@@ -83,7 +83,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
   return (
     <div
       className={cn(
-        "flex h-full w-full flex-col border-r border-zinc-950/5 bg-zinc-50 dark:border-white/5 dark:bg-zinc-950",
+        "flex h-full w-full flex-col border-r border-zinc-950/5 bg-zinc-50 dark:border-white/5 dark:bg-[linear-gradient(180deg,var(--zinc-900)_0%,var(--zinc-950)_100%)]",
         className
       )}
     >

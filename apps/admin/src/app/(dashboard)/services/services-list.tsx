@@ -282,7 +282,7 @@ export function ServicesList({ services }: ServicesListProps) {
               {filteredServices.map((service) => (
                 <tr
                   key={service.id}
-                  className={`transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025] ${
+                  className={`transition-colors outline-1 -outline-offset-1 outline-transparent hover:outline-violet-300 dark:hover:outline-violet-700 rounded-lg ${
                     !service.isActive ? "opacity-60" : ""
                   }`}
                 >
@@ -291,7 +291,7 @@ export function ServicesList({ services }: ServicesListProps) {
                       onClick={() => handleEdit(service)}
                       className="text-left group"
                     >
-                      <div className="text-sm font-medium text-zinc-950 group-hover:text-zinc-600 dark:text-white dark:group-hover:text-zinc-300">
+                      <div className="text-sm font-medium text-zinc-950 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400">
                         {service.name}
                       </div>
                       {service.description && (

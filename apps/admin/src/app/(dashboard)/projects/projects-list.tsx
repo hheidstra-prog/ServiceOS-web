@@ -42,28 +42,28 @@ interface ProjectsListProps {
 const statusConfig: Record<ProjectStatus, { label: string; className: string; borderColor: string }> = {
   NOT_STARTED: {
     label: "Not Started",
-    className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+    className: "bg-zinc-500/10 text-zinc-600 dark:bg-zinc-500/15 dark:text-zinc-400",
     borderColor: "",
   },
   IN_PROGRESS: {
     label: "In Progress",
-    className: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
-    borderColor: "border-l-sky-500",
+    className: "bg-sky-500/10 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400",
+    borderColor: "border-l-sky-500 dark:border-l-sky-400",
   },
   ON_HOLD: {
     label: "On Hold",
-    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-    borderColor: "border-l-amber-500",
+    className: "bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+    borderColor: "border-l-amber-500 dark:border-l-amber-400",
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-    borderColor: "border-l-emerald-500",
+    className: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
+    borderColor: "border-l-emerald-500 dark:border-l-emerald-400",
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
-    borderColor: "border-l-rose-500",
+    className: "bg-rose-500/10 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
+    borderColor: "border-l-rose-500 dark:border-l-rose-400",
   },
 };
 
@@ -249,7 +249,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
             const config = statusConfig[project.status];
             return (
               <Link key={project.id} href={`/projects/${project.id}`} className="block h-full">
-              <Card className={`h-full border-l-4 ${config.borderColor} transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025]`}>
+              <Card className={`h-full border-l-4 ${config.borderColor} transition-all hover:border-violet-300 hover:shadow-sm dark:hover:border-violet-500/40`}>
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">

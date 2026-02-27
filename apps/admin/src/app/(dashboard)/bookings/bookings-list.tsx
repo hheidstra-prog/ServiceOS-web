@@ -660,7 +660,7 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                       .map((booking) => {
                         const config = statusConfig[booking.status];
                         return (
-                          <Card key={booking.id} className={`border-l-4 ${config.borderColor}`}>
+                          <Card key={booking.id} className={`border-l-4 ${config.borderColor} transition-all hover:border-violet-300 hover:shadow-sm dark:hover:border-violet-500/40`}>
                             <CardContent className="flex items-center justify-between py-3">
                               <div className="flex items-center gap-2 sm:gap-4">
                                 <div className="text-center shrink-0">

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search, Users, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClientForm } from "./client-form";
 import { ClientStatus } from "@servible/database";
@@ -63,6 +64,7 @@ function StatusBadge({ status }: { status: ClientStatus }) {
 }
 
 export function ClientsList({ clients }: ClientsListProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -206,24 +208,19 @@ export function ClientsList({ clients }: ClientsListProps) {
               {filteredClients.map((client) => (
                 <tr
                   key={client.id}
-                  className="transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025]"
+                  onClick={() => router.push(`/clients/${client.id}`)}
+                  className="group cursor-pointer transition-colors outline-1 -outline-offset-1 outline-transparent hover:outline-violet-300 dark:hover:outline-violet-700 rounded-lg"
                 >
                   <td className="whitespace-nowrap py-3 pl-4 pr-3 sm:pl-5">
-                    <Link
-                      href={`/clients/${client.id}`}
-                      className="group block"
-                    >
-                      {/* Client name in table: text-sm, font-medium */}
-                      <div className="text-sm font-medium text-zinc-950 group-hover:text-zinc-600 dark:text-white dark:group-hover:text-zinc-300">
+                    <div>
+                      <div className="text-sm font-medium text-zinc-950 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400">
                         {client.name}
                       </div>
-                      {/* Secondary text (company under name): text-sm */}
                       <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400 lg:hidden">
                         {client.companyName || "—"}
                       </div>
-                    </Link>
+                    </div>
                   </td>
-                  {/* Body text: text-sm, font-normal */}
                   <td className="hidden whitespace-nowrap px-3 py-3 text-sm text-zinc-500 dark:text-zinc-400 lg:table-cell">
                     {client.companyName || "—"}
                   </td>
@@ -233,7 +230,9 @@ export function ClientsList({ clients }: ClientsListProps) {
                   <td className="whitespace-nowrap px-3 py-3">
                     <StatusBadge status={client.status} />
                   </td>
-                  <td className="whitespace-nowrap py-3 pl-3 pr-4 sm:pr-5" />
+                  <td className="whitespace-nowrap py-3 pl-3 pr-4 sm:pr-5">
+                    <ArrowRight className="h-4 w-4 text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-zinc-600" />
+                  </td>
                 </tr>
               ))}
             </tbody>

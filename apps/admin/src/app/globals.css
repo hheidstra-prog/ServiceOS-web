@@ -88,6 +88,12 @@
 }
 
 .dark {
+  /* Blue-tinted zinc palette for premium dark mode */
+  --zinc-950: #0a0a12;
+  --zinc-900: #111119;
+  --zinc-800: #1c1c26;
+  --zinc-700: #282834;
+
   --background: var(--zinc-950);
   --foreground: var(--zinc-50);
   --card: var(--zinc-900);
@@ -117,6 +123,10 @@
   --sidebar-border: var(--zinc-800);
   --sidebar-ring: var(--zinc-300);
   --sidebar-muted: var(--zinc-400);
+}
+
+.dark .stat-card-gradient {
+  background: linear-gradient(135deg, var(--zinc-900) 0%, var(--zinc-800) 100%);
 }
 
 @theme inline {

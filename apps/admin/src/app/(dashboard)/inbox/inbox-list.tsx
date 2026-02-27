@@ -147,7 +147,7 @@ export function InboxList({ notifications }: InboxListProps) {
                 <button
                   key={notification.id}
                   onClick={() => handleClick(notification)}
-                  className={`flex w-full items-start gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3 text-left transition-colors hover:bg-zinc-950/[0.025] dark:hover:bg-white/[0.025] ${
+                  className={`flex w-full items-start gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3 text-left transition-colors outline-1 -outline-offset-1 outline-transparent hover:outline-violet-300 dark:hover:outline-violet-700 rounded-lg ${
                     !notification.isRead ? "bg-sky-500/[0.03] dark:bg-sky-500/[0.05]" : ""
                   } ${href ? "cursor-pointer" : "cursor-default"}`}
                 >
