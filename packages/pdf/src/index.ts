@@ -20,6 +20,7 @@ export interface PdfOrganization {
 export interface PdfClient {
   name: string;
   companyName?: string | null;
+  contactName?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
   postalCode?: string | null;

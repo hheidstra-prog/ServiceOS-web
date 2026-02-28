@@ -307,7 +307,25 @@ export function BookingDetail({ booking, bookingTypes, clients }: BookingDetailP
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {booking.client && (
+                  <div className="flex items-center gap-2 border-r border-zinc-950/10 pr-3 mr-1 dark:border-white/10">
+                    <Label htmlFor="portalVisible" className="text-sm text-zinc-500 dark:text-zinc-400 cursor-pointer">Portal</Label>
+                    <Switch
+                      id="portalVisible"
+                      checked={booking.portalVisible}
+                      onCheckedChange={async (checked) => {
+                        try {
+                          await toggleBookingPortalVisibility(booking.id, checked);
+                          toast.success(checked ? "Visible on portal" : "Hidden from portal");
+                          router.refresh();
+                        } catch {
+                          toast.error("Failed to update visibility");
+                        }
+                      }}
+                    />
+                  </div>
+                )}
                 {booking.status === "PENDING" && (
                   <Button type="button" onClick={handleConfirm} size="sm">
                     <CheckCircle className="mr-1.5 h-4 w-4" />
@@ -591,33 +609,6 @@ export function BookingDetail({ booking, bookingTypes, clients }: BookingDetailP
                   )}
                 </>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Portal Visibility */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="portalVisible">Client Portal</Label>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Show this booking on the client portal
-                  </p>
-                </div>
-                <Switch
-                  id="portalVisible"
-                  checked={booking.portalVisible}
-                  onCheckedChange={async (checked) => {
-                    try {
-                      await toggleBookingPortalVisibility(booking.id, checked);
-                      toast.success(checked ? "Visible on portal" : "Hidden from portal");
-                      router.refresh();
-                    } catch {
-                      toast.error("Failed to update visibility");
-                    }
-                  }}
-                />
-              </div>
             </CardContent>
           </Card>
 

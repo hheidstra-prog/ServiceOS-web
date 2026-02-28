@@ -57,6 +57,24 @@ export async function getInvoice(id: string) {
           postalCode: true,
           country: true,
           vatNumber: true,
+          contacts: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              isPrimary: true,
+            },
+            orderBy: [{ isPrimary: "desc" }, { firstName: "asc" }],
+          },
+        },
+      },
+      contact: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
         },
       },
       items: {
@@ -97,6 +115,7 @@ async function generateInvoiceNumber(organizationId: string): Promise<string> {
 // Create a new invoice
 export async function createInvoice(data: {
   clientId: string;
+  contactId?: string;
   notes?: string;
   paymentTerms?: string;
   dueDate?: Date;
@@ -113,6 +132,7 @@ export async function createInvoice(data: {
     data: {
       organizationId: organization.id,
       clientId: data.clientId,
+      contactId: data.contactId || null,
       number,
       notes: data.notes,
       paymentTerms: data.paymentTerms || `Net ${organization.defaultPaymentTermDays} days`,
@@ -138,6 +158,7 @@ export async function updateInvoice(
     paymentTerms?: string;
     dueDate?: Date;
     status?: InvoiceStatus;
+    contactId?: string | null;
   }
 ) {
   const { organization } = await getCurrentUserAndOrg();
@@ -150,6 +171,7 @@ export async function updateInvoice(
       paymentTerms: data.paymentTerms,
       dueDate: data.dueDate,
       status: data.status,
+      ...(data.contactId !== undefined && { contactId: data.contactId }),
     },
   });
 
@@ -366,6 +388,13 @@ export async function sendInvoice(id: string) {
           vatNumber: true,
         },
       },
+      contact: {
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
       items: {
         orderBy: { sortOrder: "asc" },
       },
@@ -384,8 +413,14 @@ export async function sendInvoice(id: string) {
     },
   });
 
+  // Determine email recipient: prefer contact email, fall back to client email
+  const recipientEmail = invoice.contact?.email || invoice.client.email;
+  const contactFullName = invoice.contact
+    ? [invoice.contact.firstName, invoice.contact.lastName].filter(Boolean).join(" ")
+    : null;
+
   // Send email notification (async, non-blocking)
-  if (invoice.client.email) {
+  if (recipientEmail) {
     const locale = organization.locale || "en";
     const currency = invoice.currency || "EUR";
 
@@ -443,14 +478,17 @@ export async function sendInvoice(id: string) {
         email: organization.email,
         phone: organization.phone,
       },
-      client: invoice.client,
+      client: {
+        ...invoice.client,
+        contactName: contactFullName,
+      },
     };
 
     generateInvoicePdf(pdfData)
       .then((pdfBuffer) =>
         sendInvoiceEmail({
-          to: invoice.client.email!,
-          clientName: invoice.client.companyName || invoice.client.name,
+          to: recipientEmail,
+          clientName: contactFullName || invoice.client.companyName || invoice.client.name,
           organizationName: organization.name,
           invoiceNumber: invoice.number,
           totalFormatted: fmtCurrency(Number(invoice.total)),
@@ -462,7 +500,7 @@ export async function sendInvoice(id: string) {
       )
       .catch((err) => console.error("Failed to send invoice email:", err));
   } else {
-    console.warn(`Invoice ${invoice.number}: client has no email, skipping notification`);
+    console.warn(`Invoice ${invoice.number}: no recipient email, skipping notification`);
   }
 
   revalidatePath("/invoices");
@@ -533,6 +571,7 @@ export async function duplicateInvoice(id: string) {
     data: {
       organizationId: organization.id,
       clientId: original.clientId,
+      contactId: original.contactId,
       number,
       notes: original.notes,
       paymentTerms: original.paymentTerms,
@@ -588,6 +627,7 @@ export async function createInvoiceFromQuote(quoteId: string) {
     data: {
       organizationId: organization.id,
       clientId: quote.clientId,
+      contactId: quote.contactId,
       number,
       notes: quote.terms,
       dueDate,
@@ -670,6 +710,27 @@ export async function getClientsForSelect() {
       companyName: true,
     },
     orderBy: { name: "asc" },
+  });
+}
+
+// Get contacts for a client (for contact selector)
+export async function getContactsForClient(clientId: string) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) return [];
+
+  return db.contact.findMany({
+    where: {
+      clientId,
+      client: { organizationId: organization.id },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      isPrimary: true,
+    },
+    orderBy: [{ isPrimary: "desc" }, { firstName: "asc" }],
   });
 }
 

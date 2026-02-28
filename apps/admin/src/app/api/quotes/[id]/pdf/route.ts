@@ -35,6 +35,12 @@ export async function GET(
             vatNumber: true,
           },
         },
+        contact: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
         items: {
           orderBy: { sortOrder: "asc" },
         },
@@ -85,7 +91,12 @@ export async function GET(
         email: organization.email,
         phone: organization.phone,
       },
-      client: quote.client,
+      client: {
+        ...quote.client,
+        contactName: quote.contact
+          ? [quote.contact.firstName, quote.contact.lastName].filter(Boolean).join(" ")
+          : null,
+      },
     };
 
     const pdfBuffer = await generateQuotePdf(pdfData);

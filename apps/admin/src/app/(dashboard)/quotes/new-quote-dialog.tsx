@@ -28,13 +28,22 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { createQuote, getClientsForSelect } from "./actions";
+import { createQuote, getClientsForSelect, getContactsForClient } from "./actions";
 
 interface Client {
   id: string;
   name: string;
   companyName: string | null;
+}
+
+interface Contact {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  isPrimary: boolean;
 }
 
 interface NewQuoteDialogProps {
@@ -49,6 +58,8 @@ export function NewQuoteDialog({ open, onOpenChange, preselectedClientId }: NewQ
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState(preselectedClientId || "");
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactId, setContactId] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -58,6 +69,20 @@ export function NewQuoteDialog({ open, onOpenChange, preselectedClientId }: NewQ
       }
     }
   }, [open, preselectedClientId]);
+
+  // Fetch contacts when client changes
+  useEffect(() => {
+    if (clientId) {
+      getContactsForClient(clientId).then((c) => {
+        setContacts(c);
+        const primary = c.find((ct) => ct.isPrimary);
+        setContactId(primary?.id || "");
+      });
+    } else {
+      setContacts([]);
+      setContactId("");
+    }
+  }, [clientId]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -71,6 +96,7 @@ export function NewQuoteDialog({ open, onOpenChange, preselectedClientId }: NewQ
     const formData = new FormData(e.currentTarget);
     const data = {
       clientId,
+      contactId: contactId || undefined,
       title: formData.get("title") as string || undefined,
     };
 
@@ -142,6 +168,25 @@ export function NewQuoteDialog({ open, onOpenChange, preselectedClientId }: NewQ
               </Popover>
             )}
           </div>
+
+          {contacts.length > 0 && (
+            <div className="space-y-2">
+              <Label>Contact Person</Label>
+              <Select value={contactId} onValueChange={setContactId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a contact" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {contact.firstName} {contact.lastName}
+                      {contact.email ? ` (${contact.email})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>

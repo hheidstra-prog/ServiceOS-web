@@ -108,26 +108,34 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
 ## Public Booking System
 - Site visitors book appointments via `/book` (rendered when `bookingEnabled === true`)
 - **Header integration**: "Book Now" button in `SiteHeader` links to `/book`, label is locale-aware (nl/en/de/fr)
-- **Server actions**: `apps/web/src/lib/actions/booking.ts` — `getBookingConfig()`, `getAvailableSlots()`, `getAvailableDays()`, `createPublicBooking()`
-- **Slot calculation**: availability rules (per day-of-week) minus existing PENDING/CONFIRMED bookings, respecting buffer times, filtering past slots for today
-- **Multi-step form**: `booking-form.tsx` — select type → date → time → details → confirmation
+- **No service/type selection** — visitors pick a duration (e.g. 15/30 min), date, time, and fill in details
+- **Duration toggle**: configurable pill buttons above calendar (like HubSpot). Durations stored as JSON on Organization model (`publicBookingDurations` default `[15, 30]`, `portalBookingDurations` default `[30, 60]`)
+- **Org-level config fields**: `publicBookingTitle` ("Intro Call"), `publicBookingBuffer` (minutes), `publicBookingConfirm` (require admin confirmation), and portal equivalents
+- **Server actions**: `apps/web/src/lib/actions/booking.ts` — `getPublicBookingConfig()`, `getAvailableSlots(orgId, durationMinutes, bufferMinutes, date)`, `getAvailableDays()`, `createPublicBooking()`, `createPortalBooking()`
+- **Slot calculation**: availability rules (per day-of-week) minus existing PENDING/CONFIRMED bookings, respecting buffer times, filtering past slots for today. Takes `durationMinutes` + `bufferMinutes` directly (no bookingTypeId lookup)
+- **Multi-step form**: `booking-form.tsx` — duration toggle + date → time → details → confirmation (3 steps)
 - **DB records created on submit**:
   - **Client** (status: `LEAD`) — deduplicated by `email + organizationId` (same pattern as contact form)
   - **Contact** (first/last name parsed from name field, linked to Client)
-  - **Booking** (status: PENDING or CONFIRMED based on `requiresConfirmation`)
+  - **Booking** (status: PENDING or CONFIRMED based on `requiresConfirmation`, no `bookingTypeId`)
   - **Event** (type: `APPOINTMENT`, linked to client for activity timeline)
   - **Notification** (type: `new_booking`, shows in admin inbox with Calendar icon)
 - **Spam protection**: honeypot field (same pattern as contact form)
 - **All UI text** uses hardcoded translations keyed by locale (nl/en/de/fr) — no AI roundtrip
-- **BookingType.isPublic**: distinguishes public-facing booking types (shown on `/book`) from portal-only types
+- **BookingType**: admin-only internal concept (calendar labeling, categorization). Not exposed to visitors or portal clients. Admin can assign a BookingType to a booking via the detail page.
 - **Admin availability**: `availability-dialog.tsx` in bookings — 7-day weekly hours grid (Mon-Sun toggle + start/end times)
 - **Admin booking list**: calendar view + Sheet info panel on click (not navigation), with booking details and action buttons
-- **Admin booking detail** (`/bookings/[id]`): inline-editable form (no modal) — date/time, booking type, location, client/contact selectors, notes. Guest bookings show read-only guest info. Status actions (Confirm/Complete/Cancel Booking/No Show/Delete) in top bar. Portal visibility toggle (immediate save). Fields disabled when booking is in terminal state (CANCELLED/COMPLETED/NO_SHOW). Pattern matches Client and Project detail pages.
+- **Admin booking detail** (`/bookings/[id]`): inline-editable form (no modal) — date/time, booking type, location, client/contact selectors, notes. Guest bookings show read-only guest info. Status actions (Confirm/Complete/Cancel Booking/No Show/Delete) + portal visibility toggle in top bar (right side, next to buttons). Fields disabled when booking is in terminal state (CANCELLED/COMPLETED/NO_SHOW). Pattern matches Client and Project detail pages.
+- **Contact-aware bookings**: when creating a booking with a contact person, `createBooking()` resolves the contact's name/email for `guestName`/`guestEmail`. Calendar and list views show contact name as primary, company as secondary. Confirmation/cancellation emails use contact name/email with fallback to client.
+- **Calendar filtering**: cancelled and no-show bookings are hidden from the calendar by default (visible when explicitly filtering to that status).
 - **Key files**:
   - Detail page: `apps/admin/src/app/(dashboard)/bookings/[id]/page.tsx` + `booking-detail.tsx`
   - List/calendar: `apps/admin/src/app/(dashboard)/bookings/bookings-list.tsx`
   - Server actions: `apps/admin/src/app/(dashboard)/bookings/actions.ts`
   - New booking dialog: `apps/admin/src/app/(dashboard)/bookings/new-booking-dialog.tsx`
+- **Booking settings dialog**: `booking-settings-dialog.tsx` — configures public/portal booking title, durations, buffer, confirmation toggle. Accessed via Settings dropdown in bookings header.
+- **Email notifications**: confirmation email on create (public, portal, admin) + confirm; cancellation email on cancel. i18n (nl/en/de/fr), async non-blocking.
+- **Calendar loading**: month-by-month via `useEffect` + `getBookings()` server action on navigation. "+x more" opens day detail Sheet.
 - **Backlog**: Google Calendar / MS Outlook sync (fields `externalCalendarId` and `externalCalendarEventId` already exist on Booking model), send invite email with .ics to contact person
 
 ## Public Blog (Web App)
@@ -154,7 +162,7 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
 - **Portal pages**:
   - **Dashboard** (`/portal`): stat cards (projects, invoices, quotes, bookings) + recent items
   - **Projects** (`/portal/projects`): list with status, task progress bar; detail view with tasks + files
-  - **Invoices** (`/portal/invoices`): pending/paid sections; detail view with full line items (drafts excluded)
+  - **Invoices** (`/portal/invoices`): pending/paid sections; detail view with full line items, PDF download (drafts excluded, finalized+ visible as "Awaiting Payment")
   - **Quotes** (`/portal/quotes`): pending/responded sections; detail view with accept/reject buttons
   - **Files** (`/portal/files`): grouped by project, download links
   - **Bookings** (`/portal/bookings`): upcoming cards + past table, "Book Appointment" link to `/book`
@@ -174,7 +182,6 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
 - **Access control**: site-level only — all clients of an org can access if portal is enabled (no per-client toggle)
 - **Backlog**:
   - Per-client portal access control (`portalEnabled` field on Client model)
-  - Invoice PDF generation + download (button exists in portal, generation not implemented). Needed for both admin (print/email) and portal (client download). Consider `@react-pdf/renderer` or headless browser approach. Should use org branding.
   - Rate limiting on magic link requests
 
 ## Portal Quotes (Accept/Reject)
@@ -183,7 +190,7 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
   - DRAFT: editable, "Finalize" button in top bar
   - FINALIZED: locked, Portal toggle + "Send to Client" button appear in top bar
   - Portal toggle: controls visibility on client portal (independent of send)
-  - "Send to Client": sets status to SENT (for future email notification)
+  - "Send to Client": sets status to SENT, sends email with PDF attachment (Resend). Button changes to "Resend" (RefreshCw icon) after first send.
 - **Portal visibility**: `portalVisible` field on Quote model (same pattern as Invoice, Project, Booking, File)
 - **Portal listing** (`/portal/quotes`): two sections — Pending (FINALIZED/SENT/VIEWED) and Responded (ACCEPTED/REJECTED/EXPIRED)
 - **Portal detail** (`/portal/quotes/[quoteId]`): addresses, dates, introduction, line items with VAT breakdown, terms
@@ -195,6 +202,28 @@ Radix UI Sheet/Dialog components can cause hydration mismatches with auto-genera
 - **Portal nav**: Quotes link (ScrollText icon) between Invoices and Bookings
 - **Server actions**: `apps/web/src/lib/actions/quote.ts` — `getPortalQuotes`, `getPortalQuote`, `acceptQuote`, `rejectQuote`
 - Client sees FINALIZED and SENT both as "Pending" — no internal status leaking
+
+## Invoice Workflow (Finalize + Send)
+- **Two-step flow** (mirrors quotes): DRAFT → Finalize → Send to Client
+  - DRAFT: editable, "Finalize" button (Lock icon) in top bar
+  - FINALIZED: locked, Portal toggle + "Send to Client" button appear in top bar
+  - "Send to Client": sends email with PDF attachment (Resend), sets status SENT + sentAt. Button changes to "Resend" (RefreshCw icon) after first send.
+- **Portal visibility**: `portalVisible` field on Invoice model. Finalized+ invoices visible on portal (same as quotes). Both FINALIZED and SENT show as "Awaiting Payment" on portal — no internal status leaking.
+- **Status flow**: DRAFT → FINALIZED → SENT → VIEWED → PARTIALLY_PAID → PAID (also: OVERDUE, CANCELLED, REFUNDED)
+- **Email**: `sendInvoiceEmail()` in `apps/admin/src/lib/email.ts` — i18n (nl/en/de/fr), PDF attachment via `@servible/pdf`
+- **Server actions**: `apps/admin/src/app/(dashboard)/invoices/actions.ts` — `finalizeInvoice()` (DRAFT→FINALIZED), `sendInvoice()` (email+PDF, sets SENT)
+- **Key files**: `invoice-detail.tsx` (UI), `invoices-list.tsx` (list + filters), `invoices-tab.tsx` (client detail tab)
+
+## Contact Person on Invoices & Quotes
+- **Schema**: `contactId String?` on Invoice and Quote models, optional relation to Contact (onDelete: SetNull)
+- **Create dialogs**: contact `<Select>` below client selector, auto-selects primary contact (`isPrimary`), fetched via `getContactsForClient(clientId)`
+- **Detail pages**: shows "Attn: First Last" in Bill To section, editable contact selector that saves via `updateInvoice`/`updateQuote`
+- **Send flow**: email uses contact email (fallback to client email), PDF shows contact name in "To" block
+- **PDF**: `PdfClient.contactName` flows through `AddressBlock` component — shows between company name and address
+- **Portal**: invoice + quote detail pages show contact name, PDF download includes contact name
+- **Portal magic link**: matches both client emails AND contact emails, sets `contactId` on PortalSession
+- **`getContactsForClient()`**: co-located in each actions file (invoices, quotes, bookings) following existing pattern
+- **Key files**: `invoices/actions.ts`, `quotes/actions.ts`, `new-invoice-dialog.tsx`, `new-quote-dialog.tsx`, `invoice-detail.tsx`, `quote-detail.tsx`, `@servible/pdf` (index.ts, shared/components.tsx, invoice-pdf.tsx, quote-pdf.tsx), portal PDF routes, `send-magic-link/route.ts`
 
 ## Time Tracking
 - Two entry points: **project time tab** (inline dialog, no navigation away) and **timesheet page** (`/time`)

@@ -80,6 +80,12 @@ async function getInvoice(
       status: { not: "DRAFT" },
     },
     include: {
+      contact: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
       items: {
         orderBy: { sortOrder: "asc" },
       },
@@ -218,7 +224,10 @@ export default async function InvoiceDetailPage({
               <p className="font-medium">
                 {client.companyName || client.name}
               </p>
-              {client.companyName && <p>{client.name}</p>}
+              {invoice.contact && (
+                <p>{invoice.contact.firstName} {invoice.contact.lastName}</p>
+              )}
+              {!invoice.contact && client.companyName && <p>{client.name}</p>}
               {client.addressLine1 && <p>{client.addressLine1}</p>}
               {client.addressLine2 && <p>{client.addressLine2}</p>}
               {(client.postalCode || client.city) && (

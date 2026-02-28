@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuoteStatus, TaxType } from "@servible/database";
 import { TAX_TYPE_CONFIG } from "@/lib/tax-utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -65,6 +66,14 @@ interface QuoteItem {
   service: { id: string; name: string } | null;
 }
 
+interface ContactInfo {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  isPrimary?: boolean;
+}
+
 interface Quote {
   id: string;
   number: string;
@@ -83,6 +92,7 @@ interface Quote {
   rejectedAt: Date | null;
   portalVisible: boolean;
   createdAt: Date;
+  contact: ContactInfo | null;
   client: {
     id: string;
     name: string;
@@ -95,6 +105,7 @@ interface Quote {
     postalCode: string | null;
     country: string | null;
     vatNumber: string | null;
+    contacts: ContactInfo[];
   };
   items: QuoteItem[];
 }
@@ -655,11 +666,46 @@ export function QuoteDetail({ quote, orgVatNumber }: QuoteDetailProps) {
                 {quote.client.companyName || quote.client.name}
               </Link>
 
-              {quote.client.companyName && (
+              {quote.contact && (
+                <div className="flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+                  <Building className="h-4 w-4 shrink-0 mt-0.5" />
+                  Attn: {quote.contact.firstName} {quote.contact.lastName}
+                </div>
+              )}
+
+              {!quote.contact && quote.client.companyName && (
                 <div className="flex items-start gap-2 text-sm text-zinc-500 dark:text-zinc-400">
                   <Building className="h-4 w-4 shrink-0 mt-0.5" />
                   {quote.client.name}
                 </div>
+              )}
+
+              {quote.client.contacts.length > 0 && (
+                <Select
+                  value={quote.contact?.id || "none"}
+                  onValueChange={async (value) => {
+                    try {
+                      await updateQuote(quote.id, { contactId: value === "none" ? null : value });
+                      toast.success("Contact updated");
+                      router.refresh();
+                    } catch {
+                      toast.error("Failed to update contact");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select contact" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No contact</SelectItem>
+                    {quote.client.contacts.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.firstName} {c.lastName}
+                        {c.email ? ` (${c.email})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
 
               {quote.client.email && (

@@ -406,13 +406,41 @@ export async function createPortalBooking(
       return { success: false, error: "Client not found." };
     }
 
+    // Try to resolve contact from portal session for better email targeting
+    const portalContact = await db.portalSession.findFirst({
+      where: {
+        clientId,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        contactId: true,
+        contact: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    const contact = portalContact?.contact;
+    const contactName = contact
+      ? [contact.firstName, contact.lastName].filter(Boolean).join(" ")
+      : null;
+
+    // Use contact info when available, fall back to client
+    const bookingName = contactName || client.name;
+    const bookingEmail = contact?.email || client.email || "";
+
     // Create booking
     const booking = await db.booking.create({
       data: {
         organizationId,
         clientId,
-        guestName: client.name,
-        guestEmail: client.email || "",
+        contactId: portalContact?.contactId || null,
+        guestName: bookingName,
+        guestEmail: bookingEmail,
         startsAt,
         endsAt,
         status,
@@ -427,7 +455,7 @@ export async function createPortalBooking(
         data: {
           organizationId,
           type: "new_booking",
-          title: `New booking: ${client.name} (via portal)`,
+          title: `New booking: ${bookingName} (via portal)`,
           message: `Meeting (${durationMinutes} min) — ${date} at ${time}`,
           entityType: "booking",
           entityId: booking.id,
@@ -450,7 +478,13 @@ export async function createPortalBooking(
     ]);
 
     // Send confirmation email (async, non-blocking)
-    if (client.email) {
+    // Prefer contact email/name from portal session, fall back to client
+    const recipientEmail = contact?.email || client.email;
+    const recipientName = contact
+      ? [contact.firstName, contact.lastName].filter(Boolean).join(" ")
+      : client.name;
+
+    if (recipientEmail) {
       const locale = org.locale || "en";
       const dateFormatted = new Intl.DateTimeFormat(
         locale === "nl" ? "nl-NL" : locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US",
@@ -458,8 +492,8 @@ export async function createPortalBooking(
       ).format(startsAt);
 
       sendBookingConfirmation({
-        to: client.email,
-        guestName: client.name,
+        to: recipientEmail,
+        guestName: recipientName,
         organizationName: org.name,
         dateFormatted,
         time,
@@ -468,7 +502,7 @@ export async function createPortalBooking(
         locale,
       }).catch((err) => console.error("Failed to send portal booking confirmation email:", err));
     } else {
-      console.warn(`Portal booking: client ${client.name} has no email, skipping confirmation`);
+      console.warn(`Portal booking: no recipient email, skipping confirmation`);
     }
 
     return { success: true, bookingId: booking.id, status };

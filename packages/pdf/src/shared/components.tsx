@@ -7,6 +7,7 @@ import { formatCurrency, formatDate } from "./format";
 export interface PdfAddress {
   name: string;
   companyName?: string | null;
+  contactName?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
   postalCode?: string | null;
@@ -42,7 +43,10 @@ export function AddressBlock({
       <Text style={baseStyles.addressName}>
         {address.companyName || address.name}
       </Text>
-      {address.companyName && (
+      {address.contactName && (
+        <Text style={baseStyles.addressLine}>{address.contactName}</Text>
+      )}
+      {!address.contactName && address.companyName && (
         <Text style={baseStyles.addressLine}>{address.name}</Text>
       )}
       {address.addressLine1 && (

@@ -278,6 +278,8 @@ model Contact {
   client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   portalSessions PortalSession[]
   bookings       Booking[]
+  invoices       Invoice[]
+  quotes         Quote[]
 
   @@index([clientId])
 }
@@ -759,6 +761,7 @@ model Quote {
   id             String   @id @default(cuid())
   organizationId String
   clientId       String
+  contactId      String?
 
   // Numbering
   number         String   // e.g., "Q-2024-0001"
@@ -801,6 +804,7 @@ model Quote {
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
   items          QuoteItem[]
   contract       Contract?
 
@@ -920,6 +924,7 @@ model Invoice {
   id             String   @id @default(cuid())
   organizationId String
   clientId       String
+  contactId      String?
 
   // Numbering
   number         String   // e.g., "2024-0001"
@@ -968,6 +973,7 @@ model Invoice {
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
   items          InvoiceItem[]
   payments       Payment[]
   relatedInvoice Invoice?     @relation("CreditNoteRelation", fields: [relatedInvoiceId], references: [id])

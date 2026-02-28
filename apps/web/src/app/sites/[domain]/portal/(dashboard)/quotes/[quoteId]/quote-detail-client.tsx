@@ -35,6 +35,10 @@ interface QuoteData {
   createdAt: Date;
   acceptedAt: Date | null;
   rejectedAt: Date | null;
+  contact: {
+    firstName: string;
+    lastName: string | null;
+  } | null;
   client: {
     name: string;
     companyName: string | null;
@@ -203,7 +207,12 @@ export function QuoteDetailClient({ quote, domain }: QuoteDetailClientProps) {
           <p className="font-medium text-zinc-900 dark:text-zinc-100">
             {quote.client.companyName || quote.client.name}
           </p>
-          {quote.client.companyName && (
+          {quote.contact && (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {quote.contact.firstName} {quote.contact.lastName}
+            </p>
+          )}
+          {!quote.contact && quote.client.companyName && (
             <p className="text-sm text-zinc-600 dark:text-zinc-400">{quote.client.name}</p>
           )}
           {quote.client.addressLine1 && (

@@ -56,6 +56,12 @@ export async function GET(
         status: { not: "DRAFT" },
       },
       include: {
+        contact: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
         items: {
           orderBy: { sortOrder: "asc" },
         },
@@ -124,6 +130,9 @@ export async function GET(
       client: {
         name: session.client.name,
         companyName: session.client.companyName,
+        contactName: invoice.contact
+          ? [invoice.contact.firstName, invoice.contact.lastName].filter(Boolean).join(" ")
+          : null,
         addressLine1: session.client.addressLine1,
         addressLine2: session.client.addressLine2,
         postalCode: session.client.postalCode,

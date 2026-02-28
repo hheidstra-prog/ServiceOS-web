@@ -17,9 +17,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InvoiceStatus, TaxType } from "@servible/database";
 import { TAX_TYPE_CONFIG } from "@/lib/tax-utils";
-import { deleteInvoice, deleteInvoiceItem, duplicateInvoice, finalizeInvoice, sendInvoice, toggleInvoicePortalVisibility } from "../actions";
+import { deleteInvoice, deleteInvoiceItem, duplicateInvoice, finalizeInvoice, sendInvoice, toggleInvoicePortalVisibility, updateInvoice } from "../actions";
 import { InvoiceItemDialog } from "./invoice-item-dialog";
 import { RecordPaymentDialog } from "../record-payment-dialog";
 
@@ -34,6 +35,14 @@ interface InvoiceItem {
   taxAmount: number;
   total: number;
   service: { id: string; name: string } | null;
+}
+
+interface ContactInfo {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  isPrimary?: boolean;
 }
 
 interface Invoice {
@@ -52,6 +61,7 @@ interface Invoice {
   sentAt: Date | null;
   paidAt: Date | null;
   portalVisible: boolean;
+  contact: ContactInfo | null;
   client: {
     id: string;
     name: string;
@@ -64,6 +74,7 @@ interface Invoice {
     postalCode: string | null;
     country: string | null;
     vatNumber: string | null;
+    contacts: ContactInfo[];
   };
   items: InvoiceItem[];
 }
@@ -516,10 +527,41 @@ export function InvoiceDetail({ invoice, orgVatNumber }: InvoiceDetailProps) {
               >
                 {invoice.client.companyName || invoice.client.name}
               </Link>
-              {invoice.client.companyName && (
+              {invoice.contact && (
+                <p className="text-zinc-600 dark:text-zinc-300">
+                  Attn: {invoice.contact.firstName} {invoice.contact.lastName}
+                </p>
+              )}
+              {!invoice.contact && invoice.client.companyName && (
                 <p className="text-zinc-500 dark:text-zinc-400">{invoice.client.name}</p>
               )}
             </div>
+            {invoice.client.contacts.length > 0 && (
+              <Select
+                value={invoice.contact?.id || "none"}
+                onValueChange={async (value) => {
+                  try {
+                    await updateInvoice(invoice.id, { contactId: value === "none" ? null : value });
+                    toast.success("Contact updated");
+                  } catch {
+                    toast.error("Failed to update contact");
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select contact" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No contact</SelectItem>
+                  {invoice.client.contacts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.firstName} {c.lastName}
+                      {c.email ? ` (${c.email})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {(invoice.client.addressLine1 || invoice.client.city) && (
               <div className="text-zinc-500 dark:text-zinc-400">
                 {invoice.client.addressLine1 && <p>{invoice.client.addressLine1}</p>}

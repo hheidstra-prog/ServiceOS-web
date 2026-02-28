@@ -93,6 +93,12 @@ export async function getPortalQuote(domain: string, quoteId: string) {
           vatNumber: true,
         },
       },
+      contact: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
       organization: {
         select: {
           name: true,

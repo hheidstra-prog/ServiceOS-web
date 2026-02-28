@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the client (case-insensitive email match)
-    const client = await db.client.findFirst({
+    // Find the client by client email OR contact email (case-insensitive)
+    let client = await db.client.findFirst({
       where: {
         email: { equals: email, mode: "insensitive" },
         organizationId,
@@ -33,6 +33,54 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // If no client found by client email, try matching a contact email
+    let contactId: string | null = null;
+    if (!client) {
+      const contact = await db.contact.findFirst({
+        where: {
+          email: { equals: email, mode: "insensitive" },
+          client: { organizationId },
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              organization: {
+                select: {
+                  name: true,
+                  email: true,
+                  locale: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (contact) {
+        client = contact.client;
+        contactId = contact.id;
+      }
+    } else {
+      // Client found by client email — check if the email also matches a contact
+      const contact = await db.contact.findFirst({
+        where: {
+          email: { equals: email, mode: "insensitive" },
+          clientId: client.id,
+        },
+        select: { id: true },
+      });
+      if (contact) {
+        contactId = contact.id;
+      }
+    }
 
     // Always return success to prevent email enumeration
     if (!client) {
@@ -55,6 +103,7 @@ export async function POST(request: NextRequest) {
     await db.portalSession.create({
       data: {
         clientId: client.id,
+        contactId,
         token,
         expiresAt,
       },

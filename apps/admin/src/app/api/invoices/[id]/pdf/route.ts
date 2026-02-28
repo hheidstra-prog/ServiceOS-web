@@ -35,6 +35,12 @@ export async function GET(
             vatNumber: true,
           },
         },
+        contact: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
         items: {
           orderBy: { sortOrder: "asc" },
         },
@@ -87,7 +93,12 @@ export async function GET(
         email: organization.email,
         phone: organization.phone,
       },
-      client: invoice.client,
+      client: {
+        ...invoice.client,
+        contactName: invoice.contact
+          ? [invoice.contact.firstName, invoice.contact.lastName].filter(Boolean).join(" ")
+          : null,
+      },
     };
 
     const pdfBuffer = await generateInvoicePdf(pdfData);

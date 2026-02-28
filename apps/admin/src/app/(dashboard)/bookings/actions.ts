@@ -157,14 +157,28 @@ export async function createBooking(data: {
     if (bt) bookingTypeName = bt.name;
   }
 
+  // Resolve contact name/email for guestName/guestEmail when booking for a contact
+  let resolvedGuestName = data.guestName;
+  let resolvedGuestEmail = data.guestEmail;
+  if (!resolvedGuestName && data.contactId) {
+    const contact = await db.contact.findUnique({
+      where: { id: data.contactId },
+      select: { firstName: true, lastName: true, email: true },
+    });
+    if (contact) {
+      resolvedGuestName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
+      resolvedGuestEmail = resolvedGuestEmail || contact.email || undefined;
+    }
+  }
+
   const booking = await db.booking.create({
     data: {
       organizationId: organization.id,
       clientId: data.clientId,
       contactId: data.contactId,
       bookingTypeId: data.bookingTypeId,
-      guestName: data.guestName,
-      guestEmail: data.guestEmail,
+      guestName: resolvedGuestName,
+      guestEmail: resolvedGuestEmail,
       guestPhone: data.guestPhone,
       startsAt: data.startsAt,
       endsAt: data.endsAt,
@@ -196,9 +210,20 @@ export async function createBooking(data: {
     });
   }
 
-  // Send booking confirmation email (async, non-blocking)
-  const recipientEmail = data.guestEmail || (data.clientId ? (await db.client.findUnique({ where: { id: data.clientId }, select: { email: true } }))?.email : null);
-  const recipientName = data.guestName || (data.clientId ? (await db.client.findUnique({ where: { id: data.clientId }, select: { name: true } }))?.name : null);
+  // Resolve recipient for email — already resolved contact name/email above, fall back to client
+  let recipientEmail: string | null = resolvedGuestEmail || null;
+  let recipientName: string | null = resolvedGuestName || null;
+
+  if (!recipientEmail || !recipientName) {
+    if (data.clientId) {
+      const client = await db.client.findUnique({
+        where: { id: data.clientId },
+        select: { name: true, email: true },
+      });
+      recipientName = recipientName || client?.name || null;
+      recipientEmail = recipientEmail || client?.email || null;
+    }
+  }
 
   if (recipientEmail && recipientName) {
     const locale = organization.locale || "en";
@@ -273,12 +298,16 @@ export async function cancelBooking(id: string) {
     },
     include: {
       client: { select: { name: true, email: true } },
+      contact: { select: { firstName: true, lastName: true, email: true } },
     },
   });
 
-  // Send cancellation email (async, non-blocking)
-  const email = booking.guestEmail || booking.client?.email;
-  const name = booking.guestName || booking.client?.name;
+  // Send cancellation email — prefer contact, then guest, then client
+  const contactFullName = booking.contact
+    ? [booking.contact.firstName, booking.contact.lastName].filter(Boolean).join(" ")
+    : null;
+  const email = booking.contact?.email || booking.guestEmail || booking.client?.email;
+  const name = contactFullName || booking.guestName || booking.client?.name;
 
   if (email && name) {
     const locale = organization.locale || "en";
@@ -310,12 +339,16 @@ export async function confirmBooking(id: string) {
     },
     include: {
       client: { select: { name: true, email: true } },
+      contact: { select: { firstName: true, lastName: true, email: true } },
     },
   });
 
-  // Send confirmation email (async, non-blocking)
-  const email = booking.guestEmail || booking.client?.email;
-  const name = booking.guestName || booking.client?.name;
+  // Send confirmation email — prefer contact, then guest, then client
+  const contactFullName = booking.contact
+    ? [booking.contact.firstName, booking.contact.lastName].filter(Boolean).join(" ")
+    : null;
+  const email = booking.contact?.email || booking.guestEmail || booking.client?.email;
+  const name = contactFullName || booking.guestName || booking.client?.name;
 
   if (email && name) {
     const locale = organization.locale || "en";

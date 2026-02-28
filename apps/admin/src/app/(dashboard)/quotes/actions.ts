@@ -60,6 +60,24 @@ export async function getQuote(id: string) {
           postalCode: true,
           country: true,
           vatNumber: true,
+          contacts: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              isPrimary: true,
+            },
+            orderBy: [{ isPrimary: "desc" }, { firstName: "asc" }],
+          },
+        },
+      },
+      contact: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
         },
       },
       items: {
@@ -100,6 +118,7 @@ async function generateQuoteNumber(organizationId: string): Promise<string> {
 // Create a new quote
 export async function createQuote(data: {
   clientId: string;
+  contactId?: string;
   title?: string;
   introduction?: string;
   terms?: string;
@@ -114,6 +133,7 @@ export async function createQuote(data: {
     data: {
       organizationId: organization.id,
       clientId: data.clientId,
+      contactId: data.contactId || null,
       number,
       title: data.title,
       introduction: data.introduction,
@@ -142,6 +162,7 @@ export async function updateQuote(
     status?: QuoteStatus;
     portalVisible?: boolean;
     sentAt?: Date;
+    contactId?: string | null;
   }
 ) {
   const { organization } = await getCurrentUserAndOrg();
@@ -353,6 +374,13 @@ export async function sendQuote(id: string) {
           vatNumber: true,
         },
       },
+      contact: {
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
       items: {
         orderBy: { sortOrder: "asc" as const },
       },
@@ -367,8 +395,14 @@ export async function sendQuote(id: string) {
     });
   }
 
+  // Determine email recipient: prefer contact email, fall back to client email
+  const recipientEmail = quote.contact?.email || quote.client.email;
+  const contactFullName = quote.contact
+    ? [quote.contact.firstName, quote.contact.lastName].filter(Boolean).join(" ")
+    : null;
+
   // Send email notification (async, non-blocking)
-  if (quote.client.email) {
+  if (recipientEmail) {
     const locale = organization.locale || "en";
     const currency = quote.currency || "EUR";
 
@@ -427,14 +461,17 @@ export async function sendQuote(id: string) {
         email: organization.email,
         phone: organization.phone,
       },
-      client: quote.client,
+      client: {
+        ...quote.client,
+        contactName: contactFullName,
+      },
     };
 
     generateQuotePdf(pdfData)
       .then((pdfBuffer) =>
         sendQuoteEmail({
-          to: quote.client.email!,
-          clientName: quote.client.companyName || quote.client.name,
+          to: recipientEmail,
+          clientName: contactFullName || quote.client.companyName || quote.client.name,
           organizationName: organization.name,
           quoteNumber: quote.number,
           quoteTitle: quote.title,
@@ -447,7 +484,7 @@ export async function sendQuote(id: string) {
       )
       .catch((err) => console.error("Failed to send quote email:", err));
   } else {
-    console.warn(`Quote ${quote.number}: client has no email, skipping notification`);
+    console.warn(`Quote ${quote.number}: no recipient email, skipping notification`);
   }
 
   revalidatePath("/quotes");
@@ -473,6 +510,7 @@ export async function duplicateQuote(id: string) {
     data: {
       organizationId: organization.id,
       clientId: original.clientId,
+      contactId: original.contactId,
       number,
       title: original.title ? `${original.title} (Copy)` : undefined,
       introduction: original.introduction,
@@ -521,6 +559,27 @@ export async function getClientsForSelect() {
       companyName: true,
     },
     orderBy: { name: "asc" },
+  });
+}
+
+// Get contacts for a client (for contact selector)
+export async function getContactsForClient(clientId: string) {
+  const { organization } = await getCurrentUserAndOrg();
+  if (!organization) return [];
+
+  return db.contact.findMany({
+    where: {
+      clientId,
+      client: { organizationId: organization.id },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      isPrimary: true,
+    },
+    orderBy: [{ isPrimary: "desc" }, { firstName: "asc" }],
   });
 }
 

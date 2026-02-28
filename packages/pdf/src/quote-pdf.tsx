@@ -117,6 +117,7 @@ export function QuotePdfDocument({ data }: { data: PdfQuoteData }) {
             address={{
               name: client.name,
               companyName: client.companyName,
+              contactName: client.contactName,
               addressLine1: client.addressLine1,
               addressLine2: client.addressLine2,
               postalCode: client.postalCode,

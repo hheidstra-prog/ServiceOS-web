@@ -326,14 +326,20 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
   };
 
   // Bookings for the selected day (mobile agenda)
+  // Hide cancelled/no-show unless explicitly filtered to that status
   const selectedDayBookings = filteredBookings
-    .filter((b) => isSameDay(new Date(b.startsAt), selectedDate))
+    .filter((b) => {
+      if (statusFilter === "ALL" && ["CANCELLED", "NO_SHOW"].includes(b.status)) return false;
+      return isSameDay(new Date(b.startsAt), selectedDate);
+    })
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
   // Get bookings for a specific day (for calendar view)
+  // Hide cancelled/no-show from calendar unless explicitly filtered to that status
   const getBookingsForDay = (day: Date | null) => {
     if (!day) return [];
     return filteredBookings.filter((booking) => {
+      if (statusFilter === "ALL" && ["CANCELLED", "NO_SHOW"].includes(booking.status)) return false;
       const bookingDate = new Date(booking.startsAt);
       return (
         bookingDate.getDate() === day.getDate() &&
@@ -560,9 +566,11 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                             </div>
                             <div className="min-w-0 border-l border-zinc-200 pl-3 dark:border-zinc-700">
                               <p className="truncate text-sm font-medium text-zinc-950 dark:text-white">
-                                {booking.client?.name || booking.guestName || "No client"}
-                                {booking.contact && (
-                                  <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                                {booking.contact
+                                  ? `${booking.contact.firstName}${booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}`
+                                  : booking.guestName || booking.client?.name || "No client"}
+                                {booking.contact && booking.client && (
+                                  <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.client.companyName || booking.client.name}</span>
                                 )}
                               </p>
                               <div className="flex items-center gap-2 mt-0.5">
@@ -634,10 +642,9 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                                 }}
                               >
                                 <span className="font-medium">{formatTime(booking.startsAt)}</span>{" "}
-                                {booking.client?.name || booking.guestName}
-                                {booking.contact && (
-                                  <span className="text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
-                                )}
+                                {booking.contact
+                                  ? `${booking.contact.firstName}${booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}`
+                                  : booking.guestName || booking.client?.name}
                               </button>
                             ))}
                             {dayBookings.length > 3 && (
@@ -713,11 +720,11 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                                       href={`/bookings/${booking.id}`}
                                       className="font-medium text-zinc-950 hover:underline dark:text-white"
                                     >
-                                      {booking.client?.name ||
-                                        booking.guestName ||
-                                        "No client assigned"}
-                                      {booking.contact && (
-                                        <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                                      {booking.contact
+                                        ? `${booking.contact.firstName}${booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}`
+                                        : booking.guestName || booking.client?.name || "No client assigned"}
+                                      {booking.contact && booking.client && (
+                                        <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.client.companyName || booking.client.name}</span>
                                       )}
                                     </Link>
                                     <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
@@ -833,25 +840,25 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
           {selectedBooking && (() => {
             const b = selectedBooking;
             const config = statusConfig[b.status];
-            const clientName = b.client?.name || b.guestName || "No client";
+            const contactName = b.contact
+              ? `${b.contact.firstName}${b.contact.lastName ? ` ${b.contact.lastName}` : ""}`
+              : null;
+            const displayName = contactName || b.guestName || b.client?.name || "No client";
             return (
               <div className="space-y-5 px-4 pb-4">
                 {/* Status + Client */}
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="text-lg font-semibold text-zinc-950 dark:text-white">
-                      {clientName}
+                      {displayName}
                     </h3>
                     <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
                       {config.label}
                     </span>
                   </div>
-                  {b.client?.companyName && (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{b.client.companyName}</p>
-                  )}
-                  {b.contact && (
+                  {b.client && (
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      Contact: {b.contact.firstName}{b.contact.lastName ? ` ${b.contact.lastName}` : ""}
+                      {b.client.companyName || b.client.name}
                     </p>
                   )}
                 </div>
@@ -1027,9 +1034,11 @@ export function BookingsList({ initialBookings, bookingTypes }: BookingsListProp
                           </div>
                           <div className="min-w-0 border-l border-zinc-200 pl-3 dark:border-zinc-700">
                             <p className="truncate text-sm font-medium text-zinc-950 dark:text-white">
-                              {booking.client?.name || booking.guestName || "No client"}
-                              {booking.contact && (
-                                <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.contact.firstName}{booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}</span>
+                              {booking.contact
+                                ? `${booking.contact.firstName}${booking.contact.lastName ? ` ${booking.contact.lastName}` : ""}`
+                                : booking.guestName || booking.client?.name || "No client"}
+                              {booking.contact && booking.client && (
+                                <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {booking.client.companyName || booking.client.name}</span>
                               )}
                             </p>
                             <div className="flex items-center gap-2 mt-0.5">
