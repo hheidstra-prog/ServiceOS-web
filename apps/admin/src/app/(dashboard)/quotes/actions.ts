@@ -124,8 +124,8 @@ export async function createQuote(data: {
   terms?: string;
   validUntil?: Date;
 }) {
-  const { organization } = await getCurrentUserAndOrg();
-  if (!organization) throw new Error("Not authorized");
+  const { user, organization } = await getCurrentUserAndOrg();
+  if (!user || !organization) throw new Error("Not authorized");
 
   const number = await generateQuoteNumber(organization.id);
 
@@ -134,6 +134,7 @@ export async function createQuote(data: {
       organizationId: organization.id,
       clientId: data.clientId,
       contactId: data.contactId || null,
+      createdById: user.id,
       number,
       title: data.title,
       introduction: data.introduction,

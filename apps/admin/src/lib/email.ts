@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import type { MemberRole } from "@servible/database";
 
 let _resend: Resend | null = null;
 
@@ -754,5 +755,157 @@ export async function sendBookingCancellation({
   if (error) {
     console.error("Failed to send booking cancellation email:", error);
     throw new Error("Failed to send booking cancellation email");
+  }
+}
+
+// ─── Team Invitation Email ───
+
+interface SendTeamInvitationEmailParams {
+  to: string;
+  inviterName: string;
+  organizationName: string;
+  role: MemberRole;
+  acceptUrl: string;
+  locale: string;
+}
+
+const ROLE_LABELS: Record<MemberRole, Record<string, string>> = {
+  OWNER: { nl: "Eigenaar", en: "Owner", de: "Inhaber", fr: "Propriétaire" },
+  ADMIN: { nl: "Beheerder", en: "Admin", de: "Administrator", fr: "Administrateur" },
+  MEMBER: { nl: "Medewerker", en: "Member", de: "Mitglied", fr: "Membre" },
+  BOOKKEEPER: { nl: "Boekhouder", en: "Bookkeeper", de: "Buchhalter", fr: "Comptable" },
+  VIEWER: { nl: "Lezer", en: "Viewer", de: "Betrachter", fr: "Lecteur" },
+};
+
+const invitationTranslations: Record<
+  string,
+  {
+    subject: (org: string) => string;
+    greeting: string;
+    body: (inviter: string, org: string) => string;
+    roleLabel: string;
+    cta: string;
+    expiry: string;
+    ignore: string;
+  }
+> = {
+  nl: {
+    subject: (org) => `Je bent uitgenodigd voor ${org}`,
+    greeting: "Hallo,",
+    body: (inviter, org) =>
+      `${inviter} heeft je uitgenodigd om lid te worden van het team van ${org} op Servible.`,
+    roleLabel: "Rol",
+    cta: "Uitnodiging accepteren",
+    expiry: "Deze link is 7 dagen geldig.",
+    ignore: "Als je deze uitnodiging niet verwacht, kun je deze e-mail negeren.",
+  },
+  en: {
+    subject: (org) => `You've been invited to ${org}`,
+    greeting: "Hello,",
+    body: (inviter, org) =>
+      `${inviter} has invited you to join the ${org} team on Servible.`,
+    roleLabel: "Role",
+    cta: "Accept Invitation",
+    expiry: "This link expires in 7 days.",
+    ignore:
+      "If you weren't expecting this invitation, you can safely ignore this email.",
+  },
+  de: {
+    subject: (org) => `Du wurdest zu ${org} eingeladen`,
+    greeting: "Hallo,",
+    body: (inviter, org) =>
+      `${inviter} hat dich eingeladen, dem Team von ${org} auf Servible beizutreten.`,
+    roleLabel: "Rolle",
+    cta: "Einladung annehmen",
+    expiry: "Dieser Link ist 7 Tage gültig.",
+    ignore:
+      "Wenn du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren.",
+  },
+  fr: {
+    subject: (org) => `Vous avez été invité à rejoindre ${org}`,
+    greeting: "Bonjour,",
+    body: (inviter, org) =>
+      `${inviter} vous a invité à rejoindre l'équipe de ${org} sur Servible.`,
+    roleLabel: "Rôle",
+    cta: "Accepter l'invitation",
+    expiry: "Ce lien expire dans 7 jours.",
+    ignore:
+      "Si vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail.",
+  },
+};
+
+export async function sendTeamInvitationEmail({
+  to,
+  inviterName,
+  organizationName,
+  role,
+  acceptUrl,
+  locale,
+}: SendTeamInvitationEmailParams) {
+  const t = invitationTranslations[locale] || invitationTranslations.en;
+  const roleLabel = ROLE_LABELS[role]?.[locale] || ROLE_LABELS[role]?.en || role;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="padding:32px 32px 0;text-align:center;">
+              <h1 style="margin:0;font-size:20px;font-weight:600;color:#18181b;">${organizationName}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px;">
+              <p style="margin:0 0 16px;font-size:15px;color:#3f3f46;">${t.greeting}</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#3f3f46;">${t.body(inviterName, organizationName)}</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border:1px solid #e4e4e7;border-radius:8px;overflow:hidden;">
+                <tr>
+                  <td style="padding:12px 16px;font-size:14px;color:#71717a;">${t.roleLabel}</td>
+                  <td style="padding:12px 16px;font-size:14px;color:#18181b;font-weight:500;text-align:right;">${roleLabel}</td>
+                </tr>
+              </table>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a href="${acceptUrl}" style="display:inline-block;padding:12px 32px;background-color:#18181b;color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:500;">${t.cta}</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-size:13px;color:#71717a;">${t.expiry}</p>
+              <p style="margin:8px 0 0;font-size:13px;color:#71717a;">${t.ignore}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px;border-top:1px solid #e4e4e7;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">Powered by Servible</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim();
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const { error } = await getResend().emails.send({
+    from: fromEmail,
+    to,
+    subject: t.subject(organizationName),
+    html,
+  });
+
+  if (error) {
+    console.error("Failed to send team invitation email:", error);
+    throw new Error("Failed to send team invitation email");
   }
 }

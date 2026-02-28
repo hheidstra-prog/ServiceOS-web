@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
+  UsersRound,
   Calendar,
   FileText,
   FolderKanban,
@@ -39,6 +40,7 @@ const navigation = [
 ];
 
 const bottomNavigation = [
+  { name: "Team", href: "/team", icon: UsersRound },
   { name: "Support", href: "/support", icon: HelpCircle },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
@@ -46,9 +48,16 @@ const bottomNavigation = [
 interface SidebarProps {
   className?: string;
   onNavigate?: () => void;
+  userFirstName?: string | null;
+  userLastName?: string | null;
+  userEmail?: string;
+  userImageUrl?: string | null;
 }
 
-export function Sidebar({ className, onNavigate }: SidebarProps) {
+export function Sidebar({ className, onNavigate, userFirstName, userLastName, userEmail, userImageUrl }: SidebarProps) {
+  const displayName = [userFirstName, userLastName].filter(Boolean).join(" ") || "User";
+  const displayEmail = userEmail || "user@example.com";
+  const initials = [userFirstName?.[0], userLastName?.[0]].filter(Boolean).join("").toUpperCase() || "U";
   const pathname = usePathname();
 
   const handleClick = () => {
@@ -115,13 +124,19 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       {/* User Profile */}
       <div className="border-t border-zinc-950/5 p-2 dark:border-white/5">
         <button className="flex w-full items-center gap-2 rounded-lg p-1.5 text-left hover:bg-zinc-950/5 dark:hover:bg-white/5">
-          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-pink-500" />
+          {userImageUrl ? (
+            <img src={userImageUrl} alt={displayName} className="h-7 w-7 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-xs font-medium text-white">
+              {initials}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="truncate text-sm font-medium text-zinc-950 dark:text-white">
-              User
+              {displayName}
             </p>
             <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-              user@example.com
+              {displayEmail}
             </p>
           </div>
           <ChevronsUpDown className="h-4 w-4 text-zinc-400" />

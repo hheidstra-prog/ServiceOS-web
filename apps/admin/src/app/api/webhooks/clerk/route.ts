@@ -84,6 +84,30 @@ export async function POST(req: Request) {
           role: "OWNER",
         },
       });
+
+      // Auto-accept pending invitations for this email
+      const pendingInvitations = await tx.invitation.findMany({
+        where: {
+          email: email,
+          status: "PENDING",
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      for (const invitation of pendingInvitations) {
+        await tx.organizationMember.create({
+          data: {
+            userId: user.id,
+            organizationId: invitation.organizationId,
+            role: invitation.role,
+          },
+        });
+
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { status: "ACCEPTED", acceptedAt: new Date() },
+        });
+      }
     });
 
     return new Response("User created", { status: 200 });

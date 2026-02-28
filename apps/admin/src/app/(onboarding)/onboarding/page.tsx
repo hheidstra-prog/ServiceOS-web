@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getCurrentOrganization } from "@/lib/auth";
 import { OnboardingForm } from "./onboarding-form";
 
 export default async function OnboardingPage() {
@@ -9,9 +9,17 @@ export default async function OnboardingPage() {
     redirect("/sign-in");
   }
 
-  // If onboarding already completed, redirect to dashboard
-  const organization = user.memberships[0]?.organization;
-  if (organization?.onboardingCompletedAt) {
+  // Check active org first (respects active_org cookie from invite flow)
+  const activeOrg = await getCurrentOrganization();
+  if (activeOrg?.onboardingCompletedAt) {
+    redirect("/dashboard");
+  }
+
+  // Also check if any membership has completed onboarding (invited users)
+  const completedOrg = user.memberships.find(
+    (m) => m.organization.onboardingCompletedAt
+  );
+  if (completedOrg) {
     redirect("/dashboard");
   }
 

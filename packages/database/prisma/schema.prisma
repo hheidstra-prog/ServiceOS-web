@@ -100,6 +100,7 @@ model Organization {
   blogCategories    BlogCategory[]
   blogTags          BlogTag[]
   notifications     Notification[]
+  invitations       Invitation[]
 
   @@index([clerkOrgId])
 }
@@ -166,6 +167,10 @@ model User {
   events            Event[]
   blogPosts         BlogPost[]
   assignedTasks     ProjectTask[]
+  timeEntries       TimeEntry[]      @relation("UserTimeEntries")
+  createdInvoices   Invoice[]        @relation("InvoiceCreatedBy")
+  createdQuotes     Quote[]          @relation("QuoteCreatedBy")
+  invitationsSent   Invitation[]     @relation("InvitationsSent")
 
   @@index([clerkUserId])
 }
@@ -195,6 +200,37 @@ enum MemberRole {
   MEMBER     // Standard access
   BOOKKEEPER // View financials only
   VIEWER     // Read-only access
+}
+
+model Invitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  role           MemberRole @default(MEMBER)
+
+  token          String   @unique
+  invitedById    String?
+
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User?        @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])
+  @@index([token])
+  @@index([organizationId])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
 }
 
 // ===========================================
@@ -490,6 +526,7 @@ enum ProjectStatus {
 model TimeEntry {
   id             String   @id @default(cuid())
   organizationId String
+  userId         String?
   clientId       String?
   projectId      String?
   serviceId      String?
@@ -517,6 +554,7 @@ model TimeEntry {
   updatedAt      DateTime @updatedAt
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation("UserTimeEntries", fields: [userId], references: [id], onDelete: SetNull)
   client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   service        Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
@@ -524,6 +562,7 @@ model TimeEntry {
 
   @@index([organizationId])
   @@index([organizationId, date])
+  @@index([userId])
   @@index([clientId])
   @@index([projectId])
   @@index([taskId])
@@ -762,6 +801,7 @@ model Quote {
   organizationId String
   clientId       String
   contactId      String?
+  createdById    String?
 
   // Numbering
   number         String   // e.g., "Q-2024-0001"
@@ -805,6 +845,7 @@ model Quote {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdBy      User?        @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   items          QuoteItem[]
   contract       Contract?
 
@@ -925,6 +966,7 @@ model Invoice {
   organizationId String
   clientId       String
   contactId      String?
+  createdById    String?
 
   // Numbering
   number         String   // e.g., "2024-0001"
@@ -974,6 +1016,7 @@ model Invoice {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdBy      User?        @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   items          InvoiceItem[]
   payments       Payment[]
   relatedInvoice Invoice?     @relation("CreditNoteRelation", fields: [relatedInvoiceId], references: [id])

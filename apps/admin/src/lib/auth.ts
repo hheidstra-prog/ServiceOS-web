@@ -1,6 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { cache } from "react";
+import type { MemberRole } from "@servible/database";
 
 /**
  * Sync user from Clerk to database if they don't exist
@@ -106,13 +108,28 @@ export const getCurrentUser = cache(async () => {
     });
   }
 
+  // Sync stale profile: if DB is missing name/avatar, refresh from Clerk
+  if (user && !user.firstName) {
+    const clerkUser = await currentUser();
+    if (clerkUser?.firstName) {
+      await db.user.update({
+        where: { id: user.id },
+        data: {
+          firstName: clerkUser.firstName ?? null,
+          lastName: clerkUser.lastName ?? null,
+          imageUrl: clerkUser.imageUrl ?? null,
+        },
+      });
+      user = { ...user, firstName: clerkUser.firstName ?? null, lastName: clerkUser.lastName ?? null, imageUrl: clerkUser.imageUrl ?? null };
+    }
+  }
+
   return user;
 });
 
 /**
  * Get the current user's active organization
- * For now, returns the first organization (personal workspace)
- * Later: support switching between organizations
+ * Checks for `active_org` cookie first, falls back to first membership
  */
 export const getCurrentOrganization = cache(async () => {
   const user = await getCurrentUser();
@@ -121,8 +138,20 @@ export const getCurrentOrganization = cache(async () => {
     return null;
   }
 
-  // For now, return the first organization
-  // TODO: Support organization switching via cookie/header
+  // Check for active_org cookie
+  const cookieStore = await cookies();
+  const activeOrgId = cookieStore.get("active_org")?.value;
+
+  if (activeOrgId) {
+    const membership = user.memberships.find(
+      (m) => m.organizationId === activeOrgId
+    );
+    if (membership) {
+      return membership.organization;
+    }
+  }
+
+  // Fall back to first organization
   return user.memberships[0].organization;
 });
 
@@ -136,9 +165,11 @@ export const getCurrentUserAndOrg = cache(async () => {
     return { user: null, organization: null };
   }
 
+  const organization = await getCurrentOrganization();
+
   return {
     user,
-    organization: user.memberships[0].organization,
+    organization,
   };
 });
 
@@ -174,4 +205,61 @@ export async function requireAuthWithOrg() {
   }
 
   return { user, organization };
+}
+
+// ===========================================
+// ROLE ENFORCEMENT
+// ===========================================
+
+const ROLE_HIERARCHY: Record<MemberRole, number> = {
+  VIEWER: 0,
+  BOOKKEEPER: 1,
+  MEMBER: 2,
+  ADMIN: 3,
+  OWNER: 4,
+};
+
+/**
+ * Get the current user's membership for the active organization
+ */
+export const getCurrentMembership = cache(async () => {
+  const user = await getCurrentUser();
+  const organization = await getCurrentOrganization();
+
+  if (!user || !organization) {
+    return null;
+  }
+
+  const membership = user.memberships.find(
+    (m) => m.organizationId === organization.id
+  );
+
+  return membership || null;
+});
+
+/**
+ * Require a minimum role for the current user
+ * Role hierarchy: VIEWER < BOOKKEEPER < MEMBER < ADMIN < OWNER
+ */
+export async function requireRole(minimumRole: MemberRole) {
+  const user = await requireAuth();
+  const organization = await getCurrentOrganization();
+
+  if (!organization) {
+    throw new Error("No organization found");
+  }
+
+  const membership = user.memberships.find(
+    (m) => m.organizationId === organization.id
+  );
+
+  if (!membership) {
+    throw new Error("Not a member of this organization");
+  }
+
+  if (ROLE_HIERARCHY[membership.role] < ROLE_HIERARCHY[minimumRole]) {
+    throw new Error("Insufficient permissions");
+  }
+
+  return { user, organization, membership };
 }

@@ -120,8 +120,8 @@ export async function createInvoice(data: {
   paymentTerms?: string;
   dueDate?: Date;
 }) {
-  const { organization } = await getCurrentUserAndOrg();
-  if (!organization) throw new Error("Not authorized");
+  const { user, organization } = await getCurrentUserAndOrg();
+  if (!user || !organization) throw new Error("Not authorized");
 
   const number = await generateInvoiceNumber(organization.id);
 
@@ -133,6 +133,7 @@ export async function createInvoice(data: {
       organizationId: organization.id,
       clientId: data.clientId,
       contactId: data.contactId || null,
+      createdById: user.id,
       number,
       notes: data.notes,
       paymentTerms: data.paymentTerms || `Net ${organization.defaultPaymentTermDays} days`,
@@ -605,8 +606,8 @@ export async function duplicateInvoice(id: string) {
 
 // Create invoice from quote
 export async function createInvoiceFromQuote(quoteId: string) {
-  const { organization } = await getCurrentUserAndOrg();
-  if (!organization) throw new Error("Not authorized");
+  const { user, organization } = await getCurrentUserAndOrg();
+  if (!user || !organization) throw new Error("Not authorized");
 
   const quote = await db.quote.findFirst({
     where: { id: quoteId, organizationId: organization.id },
@@ -628,6 +629,7 @@ export async function createInvoiceFromQuote(quoteId: string) {
       organizationId: organization.id,
       clientId: quote.clientId,
       contactId: quote.contactId,
+      createdById: user.id,
       number,
       notes: quote.terms,
       dueDate,

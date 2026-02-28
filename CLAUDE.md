@@ -1,5 +1,12 @@
 # Project Instructions
 
+## IMPORTANT: Backlog & Roadmap Maintenance
+When a feature is added, completed, or changed, update **both**:
+1. `apps/admin/docs/roadmap.md` — the comprehensive feature roadmap
+2. Claude memory `backlog.md` — the working backlog with technical details
+
+This keeps the roadmap in sync and prevents re-explaining context across sessions.
+
 ## IMPORTANT: Dev Servers
 When killing dev servers (e.g. via `taskkill`, `kill`, `pkill`), **only target the specific processes you need to kill**. Do NOT blindly kill all Node/Next.js processes — the user may have other dev servers running that should not be interrupted.
 

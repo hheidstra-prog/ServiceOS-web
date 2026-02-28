@@ -10,6 +10,8 @@ const isPublicRoute = createRouteMatcher([
   "/book/(.*)",
   // Public quote/invoice/contract viewing
   "/view/(.*)",
+  // Invitation accept (handles auth redirect internally)
+  "/invite/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

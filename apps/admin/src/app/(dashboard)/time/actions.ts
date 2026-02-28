@@ -107,8 +107,8 @@ export async function createTimeEntry(data: {
   billable?: boolean;
   hourlyRate?: number;
 }) {
-  const { organization } = await getCurrentUserAndOrg();
-  if (!organization) throw new Error("Not authorized");
+  const { user, organization } = await getCurrentUserAndOrg();
+  if (!user || !organization) throw new Error("Not authorized");
 
   // Auto-derive hourly rate from service if not explicitly set
   let hourlyRate = data.hourlyRate;
@@ -125,6 +125,7 @@ export async function createTimeEntry(data: {
   const timeEntry = await db.timeEntry.create({
     data: {
       organizationId: organization.id,
+      userId: user.id,
       clientId: data.clientId,
       projectId: data.projectId,
       serviceId: data.serviceId,
@@ -455,6 +456,7 @@ export async function stopTimer(data?: { note?: string }) {
     const timeEntry = await tx.timeEntry.create({
       data: {
         organizationId: organization.id,
+        userId: user.id,
         clientId: currentUser.timerProject?.clientId || null,
         projectId: currentUser.timerProjectId,
         serviceId: currentUser.timerServiceId,
@@ -665,8 +667,8 @@ export async function createInvoiceFromTimeEntries(data: {
   hourlyRate?: number;
   notes?: string;
 }) {
-  const { organization } = await getCurrentUserAndOrg();
-  if (!organization) throw new Error("Not authorized");
+  const { user, organization } = await getCurrentUserAndOrg();
+  if (!user || !organization) throw new Error("Not authorized");
 
   if (data.timeEntryIds.length === 0) {
     throw new Error("No time entries selected");
@@ -843,6 +845,7 @@ export async function createInvoiceFromTimeEntries(data: {
       data: {
         organizationId: organization.id,
         clientId: data.clientId,
+        createdById: user.id,
         number: invoiceNumber,
         notes: data.notes,
         paymentTerms: `Net ${organization.defaultPaymentTermDays} days`,

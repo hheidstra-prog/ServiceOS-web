@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { UserButton } from "@clerk/nextjs";
-import { Menu, Moon, Sun, Search } from "lucide-react";
+import { Menu, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -11,9 +11,13 @@ import { NotificationBell } from "./notification-bell";
 
 interface HeaderProps {
   organizationName?: string;
+  userFirstName?: string | null;
+  userLastName?: string | null;
+  userEmail?: string;
+  userImageUrl?: string | null;
 }
 
-export function Header({ organizationName }: HeaderProps) {
+export function Header({ organizationName, userFirstName, userLastName, userEmail, userImageUrl }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -31,21 +35,18 @@ export function Header({ organizationName }: HeaderProps) {
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0 border-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <Sidebar onNavigate={() => setMobileMenuOpen(false)} />
+          <Sidebar
+            onNavigate={() => setMobileMenuOpen(false)}
+            userFirstName={userFirstName}
+            userLastName={userLastName}
+            userEmail={userEmail}
+            userImageUrl={userImageUrl}
+          />
         </SheetContent>
       </Sheet>
 
-      {/* Search (placeholder for now) */}
-      <div className="hidden flex-1 md:flex">
-        <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
-            type="search"
-            placeholder="Search..."
-            className="h-8 w-full rounded-md border border-zinc-950/10 bg-white pl-8 pr-3 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950/20 focus:outline-none focus:ring-0 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20"
-          />
-        </div>
-      </div>
+      {/* Spacer — search will go here (see backlog) */}
+      <div className="hidden flex-1 md:block" />
 
       {/* Mobile: show org name */}
       <div className="flex-1 md:hidden">
