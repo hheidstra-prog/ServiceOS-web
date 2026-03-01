@@ -180,6 +180,7 @@ Bigger features that add real new capabilities. Days of work each.
 - [ ] Request for proposal / "Ask for Quote" block (form that creates a quote request in admin)
 - [ ] Live chat widget on public sites (visitor ↔ admin real-time messaging)
 - [ ] Site analytics dashboard (page views, visitors, popular pages — basic stats)
+- [ ] Show/hide pricing on services block (per-site toggle — some businesses don't want public pricing)
 
 ### Blogging enhancements
 - [ ] Multilingual blog posts (same post in multiple languages, language switcher on public blog)

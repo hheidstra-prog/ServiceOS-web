@@ -28,66 +28,7 @@ This context is what makes the agents powerful. They don't need to be told what 
 
 ## Use Cases
 
-### Lead & Sales
-
-- **Lead scoring** — score leads based on interactions, response time, profile completeness, and engagement
-- **Automated follow-up** — send a follow-up email when a lead hasn't responded to a quote within X days
-- **Personalized outreach** — generate tailored emails to re-engage inactive leads
-- **Warm-up sequences** — multi-touchpoint sequences for new leads
-- **Proposal research** — gather background info on a prospect before writing a quote
-
-### Client Communication
-
-- **Personalized emails** — context-aware emails based on project status and client history
-- **Onboarding flow** — welcome sequence for new clients
-- **Check-in with inactive clients** — reach out to clients with no active project for X months
-- **Personalized video messages** — generate videos (via HeyGen) for project kickoffs, quarterly updates, or thank-you messages after project completion
-- **Project updates** — compile and send status updates to clients
-
-### Invoicing & Payments
-
-- **Payment reminders** — escalating in tone (friendly → formal → urgent), respecting previous reminders sent
-- **Auto-generate invoices** — create invoices based on logged hours or project completion
-- **Late payment detection** — flag clients with a pattern of late payments
-- **Cashflow forecasting** — predict upcoming cashflow based on open quotes, active projects, and outstanding invoices
-
-### Project & Task Management
-
-- **Daily/weekly summary** — what's on the agenda, what's overdue, what needs attention
-- **Smart task suggestions** — suggest next steps based on project phase
-- **Deadline warnings** — proactive alerts before deadlines are missed
-- **Time logging reminders** — nudge the user when days have no logged hours
-
-### Research & Intelligence
-
-- **Daily must-read briefing** — summarized articles, news, and trends relevant to the user's field of expertise
-- **Competitor monitoring** — track what competitors are publishing, new services, pricing changes, social media activity
-- **Client intelligence** — news about clients (funding rounds, leadership changes, expansion) as triggers for check-ins or upsell opportunities
-- **Market trends** — developments in the industries the user's clients operate in
-- **Technology radar** — new tools and developments relevant to the user's services
-- **Regulatory updates** — changes in legislation affecting the user or their clients (e.g. VAT rules, GDPR, KOR)
-- **Benchmark data** — what are others charging for comparable services
-- **Event scanning** — relevant conferences, webinars, and networking opportunities
-
-### Content & Marketing
-
-- **Case study generation** — auto-generate a case study after project completion
-- **Social media posts** — create posts based on completed work or milestones
-- **Testimonial requests** — automatically request testimonials after positive project completions
-
-### Quality & Compliance
-
-- **Invoice validation** — check if invoices contain all required fields
-- **Missing VAT numbers** — flag foreign clients without a valid VAT identification number
-- **Budget alerts** — warn when projects are going over budget
-- **VAT quarter preparation** — compile VAT overview for quarterly filing
-
-### Insights & Advice
-
-- **Monthly business review** — revenue, trends, comparison with previous periods
-- **Time allocation analysis** — "You're spending 40% of your time on client X who accounts for 15% of your revenue"
-- **Conversion metrics** — lead-to-active conversion rates and average timelines
-- **Revenue forecasting** — projected revenue based on pipeline and active projects
+See **[agent-use-cases.md](agent-use-cases.md)** for the full catalog of agent use cases, organized by category (Lead & Sales, Client Communication, Invoicing, Research, Content, etc.).
 
 ---
 
